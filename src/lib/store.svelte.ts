@@ -203,6 +203,32 @@ export function clearAllTasks(): void {
   app.done = [];
 }
 
+/** Delete a set of tasks and all their sessions. */
+export function deleteSelectedTasks(ids: string[]): void {
+  const set = new Set(ids);
+  app.tasks       = app.tasks.filter(t => !set.has(t.id));
+  app.sessions    = app.sessions.filter(s => !set.has(s.taskId));
+  app.unscheduled = app.unscheduled.filter(u => !set.has(u.taskId));
+}
+
+/** Set priority on a group of tasks, then re-schedule. */
+export function bulkSetPriority(ids: string[], priority: 1 | 2 | 3 | 4): void {
+  for (const id of ids) {
+    const t = app.tasks.find(x => x.id === id);
+    if (t) t.priority = priority;
+  }
+  autoSchedule();
+}
+
+/** Set duration (minutes) on a group of tasks, then re-schedule. */
+export function bulkSetDuration(ids: string[], sessionMin: number): void {
+  for (const id of ids) {
+    const t = app.tasks.find(x => x.id === id);
+    if (t) t.sessionMin = sessionMin;
+  }
+  autoSchedule();
+}
+
 /**
  * Remove a task and all its scheduled/unscheduled sessions.
  *

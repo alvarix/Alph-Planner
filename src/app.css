@@ -246,6 +246,55 @@ body {
   opacity: 1;
   color: var(--p1);
 }
+/* ── Select bar ──────────────────────────────────────────────────────────── */
+.select-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  padding: 5px 10px; border-bottom: 1px solid var(--border);
+  background: var(--bg); flex-shrink: 0; min-height: 32px;
+}
+.sel-all-label {
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  font-size: 11px; user-select: none;
+}
+.sel-count { font-weight: 600; color: var(--p3); }
+.sel-total { color: var(--muted); }
+
+.bulk-actions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.bulk-del {
+  font-size: 11px; font-weight: 600; padding: 2px 8px;
+  border: none; border-radius: 4px; cursor: pointer;
+  background: var(--p1-bg); color: var(--p1-tx);
+}
+.bulk-del:hover { background: #fecaca; }
+
+.bulk-prio { display: flex; gap: 2px; }
+.bulk-p {
+  font-size: 10px; font-weight: 700; padding: 2px 5px;
+  border: none; border-radius: 3px; cursor: pointer; line-height: 1;
+}
+.bp1 { background: var(--p1-bg); color: var(--p1-tx); }
+.bp1:hover { background: #fecaca; }
+.bp2 { background: var(--p2-bg); color: var(--p2-tx); }
+.bp2:hover { background: #fed7aa; }
+.bp3 { background: var(--p3-bg); color: var(--p3-tx); }
+.bp3:hover { background: #bfdbfe; }
+.bp4 { background: var(--p4-bg); color: var(--p4-tx); }
+.bp4:hover { background: var(--border); }
+
+.bulk-dur { display: flex; align-items: center; gap: 2px; }
+.bulk-dur-in {
+  width: 42px; border: 1px solid var(--border); border-radius: 4px;
+  padding: 2px 5px; font-size: 11px; background: var(--surface); outline: none;
+}
+.bulk-dur-in:focus { border-color: var(--p3); }
+.bulk-dur-btn {
+  font-size: 11px; padding: 2px 6px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--surface); cursor: pointer;
+}
+.bulk-dur-btn:hover { background: var(--p3-bg); border-color: var(--p3); }
+
+.task-check { width: 13px; height: 13px; flex-shrink: 0; cursor: pointer; }
+
 .task-row { cursor: pointer; }
 .task-row:hover .t-name { text-decoration: underline; text-underline-offset: 2px; }
 .task-row.selected { background: #eff6ff; }
