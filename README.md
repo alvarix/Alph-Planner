@@ -1,6 +1,6 @@
 # Alph-Planner
 
-A weekly task planner PWA. Type tasks in a terse syntax, auto-schedule them into a 7-column week grid, drag sessions between slots, and manage overflow with an Unscheduled rail.
+Weekly task planner PWA. Type tasks in a terse syntax (or paste a Markdown checklist), auto-schedule them into a 7-column week grid, drag sessions between slots, and track what's done.
 
 ## Task syntax
 
@@ -9,46 +9,103 @@ draft email .5h x2, p2
 ship invoice 1h, p1
 deep work 2h x3, p3
 stand-up 15m
+buy milk          ← no duration → 30m default, p3
 ```
 
-- **title** — free text before the first duration token
-- **duration** — `1h`, `.5h`, `90m` (15 min – 8 hours)
-- **xN** — session count, default 1 (e.g. `x3` = three separate sessions)
-- **pN** — priority 1-4, default 3 (p1 = highest, p4 = lowest)
+| Token | Meaning | Default |
+|---|---|---|
+| `title` | Free text before the first duration token | required |
+| `1h` / `.5h` / `90m` | Session duration (15 min – 8 h) | 30m |
+| `xN` | Number of sessions (e.g. `x3` = three separate slots) | 1 |
+| `pN` | Priority 1–4, p1 = highest | 3 |
+
+Tasks with no duration are accepted and get a 30m / p3 default. Only completely blank lines are ignored.
+
+## Markdown import
+
+Paste a GitHub-style checklist directly into the input and press Add:
+
+```markdown
+# Week plan
+
+- [ ] fix bug 1h p1
+- [x] already done 1h
+- [ ] review PR .5h x2, p2
+
+## Side project
+- [ ] refactor auth 2h p3
+```
+
+- Unchecked items (`- [ ]`) are imported; checked (`- [x]`) are skipped
+- `# Headings` and `## Sections` are skipped
+- Indented subtasks become `parent: child` — e.g. `fix bug: add test 30m`
+- Items with no duration get the 30m / p3 default
 
 ## Keyboard shortcuts
 
 | Key | Action |
-|-----|--------|
+|---|---|
 | `n` | Focus task input |
-| `Cmd+Enter` | Add tasks from input |
+| `Cmd+Enter` | Add tasks |
+| `Escape` | Cancel inline edit or dismiss done/remove prompt |
+
+## Week grid
+
+- Sessions are colour-coded by priority (red → orange → blue → grey)
+- **Drag** a session to move it; drop it outside all day columns to send it to Overflow
+- **Click ✓** on a session → choose **Done** (logged to Done tab) or **Remove** (discarded)
+- Weather forecast appears in day headers (browser geolocation, falls back to Brooklyn 11238)
+
+## Task list
+
+- **Click** any task row to edit inline (title, duration, sessions, priority)
+- Press **Enter** to save, **Escape** to cancel
+- **✕** on a row removes the task and all its sessions
+- **Clear all tasks** button at the bottom (requires confirmation)
+
+## Overflow / Done panel
+
+Right rail has two tabs:
+
+- **Overflow** — sessions that didn't fit the week; drag them onto the grid to schedule manually; *Roll to next week* clears the list
+- **Done** — completed sessions in reverse-chronological order; persists across reloads
+
+## Config
+
+Click **⚙** in the top bar:
+
+- Hours per day (Mon–Sun; weekends hidden until toggled on)
+- Block-offs: recurring (`Every weekday`) or per-day (e.g. dentist on Wed)
+- Export / Import JSON backup
+- Reset everything
+
+## Scheduling
+
+The auto-scheduler sorts tasks by priority (p1 first), then spreads sessions across days with the most remaining capacity rather than filling Monday first. Sessions of the same task are placed on different days when possible. Anything that doesn't fit goes to Overflow.
 
 ## Local dev
 
 ```sh
 npm install
-npm run dev
+npm run dev        # http://localhost:5173
+npm test           # Playwright smoke tests
+npm run check      # TypeScript + Svelte type check
 ```
 
 ## Stack
 
-- SvelteKit 5 (runes mode)
-- Vite + vite-plugin-pwa
-- adapter-vercel
-- date-fns, zod
+- SvelteKit 5 (runes mode), Vite 8, adapter-vercel
+- vite-plugin-pwa (service worker, installable)
 - Native HTML5 drag-and-drop
+- Open-Meteo weather API (free, no key)
+- Playwright for tests
 
 ## Deploy
 
-Push to a Vercel-connected repo. The adapter-vercel adapter handles SSR/serverless automatically. No environment variables required for v1.
+Connect the repo to a Vercel project. `adapter-vercel` handles the build. No environment variables required.
 
-## Data model
+## Data
 
-All state is stored in `localStorage` under the key `alph-v0`. Use the Config drawer to export/import JSON backups. No server-side persistence in v1.
+State is saved to `localStorage` under `alph-planner-v1`. Use Config → Export JSON to back up or move data between devices.
 
-## Config
-
-Open the gear icon (top right) to configure:
-- Hours per day per weekday (used as slot capacity cap)
-- Weekends toggle
-- Block-offs: recurring (every weekday/weekend) or per-day time blocks (e.g. lunch, meetings)
+See `docs/features.md` for the full feature reference and `docs/wishlist.md` for planned work.
