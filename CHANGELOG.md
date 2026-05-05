@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0] - 2026-05-05
+
+### Added
+- Week weather overview: day headers show emoji + forecast high temp via Open-Meteo (free, no API key); uses browser geolocation with silent fallback on deny or network failure
+- `docs/features.md`: plain-English feature reference, updated with each change
+
 ## [0.1.0] - 2026-05-05
 
 ### Added

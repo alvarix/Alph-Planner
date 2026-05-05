@@ -1,6 +1,7 @@
 import { parseLine } from './parser.js';
 import { schedule } from './scheduler.js';
 import type { Task, Session, UnscheduledSession, Config, DragState, DayKey } from './types.js';
+import type { DayWeather } from './weather.js';
 
 // ── UID counter ────────────────────────────────────────────────────────────────
 
@@ -49,7 +50,8 @@ export const app = $state({
   unscheduled: [] as UnscheduledSession[],
   config: structuredClone(defaultConfig) as Config,
   drag: null as DragState | null,
-  toast: null as { msg: string; error?: boolean } | null
+  toast: null as { msg: string; error?: boolean } | null,
+  weather: {} as Record<string, DayWeather>
 });
 
 // ── Action functions ───────────────────────────────────────────────────────────

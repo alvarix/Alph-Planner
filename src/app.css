@@ -314,6 +314,14 @@ body {
   color: var(--muted);
 }
 
+.day-weather {
+  display: flex; align-items: center; justify-content: center; gap: 2px;
+  font-size: 11px; line-height: 1; margin: 1px 0;
+}
+.w-icon { font-size: 13px; line-height: 1; }
+.w-temp { color: var(--muted); font-size: 10px; }
+.day-weather.loading { color: var(--border); letter-spacing: 2px; font-size: 10px; }
+
 .day-head.wknd .day-num {
   font-size: 13px;
   color: var(--muted);

@@ -17,14 +17,14 @@
    * Static day descriptors for the week of May 5-11 2026.
    * `today` marks Monday May 5 (today per the env context).
    */
-  const DAYS: { key: DayKey; label: string; date: number; weekend?: boolean; today?: boolean }[] = [
-    { key: 'mon', label: 'Mon', date: 5, today: true },
-    { key: 'tue', label: 'Tue', date: 6 },
-    { key: 'wed', label: 'Wed', date: 7 },
-    { key: 'thu', label: 'Thu', date: 8 },
-    { key: 'fri', label: 'Fri', date: 9 },
-    { key: 'sat', label: 'Sat', date: 10, weekend: true },
-    { key: 'sun', label: 'Sun', date: 11, weekend: true }
+  const DAYS: { key: DayKey; label: string; date: number; iso: string; weekend?: boolean; today?: boolean }[] = [
+    { key: 'mon', label: 'Mon', date: 5,  iso: '2026-05-05', today: true },
+    { key: 'tue', label: 'Tue', date: 6,  iso: '2026-05-06' },
+    { key: 'wed', label: 'Wed', date: 7,  iso: '2026-05-07' },
+    { key: 'thu', label: 'Thu', date: 8,  iso: '2026-05-08' },
+    { key: 'fri', label: 'Fri', date: 9,  iso: '2026-05-09' },
+    { key: 'sat', label: 'Sat', date: 10, iso: '2026-05-10', weekend: true },
+    { key: 'sun', label: 'Sun', date: 11, iso: '2026-05-11', weekend: true }
   ];
 
   /**
@@ -135,6 +135,14 @@
         >
           <div class="day-dn">{day.label}</div>
           <div class="day-num">{day.date}</div>
+          {#if app.weather[day.iso]}
+            {@const w = app.weather[day.iso]}
+            <div class="day-weather" title="{w.desc} · {w.high}°/{w.low}°C">
+              <span class="w-icon">{w.emoji}</span><span class="w-temp">{w.high}°</span>
+            </div>
+          {:else if Object.keys(app.weather).length === 0}
+            <div class="day-weather loading">···</div>
+          {/if}
           <div class="day-cap">{app.config.hoursPerDay[day.key]}h</div>
         </div>
       {/each}

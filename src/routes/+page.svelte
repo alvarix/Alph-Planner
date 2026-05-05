@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { app, autoSchedule, syncUidCounter } from '$lib/store.svelte.js';
   import { saveState, loadState } from '$lib/persistence.js';
+  import { fetchWeek } from '$lib/weather.js';
   import Inbox from '$lib/components/Inbox.svelte';
   import WeekGrid from '$lib/components/WeekGrid.svelte';
   import Unscheduled from '$lib/components/Unscheduled.svelte';
@@ -52,6 +53,9 @@
     } else {
       autoSchedule();
     }
+
+    // Non-blocking weather fetch — grid renders fine without it.
+    fetchWeek().then(w => { app.weather = w; });
   });
 
   // Persist state after every reactive update.
