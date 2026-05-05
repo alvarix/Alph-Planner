@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alph-Planner — Mockup</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --slot-h: 40px;
+  --time-w: 54px;
+  --rail-w: 260px;
+  --unsched-w: 192px;
+  --border: #e2e8f0;
+  --bg: #f8fafc;
+  --surface: #fff;
+  --text: #1e293b;
+  --muted: #94a3b8;
+  --p1: #ef4444; --p1-bg: #fee2e2; --p1-tx: #7f1d1d;
+  --p2: #f97316; --p2-bg: #ffedd5; --p2-tx: #7c2d12;
+  --p3: #3b82f6; --p3-bg: #dbeafe; --p3-tx: #1e3a8a;
+  --p4: #94a3b8; --p4-bg: #f1f5f9; --p4-tx: #475569;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* top bar */
+#topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 16px; height: 46px; flex-shrink: 0;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+#topbar h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
+.vtag { font-size: 10px; color: var(--muted); padding: 2px 6px; border: 1px solid var(--border); border-radius: 99px; }
+#week-label { font-size: 13px; font-weight: 500; }
+.week-nav { display: flex; gap: 4px; margin-left: auto; }
+.btn-nav { padding: 3px 10px; border: 1px solid var(--border); background: none; border-radius: 5px; font-size: 12px; cursor: pointer; }
+.btn-nav:hover { background: var(--bg); }
+
+/* main layout */
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* inbox rail */
+#inbox {
+  width: var(--rail-w); flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface); border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+.rail-head {
+  padding: 9px 12px; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px;
+}
+.badge { background: var(--p1-bg); color: var(--p1); font-size: 10px; padding: 1px 5px; border-radius: 99px; display: none; }
+.badge.on { display: inline; }
+
+#input-wrap { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+#task-input {
+  width: 100%; height: 76px; resize: none;
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 9px; font-size: 12px; font-family: 'Menlo', monospace;
+  background: var(--bg); color: var(--text); line-height: 1.6; outline: none;
+}
+#task-input:focus { border-color: var(--p3); box-shadow: 0 0 0 3px #dbeafe60; }
+.input-hint { font-size: 10px; color: var(--muted); margin-top: 5px; font-family: monospace; line-height: 1.8; }
+.input-hint strong { color: var(--text); }
+.input-actions { display: flex; gap: 6px; margin-top: 8px; }
+.btn-add { padding: 5px 14px; background: var(--text); color: #fff; border: none; border-radius: 5px; font-size: 12px; font-weight: 500; cursor: pointer; }
+.btn-add:hover { background: #334155; }
+.btn-sched { padding: 5px 10px; background: none; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; font-size: 12px; cursor: pointer; }
+.btn-sched:hover { background: var(--bg); color: var(--text); }
+
+#task-list { overflow-y: auto; flex: 1; }
+.task-row { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid var(--border); }
+.task-row:hover { background: var(--bg); }
+.p-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.t-name { flex: 1; font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-dur { font-size: 10px; color: var(--muted); }
+.t-prog { font-size: 10px; color: var(--muted); }
+.t-prog.done { color: #22c55e; font-weight: 600; }
+.t-del { font-size: 11px; color: var(--muted); cursor: pointer; opacity: .5; padding: 0 2px; }
+.t-del:hover { opacity: 1; color: var(--p1); }
+
+/* grid */
+#grid-container { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+#grid-scroll { flex: 1; overflow-y: scroll; overflow-x: hidden; }
+
+#grid-header {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; background: var(--surface);
+  border-bottom: 2px solid var(--border);
+}
+.hcorner { width: var(--time-w); flex-shrink: 0; }
+.day-head {
+  flex: 1; padding: 6px 8px; text-align: center;
+  border-left: 1px solid var(--border); line-height: 1.4;
+}
+.day-head.wknd { flex: 0 0 56px; }
+.day-head.today .day-num { background: var(--text); color: #fff; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+.day-dn { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.day-num { font-size: 16px; font-weight: 700; display: inline-block; }
+.day-cap { font-size: 10px; color: var(--muted); }
+.day-head.wknd .day-num { font-size: 13px; color: var(--muted); }
+
+#grid-body { display: flex; }
+#time-col { width: var(--time-w); flex-shrink: 0; }
+.time-tick { height: var(--slot-h); display: flex; align-items: flex-start; justify-content: flex-end; padding: 3px 6px 0; font-size: 10px; color: var(--muted); }
+.time-tick.half { color: #cbd5e1; font-size: 9px; }
+
+#days-row { flex: 1; display: flex; border-left: 1px solid var(--border); }
+.day-col {
+  flex: 1; position: relative; border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.day-col.wknd { flex: 0 0 56px; background: #fafbfc; }
+
+.slot-line { position: absolute; left: 0; right: 0; height: var(--slot-h); border-bottom: 1px dashed var(--border); }
+.slot-line.hour { border-bottom-color: var(--border); border-bottom-style: solid; }
+
+.blockoff {
+  position: absolute; left: 0; right: 0; z-index: 1;
+  background: #f1f5f9;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--muted); letter-spacing: .3px;
+}
+
+/* session blocks */
+.sess {
+  position: absolute; left: 3px; right: 3px;
+  border-radius: 5px; padding: 3px 6px 3px 8px;
+  font-size: 11px; font-weight: 500;
+  cursor: grab; user-select: none;
+  border-left: 3px solid; z-index: 2; overflow: hidden;
+  transition: box-shadow .1s;
+}
+.sess:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); z-index: 5; }
+.sess.dragging { opacity: .4; }
+.s-title { font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-time { font-size: 9px; opacity: .65; margin-top: 1px; }
+.s-check { position: absolute; top: 3px; right: 4px; font-size: 11px; opacity: .4; cursor: pointer; }
+.s-check:hover { opacity: 1; }
+
+.p1 { background: var(--p1-bg); border-color: var(--p1); color: var(--p1-tx); }
+.p2 { background: var(--p2-bg); border-color: var(--p2); color: var(--p2-tx); }
+.p3 { background: var(--p3-bg); border-color: var(--p3); color: var(--p3-tx); }
+.p4 { background: var(--p4-bg); border-color: var(--p4); color: var(--p4-tx); }
+
+.drop-hint {
+  position: absolute; left: 3px; right: 3px;
+  background: #eff6ff; border: 2px dashed var(--p3);
+  border-radius: 5px; z-index: 4; pointer-events: none;
+}
+
+/* unscheduled rail */
+#unscheduled {
+  width: var(--unsched-w); flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface); border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+#unsched-list { overflow-y: auto; flex: 1; padding: 8px; }
+.unsched-card {
+  border-radius: 6px; padding: 8px 10px; margin-bottom: 6px;
+  font-size: 11px; font-weight: 500;
+  cursor: grab; user-select: none;
+  border-left: 3px solid;
+}
+.unsched-card .u-meta { font-size: 10px; opacity: .65; margin-top: 3px; }
+.unsched-actions { padding: 8px 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.btn-roll { width: 100%; padding: 6px; font-size: 11px; font-weight: 500; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; cursor: pointer; }
+.btn-roll:hover { background: #eff6ff; border-color: var(--p3); color: var(--p3); }
+
+.cap-bar { padding: 8px 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.cap-lbl { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+.cap-track { height: 5px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.cap-fill { height: 100%; background: var(--p3); border-radius: 3px; transition: width .3s; }
+.cap-fill.warn { background: var(--p2); }
+.cap-fill.over { background: var(--p1); }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Mobile ──────────────────────────────────────── */
+#tab-bar { display: none; }
+
+@media (max-width: 640px) {
+  body { height: 100dvh; }
+  #topbar .vtag { display: none; }
+  #topbar #week-label { font-size: 12px; }
+
+  /* panels hidden by default; active one shown */
+  #inbox, #grid-container, #unscheduled {
+    display: none;
+    position: absolute; inset: 0;
+    width: auto; height: auto;
+    border: none;
+  }
+  #inbox.active, #grid-container.active, #unscheduled.active { display: flex; }
+
+  #main { position: relative; flex: 1; overflow: hidden; }
+
+  /* grid scrolls both axes */
+  #grid-scroll { overflow: auto; }
+  #grid-header, #grid-body { min-width: 440px; }
+  .day-col { min-width: 60px; }
+  .day-col.wknd { flex: 0 0 42px; min-width: 42px; }
+  .hcorner { width: 42px; }
+  #time-col { width: 42px; min-width: 42px; }
+  .time-tick { padding: 2px 4px 0; font-size: 9px; }
+
+  /* bottom tab bar */
+  #tab-bar {
+    display: flex; flex-shrink: 0;
+    height: 54px; background: var(--surface);
+    border-top: 1px solid var(--border); z-index: 20;
+  }
+  .tab-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px;
+    border: none; background: none; cursor: pointer;
+    font-size: 10px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .4px;
+    position: relative;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tab-icon { font-size: 18px; line-height: 1; }
+  .tab-btn.active { color: var(--p3); }
+  .tab-dot {
+    position: absolute; top: 7px; right: calc(50% - 16px);
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--p1); display: none;
+  }
+  .tab-dot.on { display: block; }
+}
+
+/* ── Config drawer ───────────────────────────────── */
+#cfg-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.25); z-index: 50;
+}
+#cfg-overlay.open { display: block; }
+#cfg-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 320px;
+  background: var(--surface); border-left: 1px solid var(--border);
+  z-index: 51; overflow-y: auto; display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .2s ease;
+}
+#cfg-drawer.open { transform: translateX(0); }
+.cfg-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  font-weight: 600; font-size: 14px; flex-shrink: 0;
+}
+.cfg-close { border: none; background: none; font-size: 16px; cursor: pointer; color: var(--muted); line-height: 1; }
+.cfg-close:hover { color: var(--text); }
+.cfg-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.cfg-stitle { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 10px; }
+.hours-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.hour-cell { display: flex; flex-direction: column; gap: 3px; }
+.hour-cell label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); }
+.hour-input { width: 100%; border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font-size: 13px; background: var(--bg); text-align: center; outline: none; }
+.hour-input:focus { border-color: var(--p3); }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 13px; font-weight: 500; }
+.sw { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; }
+.sw input { opacity: 0; width: 0; height: 0; }
+.sw-track { position: absolute; inset: 0; background: var(--border); border-radius: 99px; cursor: pointer; transition: background .2s; }
+.sw input:checked + .sw-track { background: var(--p3); }
+.sw-track::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: transform .2s; }
+.sw input:checked + .sw-track::before { transform: translateX(16px); }
+.bo-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+.bo-row { display: flex; align-items: center; gap: 7px; padding: 7px 10px; background: var(--bg); border-radius: 6px; font-size: 12px; }
+.bo-name { flex: 1; font-weight: 500; }
+.bo-day-lbl { font-size: 10px; color: var(--muted); min-width: 54px; }
+.bo-time-lbl { font-size: 10px; color: var(--muted); }
+.bo-del { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 13px; opacity: .5; padding: 0 2px; }
+.bo-del:hover { opacity: 1; color: var(--p1); }
+.add-bo { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.add-bo input, .add-bo select { border: 1px solid var(--border); border-radius: 5px; padding: 5px 7px; font-size: 12px; background: var(--bg); outline: none; width: 100%; }
+.add-bo input:focus, .add-bo select:focus { border-color: var(--p3); }
+.add-bo-full { grid-column: 1 / -1; }
+.btn-add-bo { width: 100%; padding: 7px; background: var(--bg); border: 1px dashed var(--border); border-radius: 5px; font-size: 12px; cursor: pointer; color: var(--text); margin-top: 2px; }
+.btn-add-bo:hover { border-color: var(--p3); color: var(--p3); background: #eff6ff; }
+.cfg-footer { padding: 14px 16px; margin-top: auto; flex-shrink: 0; }
+.btn-apply { width: 100%; padding: 10px; background: var(--text); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-apply:hover { background: #334155; }
+@media (max-width: 640px) { #cfg-drawer { width: 100%; } }
+
+/* ── Toast ───────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 80px; left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  background: var(--text); color: #fff;
+  padding: 8px 18px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; z-index: 200;
+  opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.err { background: var(--p1); }
+@media (max-width: 640px) { .toast { bottom: 66px; } }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>Alph-Planner</h1>
+  <span class="vtag">mockup v0</span>
+  <span id="week-label">May 5 – 11, 2026</span>
+  <div class="week-nav">
+    <button class="btn-nav" onclick="shiftWeek(-1)">&#8592;</button>
+    <button class="btn-nav" onclick="shiftWeek(0)">Today</button>
+    <button class="btn-nav" onclick="shiftWeek(1)">&#8594;</button>
+  </div>
+  <button class="btn-nav" onclick="openConfig()" title="Config" style="font-size:15px;padding:3px 8px;">&#9881;</button>
+</div>
+
+<div id="main">
+  <aside id="inbox">
+    <div class="rail-head">Inbox</div>
+    <div id="input-wrap">
+      <textarea id="task-input" placeholder="draft email .5h x2, p2&#10;ship invoice 1h, p1&#10;deep work 2h x3, p3"></textarea>
+      <div class="input-hint">
+        title &nbsp;<strong>1h</strong> | <strong>.5h</strong> | <strong>90m</strong> &nbsp;[<strong>x2</strong>] &nbsp;[<strong>p1</strong>–<strong>p4</strong>]
+      </div>
+      <div class="input-actions">
+        <button class="btn-add" onclick="addTasks()">Add <small style="opacity:.5">&#8984;&#8629;</small></button>
+        <button class="btn-sched" onclick="autoSchedule()">Auto-schedule</button>
+      </div>
+    </div>
+    <div id="task-list"></div>
+  </aside>
+
+  <div id="grid-container">
+    <div id="grid-scroll">
+      <div id="grid-header"></div>
+      <div id="grid-body">
+        <div id="time-col"></div>
+        <div id="days-row"></div>
+      </div>
+    </div>
+  </div>
+
+  <aside id="unscheduled">
+    <div class="rail-head">
+      Unscheduled
+      <span class="badge" id="unsched-badge">0</span>
+    </div>
+    <div id="unsched-list"></div>
+    <div class="unsched-actions">
+      <button class="btn-roll" onclick="rollToNextWeek()">Roll to next week &rarr;</button>
+    </div>
+    <div class="cap-bar">
+      <div class="cap-lbl"><span>Week capacity</span><span id="cap-pct">0%</span></div>
+      <div class="cap-track"><div class="cap-fill" id="cap-fill" style="width:0%"></div></div>
+    </div>
+  </aside>
+</div>
+
+<div id="tab-bar">
+  <button class="tab-btn active" data-tab="grid" onclick="switchTab('grid')">
+    <span class="tab-icon">&#128197;</span>
+    Week
+  </button>
+  <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')">
+    <span class="tab-icon">&#9998;</span>
+    Tasks
+  </button>
+  <button class="tab-btn" data-tab="unsched" onclick="switchTab('unsched')">
+    <span class="tab-icon">&#9783;</span>
+    Overflow
+    <span class="tab-dot" id="tab-dot"></span>
+  </button>
+</div>
+
+<div id="cfg-overlay" onclick="closeConfig()"></div>
+<div id="cfg-drawer">
+  <div class="cfg-head">
+    Configuration
+    <button class="cfg-close" onclick="closeConfig()">&#x2715;</button>
+  </div>
+  <div class="cfg-section">
+    <div class="cfg-stitle">Hours per day</div>
+    <div class="hours-grid" id="cfg-wd"></div>
+  </div>
+  <div class="cfg-section">
+    <div class="toggle-row">
+      Weekends
+      <label class="sw"><input type="checkbox" id="cfg-wknd-tog" onchange="toggleWeekends(this.checked)"><span class="sw-track"></span></label>
+    </div>
+    <div class="hours-grid" id="cfg-we" style="display:none"></div>
+  </div>
+  <div class="cfg-section">
+    <div class="cfg-stitle">Block-offs</div>
+    <div class="bo-list" id="cfg-bo-list"></div>
+    <div class="add-bo">
+      <input class="add-bo-full" id="bo-label" placeholder="label (e.g. lunch)">
+      <select id="bo-day">
+        <option value="weekday">Every weekday</option>
+        <option value="mon">Monday</option>
+        <option value="tue">Tuesday</option>
+        <option value="wed">Wednesday</option>
+        <option value="thu">Thursday</option>
+        <option value="fri">Friday</option>
+        <option value="sat">Saturday</option>
+        <option value="sun">Sunday</option>
+      </select>
+      <select id="bo-start"></select>
+      <select id="bo-end"></select>
+      <button class="btn-add-bo add-bo-full" onclick="addBlockoff()">+ Add block-off</button>
+    </div>
+  </div>
+  <div class="cfg-footer" style="display:flex;flex-direction:column;gap:8px;">
+    <button class="btn-apply" onclick="applyConfig()">Apply &amp; re-schedule</button>
+    <div style="display:flex;gap:6px;">
+      <button class="btn-sched" style="flex:1" onclick="exportJSON()">Export JSON</button>
+      <label class="btn-sched" style="flex:1;text-align:center;cursor:pointer;">
+        Import JSON
+        <input type="file" accept=".json" id="import-file" style="display:none" onchange="importJSON(this)">
+      </label>
+    </div>
+    <button class="btn-sched" style="color:var(--p1);border-color:var(--p1)" onclick="clearAll()">Reset everything</button>
+  </div>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const SLOT_H = 40;
+const DAY_START = 9;
+const DAY_END = 18;
+const NSLOTS = (DAY_END - DAY_START) * 2; // 18
+
+const DAYS = [
+  { key: 'mon', label: 'Mon', date: 5, today: true },
+  { key: 'tue', label: 'Tue', date: 6 },
+  { key: 'wed', label: 'Wed', date: 7 },
+  { key: 'thu', label: 'Thu', date: 8 },
+  { key: 'fri', label: 'Fri', date: 9 },
+  { key: 'sat', label: 'Sat', date: 10, weekend: true },
+  { key: 'sun', label: 'Sun', date: 11, weekend: true },
+];
+
+const CFG = {
+  cap: { mon: 6, tue: 6, wed: 6, thu: 6, fri: 4, sat: 0, sun: 0 },
+  weekendsEnabled: false,
+  blockoffs: [
+    { id: 'bo1', day: 'weekday', s: 6, n: 2, label: 'lunch' },
+    { id: 'bo2', day: 'wed', s: 12, n: 2, label: 'dentist' },
+  ],
+};
+
+// ── State ────────────────────────────────────────────────────────────────────
+let tasks = [
+  { id: 't1', title: 'ship invoice', min: 60,  total: 1, done: 0, p: 1 },
+  { id: 't2', title: 'draft email',  min: 30,  total: 2, done: 0, p: 2 },
+  { id: 't3', title: 'deep work',    min: 120, total: 3, done: 0, p: 3 },
+  { id: 't4', title: 'read papers',  min: 30,  total: 2, done: 0, p: 3 },
+];
+let sessions = [];    // { id, taskId, day, slot }
+let unscheduled = []; // { id, taskId }
+let drag = null;      // { type:'sess'|'unsched', id, slots }
+
+let _n = 1;
+const uid = () => `x${_n++}`;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const task  = id => tasks.find(t => t.id === id);
+const sess  = id => sessions.find(s => s.id === id);
+
+/**
+ * Convert slot index to HH:MM string.
+ * @param {number} slot
+ * @returns {string}
+ */
+function slotTime(slot) {
+  const m = DAY_START * 60 + slot * 30;
+  return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+}
+
+/**
+ * Number of 30-min slots needed for a given minute duration.
+ * @param {number} min
+ * @returns {number}
+ */
+const slotsFor = min => Math.ceil(min / 30);
+
+const WKND = ['sat', 'sun'];
+const dayBlockoffs = key => CFG.blockoffs.filter(b =>
+  b.day === key ||
+  (b.day === 'weekday' && !WKND.includes(key)) ||
+  (b.day === 'weekend' && WKND.includes(key))
+);
+
+/**
+ * Test whether a slot range is free in a day.
+ * @param {string} dayKey
+ * @param {number} start
+ * @param {number} n  number of slots
+ * @param {Set<number>} occ  already occupied slots
+ * @returns {boolean}
+ */
+function isFree(dayKey, start, n, occ) {
+  if (start + n > CFG.cap[dayKey] * 2) return false;
+  for (let i = 0; i < n; i++) {
+    if (occ.has(start + i)) return false;
+    for (const bo of dayBlockoffs(dayKey))
+      if (start + i >= bo.s && start + i < bo.s + bo.n) return false;
+  }
+  return true;
+}
+
+// ── Parser ───────────────────────────────────────────────────────────────────
+
+/**
+ * Parse one task input line.
+ * Syntax: "title  NNh | NNm  [xN]  [pN]"
+ * @param {string} raw
+ * @returns {{ title:string, min:number, total:number, done:number, p:number }|null}
+ */
+function parseLine(raw) {
+  const line = raw.trim();
+  if (!line) return null;
+  const dur = line.match(/(\d*\.?\d+)\s*(h|m)/i);
+  if (!dur) return null;
+  const v = parseFloat(dur[1]);
+  const min = dur[2].toLowerCase() === 'h' ? Math.round(v * 60) : Math.round(v);
+  if (min < 15 || min > 480) return null;
+  const xm = line.match(/\bx(\d+)\b/i);
+  const total = xm ? Math.min(14, parseInt(xm[1])) : 1;
+  const pm = line.match(/\bp([1-4])\b/i);
+  const p = pm ? parseInt(pm[1]) : 3;
+  const title = line.slice(0, dur.index).replace(/[,;]\s*$/, '').trim();
+  if (!title) return null;
+  return { title, min, total, done: 0, p };
+}
+
+// ── Scheduler ────────────────────────────────────────────────────────────────
+
+/**
+ * Greedy priority-first placement.
+ * Spreads same-task sessions across different days when possible.
+ */
+function autoSchedule() {
+  sessions = [];
+  unscheduled = [];
+  const occ = {};
+  DAYS.forEach(d => { occ[d.key] = new Set(); });
+  CFG.blockoffs.forEach(bo => {
+    const days = bo.day === 'weekday' ? ['mon','tue','wed','thu','fri']
+               : bo.day === 'weekend' ? ['sat','sun']
+               : [bo.day];
+    days.forEach(dk => {
+      if (occ[dk]) for (let i = 0; i < bo.n; i++) occ[dk].add(bo.s + i);
+    });
+  });
+
+  const sorted = [...tasks].sort((a, b) =>
+    a.p !== b.p ? a.p - b.p : (b.min * b.total) - (a.min * a.total)
+  );
+  const workdays = DAYS.filter(d => CFG.cap[d.key] > 0);
+
+  for (const t of sorted) {
+    const n = slotsFor(t.min);
+    const toPlace = t.total - t.done;
+    const usedDays = new Set();
+
+    for (let s = 0; s < toPlace; s++) {
+      const order = [...workdays].sort((a, b) =>
+        (usedDays.has(a.key) ? 1 : 0) - (usedDays.has(b.key) ? 1 : 0)
+      );
+      let placed = false;
+      for (const d of order) {
+        for (let slot = 0; slot + n <= NSLOTS; slot++) {
+          if (isFree(d.key, slot, n, occ[d.key])) {
+            sessions.push({ id: uid(), taskId: t.id, day: d.key, slot });
+            for (let i = 0; i < n; i++) occ[d.key].add(slot + i);
+            usedDays.add(d.key);
+            placed = true;
+            break;
+          }
+        }
+        if (placed) break;
+      }
+      if (!placed) unscheduled.push({ id: uid(), taskId: t.id });
+    }
+  }
+  render();
+}
+
+// ── Add tasks ────────────────────────────────────────────────────────────────
+function addTasks() {
+  const ta = document.getElementById('task-input');
+  let added = 0;
+  for (const line of ta.value.split('\n')) {
+    const t = parseLine(line);
+    if (t) { t.id = uid(); tasks.push(t); added++; }
+  }
+  if (added) { ta.value = ''; autoSchedule(); }
+  else {
+    ta.style.borderColor = 'var(--p1)';
+    setTimeout(() => (ta.style.borderColor = ''), 700);
+    ta.focus();
+  }
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  renderHeader();
+  renderTimeCol();
+  renderDays();
+  renderTaskList();
+  renderUnscheduled();
+  renderCap();
+  saveState();
+}
+
+function renderHeader() {
+  const el = document.getElementById('grid-header');
+  el.innerHTML = '<div class="hcorner"></div>' +
+    DAYS.map(d => `
+      <div class="day-head${d.weekend ? ' wknd' : ''}${d.today ? ' today' : ''}">
+        <div class="day-dn">${d.label}</div>
+        <div class="day-num">${d.date}</div>
+        <div class="day-cap">${CFG.cap[d.key]}h</div>
+      </div>`).join('');
+}
+
+function renderTimeCol() {
+  const el = document.getElementById('time-col');
+  el.innerHTML = '';
+  for (let s = 0; s < NSLOTS; s++) {
+    const d = document.createElement('div');
+    d.className = 'time-tick' + (s % 2 ? ' half' : '');
+    d.textContent = slotTime(s);
+    el.appendChild(d);
+  }
+}
+
+function renderDays() {
+  const row = document.getElementById('days-row');
+  row.innerHTML = '';
+  DAYS.forEach(day => {
+    const col = document.createElement('div');
+    col.className = 'day-col' + (day.weekend ? ' wknd' : '');
+    col.dataset.day = day.key;
+    col.style.height = `${NSLOTS * SLOT_H}px`;
+
+    // slot lines
+    for (let s = 0; s < NSLOTS; s++) {
+      const line = document.createElement('div');
+      line.className = 'slot-line' + (s % 2 === 0 ? ' hour' : '');
+      line.style.top = `${s * SLOT_H}px`;
+      col.appendChild(line);
+    }
+
+    // blockoffs
+    dayBlockoffs(day.key).forEach(bo => {
+      const div = document.createElement('div');
+      div.className = 'blockoff';
+      div.style.cssText = `top:${bo.s * SLOT_H}px;height:${bo.n * SLOT_H}px`;
+      div.textContent = bo.label;
+      col.appendChild(div);
+    });
+
+    // sessions
+    sessions.filter(s => s.day === day.key).forEach(s => {
+      const t = task(s.taskId);
+      if (!t) return;
+      col.appendChild(makeSessBlock(s, t));
+    });
+
+    // DnD target
+    col.addEventListener('dragover', e => {
+      if (!drag) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const slot = clampSlot(e.offsetY, drag.slots);
+      showHint(col, slot, drag.slots);
+    });
+    col.addEventListener('dragleave', () => clearHint(col));
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      clearHint(col);
+      if (!drag) return;
+      applyDrop(day.key, clampSlot(e.offsetY, drag.slots));
+    });
+
+    row.appendChild(col);
+  });
+}
+
+/**
+ * Build a draggable session block element.
+ * @param {{ id:string, day:string, slot:number, taskId:string }} s
+ * @param {{ title:string, min:number, p:number }} t
+ * @returns {HTMLElement}
+ */
+function makeSessBlock(s, t) {
+  const n = slotsFor(t.min);
+  const el = document.createElement('div');
+  el.className = `sess p${t.p}`;
+  el.style.cssText = `top:${s.slot * SLOT_H + 2}px;height:${n * SLOT_H - 4}px`;
+  el.dataset.id = s.id;
+  el.draggable = true;
+  el.innerHTML = `
+    <div class="s-title">${t.title}</div>
+    ${n >= 2 ? `<div class="s-time">${slotTime(s.slot)} – ${slotTime(s.slot + n)}</div>` : ''}
+    <span class="s-check" title="Mark done">&#10003;</span>`;
+
+  el.addEventListener('dragstart', e => {
+    drag = { type: 'sess', id: s.id, slots: n };
+    e.dataTransfer.effectAllowed = 'move';
+    disableBlocks();
+    setTimeout(() => el.classList.add('dragging'), 0);
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('dragging');
+    enableBlocks();
+    drag = null;
+  });
+  el.querySelector('.s-check').addEventListener('click', ev => {
+    ev.stopPropagation();
+    markDone(s.id);
+  });
+  return el;
+}
+
+function clampSlot(y, n) {
+  return Math.max(0, Math.min(NSLOTS - n, Math.floor(y / SLOT_H)));
+}
+
+function showHint(col, slot, n) {
+  clearHint(col);
+  const h = document.createElement('div');
+  h.className = 'drop-hint';
+  h.style.cssText = `top:${slot * SLOT_H + 2}px;height:${n * SLOT_H - 4}px`;
+  h.dataset.hint = '1';
+  col.appendChild(h);
+}
+function clearHint(col) { col.querySelectorAll('[data-hint]').forEach(e => e.remove()); }
+
+function disableBlocks() { document.querySelectorAll('.sess').forEach(e => { if (!e.classList.contains('dragging')) e.style.pointerEvents = 'none'; }); }
+function enableBlocks()  { document.querySelectorAll('.sess').forEach(e => e.style.pointerEvents = ''); }
+
+function applyDrop(dayKey, slot) {
+  if (!drag) return;
+  if (drag.type === 'sess') {
+    const s = sess(drag.id);
+    if (s) { s.day = dayKey; s.slot = slot; }
+  } else {
+    const u = unscheduled.find(x => x.id === drag.id);
+    if (u) {
+      unscheduled = unscheduled.filter(x => x.id !== drag.id);
+      sessions.push({ id: u.id, taskId: u.taskId, day: dayKey, slot });
+    }
+  }
+  drag = null;
+  render();
+}
+
+function markDone(sessId) {
+  const s = sess(sessId);
+  if (!s) return;
+  const t = task(s.taskId);
+  if (t) t.done = Math.min(t.total, t.done + 1);
+  sessions = sessions.filter(x => x.id !== sessId);
+  render();
+}
+
+function renderTaskList() {
+  const el = document.getElementById('task-list');
+  el.innerHTML = '';
+  const colors = { 1: 'var(--p1)', 2: 'var(--p2)', 3: 'var(--p3)', 4: 'var(--p4)' };
+  tasks.forEach(t => {
+    const sched = sessions.filter(s => s.taskId === t.id).length;
+    const placed = sched + t.done;
+    const full = placed >= t.total;
+    const dur = t.min >= 60 ? `${t.min/60}h` : `${t.min}m`;
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    row.innerHTML = `
+      <span class="p-dot" style="background:${colors[t.p]}"></span>
+      <span class="t-name">${t.title}</span>
+      <span class="t-dur">${dur}</span>
+      <span class="t-prog${full ? ' done' : ''}">${placed}/${t.total}</span>
+      <span class="t-del" data-id="${t.id}" title="Remove">&#x2715;</span>`;
+    row.querySelector('.t-del').addEventListener('click', () => removeTask(t.id));
+    el.appendChild(row);
+  });
+}
+
+function removeTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  sessions = sessions.filter(s => s.taskId !== id);
+  unscheduled = unscheduled.filter(u => u.taskId !== id);
+  render();
+}
+
+function renderUnscheduled() {
+  const list = document.getElementById('unsched-list');
+  const badge = document.getElementById('unsched-badge');
+  list.innerHTML = '';
+  unscheduled.forEach(u => {
+    const t = task(u.taskId);
+    if (!t) return;
+    const dur = t.min >= 60 ? `${t.min/60}h` : `${t.min}m`;
+    const card = document.createElement('div');
+    card.className = `unsched-card p${t.p}`;
+    card.draggable = true;
+    card.innerHTML = `<div>${t.title}</div><div class="u-meta">${dur} · p${t.p}</div>`;
+    card.addEventListener('dragstart', e => {
+      drag = { type: 'unsched', id: u.id, slots: slotsFor(t.min) };
+      e.dataTransfer.effectAllowed = 'move';
+      disableBlocks();
+    });
+    card.addEventListener('dragend', () => { enableBlocks(); drag = null; });
+    list.appendChild(card);
+  });
+  badge.textContent = unscheduled.length;
+  badge.classList.toggle('on', unscheduled.length > 0);
+  document.getElementById('tab-dot').classList.toggle('on', unscheduled.length > 0);
+}
+
+function renderCap() {
+  const total = Object.values(CFG.cap).reduce((a, b) => a + b, 0) * 2;
+  const used = sessions.reduce((a, s) => {
+    const t = task(s.taskId);
+    return a + (t ? slotsFor(t.min) : 0);
+  }, 0);
+  const pct = total > 0 ? Math.round(used / total * 100) : 0;
+  document.getElementById('cap-pct').textContent = `${pct}%`;
+  const fill = document.getElementById('cap-fill');
+  fill.style.width = `${Math.min(100, pct)}%`;
+  fill.className = `cap-fill${pct > 100 ? ' over' : pct > 80 ? ' warn' : ''}`;
+}
+
+// ── Config drawer ────────────────────────────────────────────────────────────
+
+function openConfig() {
+  renderConfig();
+  document.getElementById('cfg-drawer').classList.add('open');
+  document.getElementById('cfg-overlay').classList.add('open');
+}
+
+function closeConfig() {
+  document.getElementById('cfg-drawer').classList.remove('open');
+  document.getElementById('cfg-overlay').classList.remove('open');
+}
+
+const DAY_LABELS = { weekday: 'Weekdays', weekend: 'Weekends', mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
+
+function renderConfig() {
+  // weekday hours
+  document.getElementById('cfg-wd').innerHTML =
+    ['mon','tue','wed','thu','fri'].map(d =>
+      `<div class="hour-cell"><label>${DAY_LABELS[d]}</label>
+       <input class="hour-input" type="number" min="0" max="16" step="0.5" value="${CFG.cap[d]}" data-day="${d}"></div>`
+    ).join('');
+
+  // weekend toggle + hours
+  document.getElementById('cfg-wknd-tog').checked = CFG.weekendsEnabled;
+  const weEl = document.getElementById('cfg-we');
+  weEl.style.display = CFG.weekendsEnabled ? 'grid' : 'none';
+  weEl.innerHTML = ['sat','sun'].map(d =>
+    `<div class="hour-cell"><label>${DAY_LABELS[d]}</label>
+     <input class="hour-input" type="number" min="0" max="16" step="0.5" value="${CFG.cap[d]}" data-day="${d}"></div>`
+  ).join('');
+
+  renderBlockoffList();
+  populateTimeSelects();
+}
+
+function renderBlockoffList() {
+  document.getElementById('cfg-bo-list').innerHTML = CFG.blockoffs.map(bo => `
+    <div class="bo-row">
+      <span class="bo-name">${bo.label}</span>
+      <span class="bo-day-lbl">${DAY_LABELS[bo.day] || bo.day}</span>
+      <span class="bo-time-lbl">${slotTime(bo.s)}–${slotTime(bo.s + bo.n)}</span>
+      <button class="bo-del" onclick="removeBlockoff('${bo.id}')">&#x2715;</button>
+    </div>`).join('');
+}
+
+function populateTimeSelects() {
+  ['bo-start', 'bo-end'].forEach((id, i) => {
+    const sel = document.getElementById(id);
+    if (sel.options.length) return;
+    for (let h = 6; h <= 22; h++) {
+      for (let m = 0; m < 60; m += 30) {
+        if (h === 22 && m > 0) break;
+        const v = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        const opt = new Option(v, v);
+        if (i === 0 && v === '12:00') opt.selected = true;
+        if (i === 1 && v === '13:00') opt.selected = true;
+        sel.appendChild(opt);
+      }
+    }
+  });
+}
+
+/** Convert HH:MM string to slot index (0 = DAY_START). */
+function timeToSlot(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return (h * 60 + m - DAY_START * 60) / 30;
+}
+
+function toggleWeekends(on) {
+  CFG.weekendsEnabled = on;
+  document.getElementById('cfg-we').style.display = on ? 'grid' : 'none';
+}
+
+function removeBlockoff(id) {
+  CFG.blockoffs = CFG.blockoffs.filter(b => b.id !== id);
+  renderBlockoffList();
+}
+
+function addBlockoff() {
+  const label = document.getElementById('bo-label').value.trim();
+  const day   = document.getElementById('bo-day').value;
+  const start = document.getElementById('bo-start').value;
+  const end   = document.getElementById('bo-end').value;
+  if (!label) { document.getElementById('bo-label').focus(); return; }
+  const s = timeToSlot(start), e = timeToSlot(end);
+  if (e <= s || s < 0) return;
+  CFG.blockoffs.push({ id: uid(), day, s, n: e - s, label });
+  document.getElementById('bo-label').value = '';
+  renderBlockoffList();
+}
+
+function applyConfig() {
+  // read hour inputs
+  document.querySelectorAll('#cfg-wd .hour-input, #cfg-we .hour-input').forEach(inp => {
+    const v = parseFloat(inp.value);
+    if (inp.dataset.day && !isNaN(v)) CFG.cap[inp.dataset.day] = Math.max(0, Math.min(16, v));
+  });
+  if (!CFG.weekendsEnabled) { CFG.cap.sat = 0; CFG.cap.sun = 0; }
+  closeConfig();
+  autoSchedule();
+}
+
+// ── Mobile tab nav ───────────────────────────────────────────────────────────
+const PANEL = { grid: 'grid-container', inbox: 'inbox', unsched: 'unscheduled' };
+
+function switchTab(tab) {
+  Object.entries(PANEL).forEach(([t, id]) => {
+    document.getElementById(id).classList.toggle('active', t === tab);
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+}
+
+// ── Week nav (cosmetic) ──────────────────────────────────────────────────────
+const WEEK_LABELS = ['Apr 28 – May 4, 2026', 'May 5 – 11, 2026', 'May 12 – 18, 2026'];
+let weekOffset = 1;
+function shiftWeek(dir) {
+  if (dir === 0) weekOffset = 1;
+  else weekOffset = Math.max(0, Math.min(2, weekOffset + dir));
+  document.getElementById('week-label').textContent = WEEK_LABELS[weekOffset];
+}
+
+// ── Keyboard ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'n' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== 'TEXTAREA')
+    document.getElementById('task-input').focus();
+});
+document.getElementById('task-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.metaKey) { e.preventDefault(); addTasks(); }
+});
+
+// ── Persistence ──────────────────────────────────────────────────────────────
+const STORE_KEY = 'alph-v0';
+
+function saveState() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      tasks, sessions, unscheduled,
+      cfg: { cap: CFG.cap, weekendsEnabled: CFG.weekendsEnabled, blockoffs: CFG.blockoffs },
+    }));
+  } catch(e) {}
+}
+
+/**
+ * Load persisted state. Returns true if state was found and applied.
+ * @returns {boolean}
+ */
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    tasks       = d.tasks       ?? [];
+    sessions    = d.sessions    ?? [];
+    unscheduled = d.unscheduled ?? [];
+    if (d.cfg) {
+      Object.assign(CFG.cap, d.cfg.cap ?? {});
+      CFG.weekendsEnabled = d.cfg.weekendsEnabled ?? false;
+      CFG.blockoffs       = d.cfg.blockoffs ?? CFG.blockoffs;
+    }
+    // advance uid counter past any existing ids to avoid collisions
+    const allIds = [...tasks, ...sessions, ...unscheduled, ...CFG.blockoffs]
+      .map(x => parseInt((x.id ?? '').replace(/\D/g, '')) || 0);
+    _n = Math.max(_n, ...allIds) + 1;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── Export / Import ───────────────────────────────────────────────────────────
+
+function exportJSON() {
+  const data = {
+    tasks, sessions, unscheduled,
+    cfg: { cap: CFG.cap, weekendsEnabled: CFG.weekendsEnabled, blockoffs: CFG.blockoffs },
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: 'alph-planner.json',
+  });
+  a.click();
+  toast('Exported');
+}
+
+function importJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      tasks       = d.tasks       ?? [];
+      sessions    = d.sessions    ?? [];
+      unscheduled = d.unscheduled ?? [];
+      if (d.cfg) {
+        Object.assign(CFG.cap, d.cfg.cap ?? {});
+        CFG.weekendsEnabled = d.cfg.weekendsEnabled ?? false;
+        CFG.blockoffs       = d.cfg.blockoffs ?? CFG.blockoffs;
+      }
+      render();
+      toast('Imported');
+    } catch(err) {
+      toast('Invalid JSON', true);
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function clearAll() {
+  if (!confirm('Reset everything? This clears all tasks and saved data.')) return;
+  localStorage.removeItem(STORE_KEY);
+  tasks = []; sessions = []; unscheduled = [];
+  CFG.cap = { mon: 6, tue: 6, wed: 6, thu: 6, fri: 4, sat: 0, sun: 0 };
+  CFG.weekendsEnabled = false;
+  CFG.blockoffs = [{ id: uid(), day: 'weekday', s: 6, n: 2, label: 'lunch' }];
+  closeConfig();
+  render();
+  toast('Reset');
+}
+
+// ── Roll to next week ─────────────────────────────────────────────────────────
+
+function rollToNextWeek() {
+  const n = unscheduled.length;
+  if (!n) { toast('Nothing to roll'); return; }
+  unscheduled = [];
+  render();
+  toast(`Rolled ${n} session${n > 1 ? 's' : ''} to next week`);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Show a brief status toast.
+ * @param {string} msg
+ * @param {boolean} [error]
+ */
+function toast(msg, error = false) {
+  document.querySelectorAll('.toast').forEach(e => e.remove());
+  const el = document.createElement('div');
+  el.className = 'toast' + (error ? ' err' : '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => { requestAnimationFrame(() => el.classList.add('show')); });
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 2400);
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+switchTab('grid');
+if (loadState()) render(); else autoSchedule();
+</script>
+</body>
+</html>
