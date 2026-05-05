@@ -137,7 +137,7 @@
           <div class="day-num">{day.date}</div>
           {#if app.weather[day.iso]}
             {@const w = app.weather[day.iso]}
-            <div class="day-weather" title="{w.desc} · {w.high}°/{w.low}°C">
+            <div class="day-weather" title="{w.desc} · {w.high}°/{w.low}°F">
               <span class="w-icon">{w.emoji}</span><span class="w-temp">{w.high}°</span>
             </div>
           {:else if Object.keys(app.weather).length === 0}

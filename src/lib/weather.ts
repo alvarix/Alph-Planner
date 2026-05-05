@@ -9,8 +9,8 @@ export interface DayWeather {
 	code: number;   // WMO weather code
 	emoji: string;
 	desc: string;
-	high: number;   // °C, rounded
-	low: number;
+	high: number;   // °F, rounded
+	low: number;    // °F, rounded
 }
 
 /** Map WMO weather interpretation code to emoji + short label. */
@@ -31,10 +31,10 @@ function wmoInfo(code: number): { emoji: string; desc: string } {
 
 /**
  * Resolve user coordinates via Geolocation API.
- * Falls back to San Francisco if permission is denied or API unavailable.
+ * Falls back to ZIP 11238 (Brooklyn, NY) if permission is denied or unavailable.
  */
 async function getCoords(): Promise<{ lat: number; lng: number }> {
-	const fallback = { lat: 37.77, lng: -122.42 };
+	const fallback = { lat: 40.678, lng: -73.944 }; // 11238 Brooklyn, NY
 	if (typeof navigator === 'undefined' || !navigator.geolocation) return fallback;
 	return new Promise(resolve => {
 		navigator.geolocation.getCurrentPosition(
@@ -56,9 +56,10 @@ export async function fetchWeek(): Promise<Record<string, DayWeather>> {
 		const url = new URL('https://api.open-meteo.com/v1/forecast');
 		url.searchParams.set('latitude',  String(lat));
 		url.searchParams.set('longitude', String(lng));
-		url.searchParams.set('daily',     'weather_code,temperature_2m_max,temperature_2m_min');
-		url.searchParams.set('timezone',  'auto');
-		url.searchParams.set('forecast_days', '7');
+		url.searchParams.set('daily',            'weather_code,temperature_2m_max,temperature_2m_min');
+		url.searchParams.set('temperature_unit', 'fahrenheit');
+		url.searchParams.set('timezone',         'auto');
+		url.searchParams.set('forecast_days',    '7');
 
 		const res = await fetch(url.toString());
 		if (!res.ok) return {};
