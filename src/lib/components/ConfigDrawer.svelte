@@ -220,11 +220,12 @@
 
     <div class="add-bo">
       <input
+        id="bo-label"
         class="add-bo-full"
         placeholder="label (e.g. lunch)"
         bind:value={boLabel}
       />
-      <select bind:value={boDay}>
+      <select id="bo-day" bind:value={boDay}>
         <option value="weekday">Every weekday</option>
         <option value="weekend">Every weekend</option>
         <option value="mon">Monday</option>
@@ -235,12 +236,12 @@
         <option value="sat">Saturday</option>
         <option value="sun">Sunday</option>
       </select>
-      <select bind:value={boStart}>
+      <select id="bo-start" bind:value={boStart}>
         {#each timeOptions as t}
           <option value={t}>{t}</option>
         {/each}
       </select>
-      <select bind:value={boEnd}>
+      <select id="bo-end" bind:value={boEnd}>
         {#each timeOptions as t}
           <option value={t}>{t}</option>
         {/each}

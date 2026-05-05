@@ -117,6 +117,70 @@ test('task survives a page reload', async ({ page }) => {
 	await expect(page.locator('#task-list')).toContainText('persistent task');
 });
 
+// ── Config persistence ─────────────────────────────────────────────────────
+
+test('config: removing lunch blockoff updates grid and survives reload', async ({ page }) => {
+	await page.goto('/');
+	await page.waitForSelector('#topbar');
+	await page.evaluate(() => localStorage.clear());
+	await page.reload();
+	await page.waitForSelector('#topbar');
+
+	// Lunch blockoff should be visible before any change
+	await expect(page.locator('.blockoff').first()).toBeVisible();
+
+	// Open config, delete lunch, apply
+	await page.click('button[title="Config"]');
+	await expect(page.locator('#cfg-drawer')).toHaveClass(/open/);
+	await page.locator('.bo-row').filter({ hasText: 'lunch' }).locator('.bo-del').click();
+	await expect(page.locator('.bo-row')).toHaveCount(0); // lunch was the only blockoff
+	await page.click('.btn-apply');
+
+	// Grid should immediately show no lunch blockoff
+	await expect(page.locator('.blockoff').filter({ hasText: 'lunch' })).toHaveCount(0);
+
+	// After reload: still gone
+	await page.reload();
+	await page.waitForSelector('#topbar');
+	await expect(page.locator('.blockoff').filter({ hasText: 'lunch' })).toHaveCount(0);
+});
+
+test('config: re-adding lunch at a new time persists across reload', async ({ page }) => {
+	await page.goto('/');
+	await page.waitForSelector('#topbar');
+	await page.evaluate(() => localStorage.clear());
+	await page.reload();
+	await page.waitForSelector('#topbar');
+
+	// Open config, delete lunch, add it back at 13:00–14:00
+	await page.click('button[title="Config"]');
+	await page.locator('.bo-row').filter({ hasText: 'lunch' }).locator('.bo-del').click();
+
+	await page.fill('#bo-label', 'lunch');
+	await page.selectOption('#bo-day',   'weekday');
+	await page.selectOption('#bo-start', '13:00');
+	await page.selectOption('#bo-end',   '14:00');
+	await page.click('.btn-add-bo');
+
+	// Drawer shows new lunch row
+	await expect(page.locator('.bo-row')).toContainText('13:00');
+	await page.click('.btn-apply');
+
+	// Grid: new slot visible, old slot gone
+	// slot 8 = 13:00 (9am base + 8*30min), slot 6 = 12:00
+	const newLunch = page.locator('.blockoff').filter({ hasText: 'lunch' }).first();
+	await expect(newLunch).toBeVisible();
+	const top = await newLunch.evaluate(el => parseInt((el as HTMLElement).style.top));
+	expect(top).toBe(8 * 40); // slot 8 × 40px per slot
+
+	// After reload: new time still correct
+	await page.reload();
+	await page.waitForSelector('#topbar');
+	const reloadedTop = await page.locator('.blockoff').filter({ hasText: 'lunch' }).first()
+		.evaluate(el => parseInt((el as HTMLElement).style.top));
+	expect(reloadedTop).toBe(8 * 40);
+});
+
 // ── Markdown import ────────────────────────────────────────────────────────
 
 const MD_SAMPLE = `# 05/05/26
