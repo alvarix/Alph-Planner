@@ -45,3 +45,11 @@ export interface DragState {
   id: string;
   slots: number;
 }
+
+export interface DoneSession {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  sessionMin: number;
+  doneAt: string; // ISO timestamp
+}

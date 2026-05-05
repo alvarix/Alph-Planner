@@ -48,15 +48,27 @@ test('auto-schedule places task on the grid', async ({ page }) => {
 	await expect(page.locator('.sess').first()).toContainText('grid task');
 });
 
-test('invalid input does not add a task', async ({ page }) => {
+test('task with no duration gets 30m default', async ({ page }) => {
+	await page.goto('/');
+	await page.waitForSelector('#topbar');
+	await page.evaluate(() => localStorage.clear());
+	await page.reload();
+	await page.waitForSelector('#topbar');
+
+	await page.fill('#task-input', 'buy milk');
+	await page.click('button.btn-add');
+
+	await expect(page.locator('#task-list')).toContainText('buy milk');
+	await expect(page.locator('.t-dur')).toContainText('30m');
+});
+
+test('truly empty input does not add a task', async ({ page }) => {
 	await page.goto('/');
 	await page.waitForSelector('#topbar');
 
 	const before = await page.locator('.task-row').count();
-	await page.fill('#task-input', 'no duration here');
+	await page.fill('#task-input', '   ');
 	await page.click('button.btn-add');
-
-	// Task list should not grow
 	expect(await page.locator('.task-row').count()).toBe(before);
 });
 
@@ -213,8 +225,8 @@ test('markdown: imports unchecked tasks, skips headers and done items', async ({
 	await expect(list).toContainText('Motel tax');
 	await expect(list).toContainText('Mow');
 
-	// Skipped: no duration
-	await expect(list).not.toContainText('alph-planner');
+	// No duration → imported with 30m default
+	await expect(list).toContainText('alph-planner');
 	// Skipped: checked item
 	await expect(list).not.toContainText('already done');
 	// Skipped: heading text

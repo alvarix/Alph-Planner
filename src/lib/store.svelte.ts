@@ -1,6 +1,6 @@
 import { parseLine } from './parser.js';
 import { schedule } from './scheduler.js';
-import type { Task, Session, UnscheduledSession, Config, DragState, DayKey } from './types.js';
+import type { Task, Session, UnscheduledSession, DoneSession, Config, DragState, DayKey } from './types.js';
 import type { DayWeather } from './weather.js';
 
 // ── UID counter ────────────────────────────────────────────────────────────────
@@ -48,6 +48,7 @@ export const app = $state({
   tasks: [] as Task[],
   sessions: [] as Session[],
   unscheduled: [] as UnscheduledSession[],
+  done: [] as DoneSession[],
   config: structuredClone(defaultConfig) as Config,
   drag: null as DragState | null,
   toast: null as { msg: string; error?: boolean } | null,
@@ -76,24 +77,23 @@ export function autoSchedule(): void {
 export function addTasks(lines: string[]): number {
   let added = 0;
   for (const line of lines) {
-    const parsed = parseLine(line);
-    if (parsed) {
-      const task: Task = {
-        ...parsed,
-        id: uid(),
-        createdAt: new Date().toISOString()
-      };
-      app.tasks.push(task);
-      added++;
-    }
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // parseLine now returns null only for truly blank lines (already filtered above).
+    // Missing duration → apply defaults: 30 m, p3, x1.
+    const parsed = parseLine(trimmed) ?? {
+      title: trimmed,
+      sessionMin: 30,
+      sessionsTotal: 1,
+      sessionsDone: 0,
+      priority: 3 as const
+    };
+    app.tasks.push({ ...parsed, id: uid(), createdAt: new Date().toISOString() });
+    added++;
   }
   if (added > 0) {
     autoSchedule();
-    const skipped = lines.length - added;
-    const msg = skipped > 0
-      ? `Added ${added} task${added > 1 ? 's' : ''} (${skipped} skipped — no duration)`
-      : `Added ${added} task${added > 1 ? 's' : ''}`;
-    showToast(msg);
+    showToast(`Added ${added} task${added > 1 ? 's' : ''}`);
   }
   return added;
 }
@@ -138,9 +138,30 @@ export function markDone(sessId: string): void {
   const s = app.sessions.find(x => x.id === sessId);
   if (!s) return;
   const t = app.tasks.find(x => x.id === s.taskId);
-  if (t) t.sessionsDone = Math.min(t.sessionsTotal, t.sessionsDone + 1);
-  const idx = app.sessions.findIndex(x => x.id === sessId);
-  if (idx !== -1) app.sessions.splice(idx, 1);
+  if (t) {
+    t.sessionsDone = Math.min(t.sessionsTotal, t.sessionsDone + 1);
+    app.done.push({
+      id: s.id,
+      taskId: s.taskId,
+      taskTitle: t.title,
+      sessionMin: t.sessionMin,
+      doneAt: new Date().toISOString()
+    });
+  }
+  app.sessions = app.sessions.filter(x => x.id !== sessId);
+}
+
+/** Remove a session from the grid without counting it as done. */
+export function deleteSess(sessId: string): void {
+  app.sessions = app.sessions.filter(x => x.id !== sessId);
+}
+
+/** Move a placed session back to the Overflow rail (drag off grid). */
+export function unscheduleSession(sessId: string): void {
+  const s = app.sessions.find(x => x.id === sessId);
+  if (!s) return;
+  app.sessions = app.sessions.filter(x => x.id !== sessId);
+  app.unscheduled.push({ id: s.id, taskId: s.taskId });
 }
 
 /**

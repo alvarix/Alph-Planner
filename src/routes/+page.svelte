@@ -41,6 +41,7 @@
       if (saved.tasks) app.tasks = saved.tasks;
       if (saved.sessions) app.sessions = saved.sessions;
       if (saved.unscheduled) app.unscheduled = saved.unscheduled;
+      if ((saved as any).done) app.done = (saved as any).done;
       if (saved.config) app.config = saved.config;
       // Advance uid counter past any loaded ids to avoid collisions
       const allIds = [
@@ -64,6 +65,7 @@
     void app.tasks.length;
     void app.sessions.length;
     void app.unscheduled.length;
+    void app.done.length;
     void app.config;
     saveState(app);
   });

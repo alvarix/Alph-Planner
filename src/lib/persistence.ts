@@ -18,6 +18,7 @@ export function saveState(state: AppSnapshot): void {
       tasks: state.tasks,
       sessions: state.sessions,
       unscheduled: state.unscheduled,
+      done: state.done,
       config: state.config
     };
     localStorage.setItem(STORE_KEY, JSON.stringify(data));

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, setDrag, clearDrag, moveSession, scheduleUnscheduled, markDone } from '$lib/store.svelte.js';
+  import { app, setDrag, clearDrag, moveSession, scheduleUnscheduled, markDone, deleteSess, unscheduleSession } from '$lib/store.svelte.js';
   import type { DayKey } from '$lib/types.js';
 
   /**
@@ -56,6 +56,9 @@
    * Per-column drop hint state.
    * Each day key maps to { slot, n } while dragging over it, or null otherwise.
    */
+  /** Session id currently showing the done/remove confirmation buttons. */
+  let confirmSess = $state<string | null>(null);
+
   let hints = $state<Record<DayKey, { slot: number; n: number } | null>>({
     mon: null, tue: null, wed: null, thu: null, fri: null, sat: null, sun: null
   });
@@ -113,10 +116,15 @@
 
   function handleSessDragStart(e: DragEvent, sessId: string, slots: number) {
     setDrag({ type: 'sess', id: sessId, slots });
+    confirmSess = null;
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
   }
 
-  function handleSessDragEnd() {
+  function handleSessDragEnd(e: DragEvent, sessId: string) {
+    // If drag ended with no valid drop (dropEffect none), send to Overflow
+    if (app.drag?.id === sessId && e.dataTransfer?.dropEffect === 'none') {
+      unscheduleSession(sessId);
+    }
     clearDrag();
   }
 </script>
@@ -203,20 +211,29 @@
                   style="top:{sess.slot * SLOT_H + 2}px;height:{n * SLOT_H - 4}px"
                   draggable="true"
                   ondragstart={(e) => handleSessDragStart(e, sess.id, n)}
-                  ondragend={handleSessDragEnd}
+                  ondragend={(e) => handleSessDragEnd(e, sess.id)}
                 >
                   <div class="s-title">{task.title}</div>
                   {#if n >= 2}
                     <div class="s-time">{slotTime(sess.slot)} – {slotTime(sess.slot + n)}</div>
                   {/if}
-                  <span
-                    class="s-check"
-                    title="Mark done"
-                    role="button"
-                    tabindex="0"
-                    onclick={(e) => { e.stopPropagation(); markDone(sess.id); }}
-                    onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); markDone(sess.id); } }}
-                  >&#10003;</span>
+
+                  {#if confirmSess === sess.id}
+                    <!-- Inline done/remove choice -->
+                    <div class="sess-confirm">
+                      <button class="sc-done" onclick={(e) => { e.stopPropagation(); markDone(sess.id); confirmSess = null; }}>✓ Done</button>
+                      <button class="sc-del"  onclick={(e) => { e.stopPropagation(); deleteSess(sess.id); confirmSess = null; }}>✗ Remove</button>
+                    </div>
+                  {:else}
+                    <span
+                      class="s-check"
+                      title="Mark done / remove"
+                      role="button"
+                      tabindex="0"
+                      onclick={(e) => { e.stopPropagation(); confirmSess = sess.id; }}
+                      onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); confirmSess = sess.id; } }}
+                    >&#10003;</span>
+                  {/if}
                 </div>
               {/if}
             {/each}

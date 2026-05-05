@@ -1,33 +1,23 @@
 <script lang="ts">
   import { app, setDrag, clearDrag, rollToNextWeek } from '$lib/store.svelte.js';
 
-  /**
-   * When true (on mobile), adds .active class so this panel is shown.
-   * On desktop the CSS ignores this.
-   */
   let { activeOnMobile = false }: { activeOnMobile?: boolean } = $props();
 
-  /**
-   * Number of 30-min slots for `min` minutes.
-   * @param min - Duration in minutes
-   */
+  let tab = $state<'overflow' | 'done'>('overflow');
+
   const slotsFor = (min: number) => Math.ceil(min / 30);
 
-  /**
-   * Format minutes as a human-readable string.
-   * @param min - Duration in minutes
-   */
   function fmtDur(min: number): string {
     if (min >= 60 && min % 60 === 0) return `${min / 60}h`;
     if (min >= 60) return `${(min / 60).toFixed(1)}h`;
     return `${min}m`;
   }
 
-  /**
-   * Compute capacity percentage.
-   * Total slots from hour caps vs slots currently scheduled.
-   * Derived so it recalculates when sessions or config changes.
-   */
+  function fmtTime(iso: string): string {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
   const capPct = $derived(
     (() => {
       const totalSlots = Object.values(app.config.hoursPerDay).reduce((a, b) => a + b, 0) * 2;
@@ -44,49 +34,72 @@
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
   }
 
-  function handleDragEnd() {
-    clearDrag();
-  }
+  function handleDragEnd() { clearDrag(); }
 </script>
 
 <aside id="unscheduled" class:active={activeOnMobile}>
-  <div class="rail-head">
-    Unscheduled
-    <span class="badge" class:on={app.unscheduled.length > 0}>
-      {app.unscheduled.length}
-    </span>
-  </div>
 
-  <div id="unsched-list">
-    {#each app.unscheduled as u (u.id)}
-      {@const task = app.tasks.find(t => t.id === u.taskId)}
-      {#if task}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="unsched-card p{task.priority}"
-          class:dragging={app.drag?.id === u.id}
-          draggable="true"
-          ondragstart={(e) => handleDragStart(e, u.id, task.sessionMin)}
-          ondragend={handleDragEnd}
-        >
-          <div>{task.title}</div>
-          <div class="u-meta">{fmtDur(task.sessionMin)} &middot; p{task.priority}</div>
-        </div>
+  <!-- Tab toggle header -->
+  <div class="right-tabs">
+    <button class="rtab" class:active={tab === 'overflow'} onclick={() => (tab = 'overflow')}>
+      Overflow
+      {#if app.unscheduled.length > 0}
+        <span class="badge on">{app.unscheduled.length}</span>
       {/if}
-    {/each}
-  </div>
-
-  <div class="unsched-actions">
-    <button class="btn-roll" onclick={() => rollToNextWeek()}>
-      Roll to next week &rarr;
+    </button>
+    <button class="rtab" class:active={tab === 'done'} onclick={() => (tab = 'done')}>
+      Done
+      {#if app.done.length > 0}
+        <span class="badge on" style="background:var(--p3-bg);color:var(--p3)">{app.done.length}</span>
+      {/if}
     </button>
   </div>
 
-  <div class="cap-bar">
-    <div class="cap-lbl">
-      <span>Week capacity</span>
-      <span>{capPct}%</span>
+  <!-- Overflow tab -->
+  {#if tab === 'overflow'}
+    <div id="unsched-list">
+      {#each app.unscheduled as u (u.id)}
+        {@const task = app.tasks.find(t => t.id === u.taskId)}
+        {#if task}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="unsched-card p{task.priority}"
+            class:dragging={app.drag?.id === u.id}
+            draggable="true"
+            ondragstart={(e) => handleDragStart(e, u.id, task.sessionMin)}
+            ondragend={handleDragEnd}
+          >
+            <div>{task.title}</div>
+            <div class="u-meta">{fmtDur(task.sessionMin)} &middot; p{task.priority}</div>
+          </div>
+        {/if}
+      {/each}
+      {#if app.unscheduled.length === 0}
+        <div class="empty-state">All sessions scheduled</div>
+      {/if}
     </div>
+    <div class="unsched-actions">
+      <button class="btn-roll" onclick={() => rollToNextWeek()}>Roll to next week &rarr;</button>
+    </div>
+  {/if}
+
+  <!-- Done tab -->
+  {#if tab === 'done'}
+    <div id="done-list">
+      {#each [...app.done].reverse() as d (d.id)}
+        <div class="done-row">
+          <span class="done-title">{d.taskTitle}</span>
+          <span class="done-meta">{fmtDur(d.sessionMin)} · {fmtTime(d.doneAt)}</span>
+        </div>
+      {/each}
+      {#if app.done.length === 0}
+        <div class="empty-state">Nothing done yet</div>
+      {/if}
+    </div>
+  {/if}
+
+  <div class="cap-bar">
+    <div class="cap-lbl"><span>Week capacity</span><span>{capPct}%</span></div>
     <div class="cap-track">
       <div
         class="cap-fill"
@@ -96,4 +109,5 @@
       ></div>
     </div>
   </div>
+
 </aside>
