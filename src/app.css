@@ -246,6 +246,46 @@ body {
   opacity: 1;
   color: var(--p1);
 }
+.task-row { cursor: pointer; }
+.task-row:hover .t-name { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── Inline task edit ────────────────────────────────────────────────────── */
+.task-edit {
+  padding: 6px 10px; border-bottom: 1px solid var(--border);
+  background: #eff6ff; display: flex; flex-direction: column; gap: 5px;
+}
+.edit-title {
+  width: 100%; border: 1px solid var(--p3); border-radius: 4px;
+  padding: 4px 7px; font-size: 12px; font-weight: 500; outline: none;
+  background: #fff;
+}
+.edit-row { display: flex; align-items: center; gap: 4px; }
+.edit-field {
+  border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px;
+  font-size: 11px; background: #fff; outline: none;
+}
+.edit-field:focus { border-color: var(--p3); }
+.edit-dur  { width: 44px; }
+.edit-sess { width: 36px; }
+.edit-prio { width: 44px; }
+.edit-save, .edit-cancel {
+  border: none; border-radius: 4px; padding: 3px 7px;
+  font-size: 11px; cursor: pointer; font-weight: 600;
+}
+.edit-save   { background: var(--p3); color: #fff; }
+.edit-save:hover { background: #2563eb; }
+.edit-cancel { background: var(--bg); color: var(--muted); margin-left: auto; }
+.edit-cancel:hover { background: var(--border); }
+
+.inbox-footer {
+  border-top: 1px solid var(--border); padding: 8px 12px; flex-shrink: 0;
+}
+.btn-clear-all {
+  width: 100%; padding: 5px; font-size: 11px; font-weight: 500;
+  background: none; border: 1px solid var(--border); border-radius: 5px;
+  cursor: pointer; color: var(--muted);
+}
+.btn-clear-all:hover { border-color: var(--p1); color: var(--p1); background: var(--p1-bg); }
 
 /* ── Grid ─────────────────────────────────────────────────────────────────── */
 #grid-container {

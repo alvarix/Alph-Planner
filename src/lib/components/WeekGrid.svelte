@@ -129,6 +129,8 @@
   }
 </script>
 
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') confirmSess = null; }} />
+
 <div id="grid-container" class:active={activeOnMobile}>
   <div id="grid-scroll">
 

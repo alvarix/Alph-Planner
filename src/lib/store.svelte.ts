@@ -165,6 +165,38 @@ export function unscheduleSession(sessId: string): void {
 }
 
 /**
+ * Update a task's fields; re-schedules if structural data changed.
+ * Title-only changes skip the full re-schedule.
+ */
+export function updateTask(
+  id: string,
+  title: string,
+  sessionMin: number,
+  sessionsTotal: number,
+  priority: 1 | 2 | 3 | 4
+): void {
+  const t = app.tasks.find(x => x.id === id);
+  if (!t) return;
+  const structural =
+    t.sessionMin !== sessionMin ||
+    t.sessionsTotal !== sessionsTotal ||
+    t.priority !== priority;
+  t.title = title;
+  t.sessionMin = sessionMin;
+  t.sessionsTotal = sessionsTotal;
+  t.priority = priority;
+  if (structural) autoSchedule();
+}
+
+/** Remove all tasks, sessions, overflow, and done history. */
+export function clearAllTasks(): void {
+  app.tasks = [];
+  app.sessions = [];
+  app.unscheduled = [];
+  app.done = [];
+}
+
+/**
  * Remove a task and all its scheduled/unscheduled sessions.
  *
  * @param id - Task id to remove

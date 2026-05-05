@@ -115,10 +115,18 @@ export function schedule(
     const usedDays = new Set<DayKey>();
 
     for (let s = 0; s < remaining; s++) {
-      // Prefer days this task hasn't used yet (spread across the week)
-      const order = [...workdays].sort((a, b) =>
-        (usedDays.has(a) ? 1 : 0) - (usedDays.has(b) ? 1 : 0)
-      );
+      // Sort candidate days to distribute sessions evenly:
+      // 1. Prefer days not yet used by THIS task (spread same task across days)
+      // 2. Among equal, prefer the day with most remaining free slots
+      //    so the scheduler doesn't pack everything into Monday first.
+      const order = [...workdays].sort((a, b) => {
+        const da = usedDays.has(a) ? 1 : 0;
+        const db = usedDays.has(b) ? 1 : 0;
+        if (da !== db) return da - db;
+        const remA = config.hoursPerDay[a] * 2 - occ[a].size;
+        const remB = config.hoursPerDay[b] * 2 - occ[b].size;
+        return remB - remA; // most free capacity first
+      });
 
       let placed = false;
 

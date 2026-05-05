@@ -1,54 +1,83 @@
 <script lang="ts">
-  import { app, addTasks, autoSchedule, removeTask } from '$lib/store.svelte.js';
+  import { app, addTasks, autoSchedule, removeTask, updateTask, clearAllTasks } from '$lib/store.svelte.js';
   import { parseMarkdown } from '$lib/parser.js';
+  import type { Task } from '$lib/types.js';
 
-  /**
-   * When true (on mobile), adds .active class so this panel is shown.
-   * On desktop the CSS ignores this.
-   */
   let { activeOnMobile = false }: { activeOnMobile?: boolean } = $props();
 
-  /** Text in the textarea */
-  let inputText = $state('');
+  let inputText  = $state('');
+  let editingId  = $state<string | null>(null);
+  let editTitle  = $state('');
+  let editDur    = $state('');
+  let editSess   = $state(1);
+  let editPrio   = $state<1|2|3|4>(3);
 
-  /** Priority dot colors matching the CSS variables */
   const P_COLORS: Record<number, string> = {
-    1: 'var(--p1)',
-    2: 'var(--p2)',
-    3: 'var(--p3)',
-    4: 'var(--p4)'
+    1: 'var(--p1)', 2: 'var(--p2)', 3: 'var(--p3)', 4: 'var(--p4)'
   };
 
-  /**
-   * Format session minutes as a human-readable duration string.
-   * @param min - Duration in minutes
-   */
   function fmtDur(min: number): string {
     if (min >= 60 && min % 60 === 0) return `${min / 60}h`;
     if (min >= 60) return `${(min / 60).toFixed(1)}h`;
     return `${min}m`;
   }
 
-  /** Handle the Add button or Cmd+Enter shortcut */
-  function handleAdd() {
-    const lines = parseMarkdown(inputText);
-    const added = addTasks(lines);
-    if (added > 0) {
-      inputText = '';
-    }
+  /**
+   * Parse a duration string like "1h", "30m", ".5h", "45" → minutes.
+   * Bare numbers are treated as minutes.
+   * @param s - User input string
+   */
+  function parseDurInput(s: string): number {
+    const m = s.trim().match(/^(\d*\.?\d+)\s*(h|m)?$/i);
+    if (!m) return 30;
+    const v = parseFloat(m[1]);
+    const unit = (m[2] ?? 'm').toLowerCase();
+    const min = unit === 'h' ? Math.round(v * 60) : Math.round(v);
+    return Math.max(15, Math.min(480, min));
   }
 
-  /**
-   * Intercept Cmd+Enter inside the textarea to add tasks.
-   * @param e - Keyboard event
-   */
-  function handleKeydown(e: KeyboardEvent) {
+  function startEdit(task: Task) {
+    editingId = task.id;
+    editTitle = task.title;
+    editDur   = fmtDur(task.sessionMin);
+    editSess  = task.sessionsTotal;
+    editPrio  = task.priority;
+  }
+
+  function saveEdit() {
+    if (!editingId) return;
+    const min = parseDurInput(editDur);
+    updateTask(editingId, editTitle.trim() || '(untitled)', min, editSess, editPrio);
+    editingId = null;
+  }
+
+  function cancelEdit() { editingId = null; }
+
+  function handleEditKey(e: KeyboardEvent) {
+    if (e.key === 'Enter') { e.preventDefault(); saveEdit(); }
+    if (e.key === 'Escape') cancelEdit();
+  }
+
+  function handleAdd() {
+    const lines = parseMarkdown(inputText);
+    if (addTasks(lines) > 0) inputText = '';
+  }
+
+  function handleAddKey(e: KeyboardEvent) {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleAdd();
     }
   }
+
+  function handleClearAll() {
+    if (confirm(`Remove all ${app.tasks.length} task${app.tasks.length > 1 ? 's' : ''}?`)) {
+      clearAllTasks();
+    }
+  }
 </script>
+
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && editingId) cancelEdit(); }} />
 
 <aside id="inbox" class:active={activeOnMobile}>
   <div class="rail-head">Inbox</div>
@@ -57,43 +86,96 @@
     <textarea
       id="task-input"
       bind:value={inputText}
-      onkeydown={handleKeydown}
+      onkeydown={handleAddKey}
       placeholder={"draft email .5h x2, p2\nship invoice 1h, p1\ndeep work 2h x3, p3"}
     ></textarea>
-
     <div class="input-hint">
       title &nbsp;<strong>1h</strong> | <strong>.5h</strong> | <strong>90m</strong>
       &nbsp;[<strong>x2</strong>] &nbsp;[<strong>p1</strong>–<strong>p4</strong>]
     </div>
-
     <div class="input-actions">
       <button class="btn-add" onclick={handleAdd}>
         Add <small style="opacity:.5">&#8984;&#8629;</small>
       </button>
-      <button class="btn-sched" onclick={() => autoSchedule()}>
-        Auto-schedule
-      </button>
+      <button class="btn-sched" onclick={() => autoSchedule()}>Auto-schedule</button>
     </div>
   </div>
 
   <div id="task-list">
     {#each app.tasks as task (task.id)}
-      {@const placed = app.sessions.filter(s => s.taskId === task.id).length + task.sessionsDone}
-      {@const full = placed >= task.sessionsTotal}
-      <div class="task-row">
-        <span class="p-dot" style="background:{P_COLORS[task.priority]}"></span>
-        <span class="t-name" title={task.title}>{task.title}</span>
-        <span class="t-dur">{fmtDur(task.sessionMin)}</span>
-        <span class="t-prog" class:done={full}>{placed}/{task.sessionsTotal}</span>
-        <span
-          class="t-del"
-          title="Remove"
+      {#if editingId === task.id}
+        <!-- ── Inline edit form ── -->
+        <div class="task-edit">
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            class="edit-title"
+            bind:value={editTitle}
+            onkeydown={handleEditKey}
+            placeholder="title"
+            autofocus
+          />
+          <div class="edit-row">
+            <input
+              class="edit-field edit-dur"
+              bind:value={editDur}
+              onkeydown={handleEditKey}
+              title="Duration (1h, 30m)"
+              placeholder="dur"
+            />
+            <input
+              class="edit-field edit-sess"
+              type="number"
+              min="1"
+              max="14"
+              bind:value={editSess}
+              onkeydown={handleEditKey}
+              title="Sessions"
+            />
+            <select class="edit-field edit-prio" bind:value={editPrio} onkeydown={handleEditKey}>
+              <option value={1}>p1</option>
+              <option value={2}>p2</option>
+              <option value={3}>p3</option>
+              <option value={4}>p4</option>
+            </select>
+            <button class="edit-save" onclick={saveEdit} title="Save (Enter)">&#10003;</button>
+            <button class="edit-cancel" onclick={cancelEdit} title="Cancel (Esc)">&#x2715;</button>
+          </div>
+        </div>
+      {:else}
+        <!-- ── Task row (click to edit) ── -->
+        {@const placed = app.sessions.filter(s => s.taskId === task.id).length + task.sessionsDone}
+        {@const full = placed >= task.sessionsTotal}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="task-row"
+          title="Click to edit"
+          onclick={() => startEdit(task)}
+          onkeydown={(e) => e.key === 'Enter' && startEdit(task)}
           role="button"
           tabindex="0"
-          onclick={() => removeTask(task.id)}
-          onkeydown={(e) => e.key === 'Enter' && removeTask(task.id)}
-        >&#x2715;</span>
-      </div>
+        >
+          <span class="p-dot" style="background:{P_COLORS[task.priority]}"></span>
+          <span class="t-name">{task.title}</span>
+          <span class="t-dur">{fmtDur(task.sessionMin)}</span>
+          <span class="t-prog" class:done={full}>{placed}/{task.sessionsTotal}</span>
+          <span
+            class="t-del"
+            title="Remove"
+            role="button"
+            tabindex="0"
+            onclick={(e) => { e.stopPropagation(); removeTask(task.id); }}
+            onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); removeTask(task.id); } }}
+          >&#x2715;</span>
+        </div>
+      {/if}
     {/each}
   </div>
+
+  {#if app.tasks.length > 0}
+    <div class="inbox-footer">
+      <button class="btn-clear-all" onclick={handleClearAll}>
+        Clear all tasks
+      </button>
+    </div>
+  {/if}
 </aside>
