@@ -26,11 +26,11 @@
    * Local draft config — only pushed to app state when user clicks Apply.
    * Prevents half-changed configs from triggering re-schedules.
    */
-  let draft = $state<Config>(structuredClone(app.config));
+  let draft = $state<Config>($state.snapshot(app.config) as Config);
 
   // Sync draft from live config whenever the drawer opens
   $effect(() => {
-    if (open) draft = structuredClone(app.config);
+    if (open) draft = $state.snapshot(app.config) as Config;
   });
 
   // New block-off form fields
@@ -92,7 +92,7 @@
       draft.hoursPerDay.sat = 0;
       draft.hoursPerDay.sun = 0;
     }
-    applyConfig(structuredClone(draft));
+    applyConfig($state.snapshot(draft) as Config);
     open = false;
     showToast('Config applied');
   }
