@@ -87,7 +87,14 @@ export function addTasks(lines: string[]): number {
       added++;
     }
   }
-  if (added > 0) autoSchedule();
+  if (added > 0) {
+    autoSchedule();
+    const skipped = lines.length - added;
+    const msg = skipped > 0
+      ? `Added ${added} task${added > 1 ? 's' : ''} (${skipped} skipped — no duration)`
+      : `Added ${added} task${added > 1 ? 's' : ''}`;
+    showToast(msg);
+  }
   return added;
 }
 

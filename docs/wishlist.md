@@ -110,3 +110,18 @@ These need a decision before the relevant feature can be built.
 - Do block-offs count *against* `hoursPerDay`, or are they additional capacity?
 - Mobile target: read-only or full editing on small screens?
 - Should completed sessions persist for a history view, or reset each week?
+
+
+
+
+## Markdown rendered preview — estimate and verdict**
+
+What it would be: a side-by-side or toggle view that renders the pasted markdown with visual checkboxes and section headers, with each importable line highlighted (green badge showing parsed title/duration/priority) and skipped lines dimmed.
+
+Effort: **M, ~3–4h**
+- Markdown renderer (marked.js or regex): ~30min
+- Preview panel UI, toggle button, CSS: ~1.5h
+- Per-line parse status overlay (green/grey badges): ~1h
+- Handling cursor sync between raw and preview: ~30min
+
+**Verdict: wishlist.** The plain textarea already works for the format you showed. A rendered preview pays off when the list is long (20+ items) and you want to verify what got picked up before committing — not a v1 need. Adding it to the wishlist now. The highest-value improvement to the import UX would actually be a **parse-as-you-type preview** (showing recognised tasks inline below the textarea, ~1h), which is simpler and more useful day-to-day than full markdown rendering.

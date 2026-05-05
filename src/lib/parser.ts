@@ -54,7 +54,12 @@ export function parseLine(raw: string): Omit<Task, 'id' | 'createdAt'> | null {
   const priority = (pMatch ? parseInt(pMatch[1], 10) : 3) as 1 | 2 | 3 | 4;
 
   // ── Title ────────────────────────────────────────────────────────────────
-  const title = line.slice(0, durMatch.index).replace(/[,;]\s*$/, '').trim();
+  // Strip any pN / xN tokens that appear before the duration (they're metadata,
+  // not part of the task name). Example: "Chipper .25 p1 1h p3" → "Chipper .25"
+  const title = line.slice(0, durMatch.index)
+    .replace(/\s+[px]\d+\b/gi, '')
+    .replace(/[,;]\s*$/, '')
+    .trim();
   if (!title) return null;
 
   return { title, sessionMin, sessionsTotal, sessionsDone: 0, priority };

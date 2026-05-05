@@ -1,6 +1,8 @@
 import type { app as AppType } from './store.svelte.js';
 
-export const STORE_KEY = 'alph-v0';
+// v1: bumped from alph-v0 to avoid loading mockup.html data which uses
+// different field names (min/total/done/p vs sessionMin/sessionsTotal/sessionsDone/priority).
+export const STORE_KEY = 'alph-planner-v1';
 
 type AppSnapshot = typeof AppType;
 
