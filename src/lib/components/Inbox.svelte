@@ -98,8 +98,9 @@
 
   // ── Selection handlers ───────────────────────────────────────────────────
   function toggleSelect(id: string) {
-    if (selectedIds.has(id)) selectedIds.delete(id);
-    else selectedIds.add(id);
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    selectedIds = next; // replace, not mutate — triggers Svelte reactivity
   }
 
   function toggleSelectAll() {
@@ -260,7 +261,7 @@
             title="Remove"
             role="button"
             tabindex="0"
-            onclick={(e) => { e.stopPropagation(); selectedIds.delete(task.id); removeTask(task.id); }}
+            onclick={(e) => { e.stopPropagation(); selectedIds = new Set([...selectedIds].filter(x => x !== task.id)); removeTask(task.id); }}
             onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); removeTask(task.id); } }}
           >&#x2715;</span>
         </div>
