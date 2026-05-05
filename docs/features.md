@@ -70,7 +70,7 @@ Click **⚙** in the top bar.
 
 ---
 
-## Week weather
+## Week weather  ✓ shipped 0.2.0
 
 The day headers show a weather emoji and forecast high temperature for each day,
 pulled live from [Open-Meteo](https://open-meteo.com/) (free, no API key).
