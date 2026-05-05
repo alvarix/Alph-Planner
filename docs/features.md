@@ -4,7 +4,7 @@ Plain-English reference. Updated whenever a feature is added or changed.
 
 ---
 
-## Task input
+## Task input  ✓ updated 0.4.0
 
 Type one task per line in the Inbox using the terse syntax:
 
@@ -21,6 +21,31 @@ Parts:
 - **p1**–**p4** — priority, 1 = highest (optional, default 3)
 
 Press **Add** or `Cmd+Enter` to submit. Press `n` from anywhere to jump to the input.
+
+You can also paste a Markdown task list directly — see [Markdown import](#markdown-import) below.
+
+Additional parser rules:
+- `1hx2` — `xN` may be attached directly to the duration (no space required)
+- `.5` or `.25` — bare decimals with no unit are treated as hours
+
+### Markdown import
+
+Paste a GitHub-style task list and press Add. The parser strips the formatting
+and imports unchecked items with a recognised duration. Checked items (`[x]`) and
+lines with no duration are skipped silently.
+
+```markdown
+# 05/05/26
+- [ ] Dixie drawing 1h p2
+- [x] already done 1h p1
+- [ ] Court prep 1hx2 p1
+
+## Mtk
+- [ ] Motel tax .5 p1
+```
+
+Result: `Dixie drawing`, `Court prep` (2 sessions), `Motel tax` imported.
+`already done` and the section headings are skipped.
 
 ---
 

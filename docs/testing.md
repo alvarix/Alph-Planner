@@ -48,6 +48,19 @@ and confirms it's gone. Basic drawer interaction smoke test.
 Adds a task, reloads the page, and confirms the task is still in the list.
 Verifies localStorage persistence is wired up correctly.
 
+### markdown: imports unchecked tasks, skips headers and done items
+Pastes a multi-section Markdown task list, clicks Add, and asserts the correct
+items appear (with duration) while headings, checked items, and no-duration lines
+are absent from the task list.
+
+### markdown: attached xN (1hx2) produces correct session count
+Submits `- [ ] Court prep 1hx2 p1` and checks that 2 session blocks appear on
+the grid, confirming the attached-xN parser path works.
+
+### markdown: bare decimal duration (.5 with no h) is treated as hours
+Submits `- [ ] Motel tax .5 p1` and checks the duration badge shows `30m`
+(0.5 h = 30 min), confirming the bare-decimal fallback works.
+
 ## Adding tests
 
 Each test should:

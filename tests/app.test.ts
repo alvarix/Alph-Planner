@@ -116,3 +116,72 @@ test('task survives a page reload', async ({ page }) => {
 	// Task must still be there after reload
 	await expect(page.locator('#task-list')).toContainText('persistent task');
 });
+
+// ── Markdown import ────────────────────────────────────────────────────────
+
+const MD_SAMPLE = `# 05/05/26
+
+- [ ] alph-planner
+- [ ] Dixie drawing 1h p2
+- [x] already done 1h p1
+- [ ] Court prep 1hx2 p1
+
+## Mtk
+- [ ] Motel tax .5 p1
+- [ ] Mow 1h p1
+`;
+
+test('markdown: imports unchecked tasks, skips headers and done items', async ({ page }) => {
+	await page.goto('/');
+	await page.waitForSelector('#topbar');
+	await page.evaluate(() => localStorage.clear());
+	await page.reload();
+	await page.waitForSelector('#topbar');
+
+	await page.fill('#task-input', MD_SAMPLE);
+	await page.click('button.btn-add');
+
+	const list = page.locator('#task-list');
+
+	// Parsed items
+	await expect(list).toContainText('Dixie drawing');
+	await expect(list).toContainText('Court prep');
+	await expect(list).toContainText('Motel tax');
+	await expect(list).toContainText('Mow');
+
+	// Skipped: no duration
+	await expect(list).not.toContainText('alph-planner');
+	// Skipped: checked item
+	await expect(list).not.toContainText('already done');
+	// Skipped: heading text
+	await expect(list).not.toContainText('05/05/26');
+	await expect(list).not.toContainText('Mtk');
+});
+
+test('markdown: attached xN (1hx2) produces correct session count', async ({ page }) => {
+	await page.goto('/');
+	await page.waitForSelector('#topbar');
+	await page.evaluate(() => localStorage.clear());
+	await page.reload();
+	await page.waitForSelector('#topbar');
+
+	await page.fill('#task-input', '- [ ] Court prep 1hx2 p1');
+	await page.click('button.btn-add');
+
+	// Two session blocks should appear on the grid (sessionsTotal = 2)
+	await expect(page.locator('.sess')).toHaveCount(2);
+});
+
+test('markdown: bare decimal duration (.5 with no h) is treated as hours', async ({ page }) => {
+	await page.goto('/');
+	await page.waitForSelector('#topbar');
+	await page.evaluate(() => localStorage.clear());
+	await page.reload();
+	await page.waitForSelector('#topbar');
+
+	await page.fill('#task-input', '- [ ] Motel tax .5 p1');
+	await page.click('button.btn-add');
+
+	// Duration should display as 30m (0.5h)
+	await expect(page.locator('.t-dur')).toContainText('30m');
+});

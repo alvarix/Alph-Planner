@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0] - 2026-05-05
+
+### Added
+- Markdown task-list import: paste `- [ ] task 1h p2` blocks directly into
+  the Inbox; headings, checked items, and no-duration lines are skipped silently
+- Parser: bare decimal durations (`.5`, `.25`) now treated as hours
+- Parser: attached xN (`1hx2`) recognised alongside spaced form (`1h x2`)
+- 3 new Playwright tests covering the markdown and parser edge cases
+
 ## [0.3.0] - 2026-05-05
 
 ### Fixed

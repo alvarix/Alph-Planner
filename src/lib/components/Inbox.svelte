@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app, addTasks, autoSchedule, removeTask } from '$lib/store.svelte.js';
+  import { parseMarkdown } from '$lib/parser.js';
 
   /**
    * When true (on mobile), adds .active class so this panel is shown.
@@ -30,7 +31,7 @@
 
   /** Handle the Add button or Cmd+Enter shortcut */
   function handleAdd() {
-    const lines = inputText.split('\n').filter(l => l.trim());
+    const lines = parseMarkdown(inputText);
     const added = addTasks(lines);
     if (added > 0) {
       inputText = '';
