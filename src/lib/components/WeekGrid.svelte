@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, setDrag, clearDrag, moveSession, scheduleUnscheduled, markDone, deleteSess, unscheduleSession } from '$lib/store.svelte.js';
+  import { app, setDrag, clearDrag, moveSession, scheduleUnscheduled, markDone, deleteSess, unscheduleSession, selectTask } from '$lib/store.svelte.js';
   import type { DayKey } from '$lib/types.js';
 
   /**
@@ -210,10 +210,15 @@
                 <div
                   class="sess p{task.priority}"
                   class:dragging={app.drag?.id === sess.id}
+                  class:selected={app.selectedTaskId === task.id}
                   style="top:{sess.slot * SLOT_H + 2}px;height:{n * SLOT_H - 4}px"
                   draggable="true"
                   ondragstart={(e) => handleSessDragStart(e, sess.id, n)}
                   ondragend={(e) => handleSessDragEnd(e, sess.id)}
+                  onclick={() => {
+                    if (confirmSess === sess.id) { confirmSess = null; }
+                    else selectTask(task.id);
+                  }}
                 >
                   <div class="s-title">{task.title}</div>
                   {#if n >= 2}

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { app, addTasks, autoSchedule, removeTask, updateTask, clearAllTasks } from '$lib/store.svelte.js';
+  import { app, addTasks, autoSchedule, removeTask, updateTask, clearAllTasks, clearSelection } from '$lib/store.svelte.js';
+  import { tick } from 'svelte';
   import { parseMarkdown } from '$lib/parser.js';
   import type { Task } from '$lib/types.js';
 
@@ -49,9 +50,23 @@
     const min = parseDurInput(editDur);
     updateTask(editingId, editTitle.trim() || '(untitled)', min, editSess, editPrio);
     editingId = null;
+    clearSelection();
   }
 
-  function cancelEdit() { editingId = null; }
+  function cancelEdit() { editingId = null; clearSelection(); }
+
+  // When a session is clicked on the grid, open that task's inline edit here.
+  $effect(() => {
+    const id = app.selectedTaskId;
+    if (!id) return;
+    const task = app.tasks.find(t => t.id === id);
+    if (task) {
+      startEdit(task);
+      tick().then(() => {
+        document.querySelector('.task-edit')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
+  });
 
   function handleEditKey(e: KeyboardEvent) {
     if (e.key === 'Enter') { e.preventDefault(); saveEdit(); }
@@ -148,6 +163,7 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="task-row"
+          class:selected={app.selectedTaskId === task.id}
           title="Click to edit"
           onclick={() => startEdit(task)}
           onkeydown={(e) => e.key === 'Enter' && startEdit(task)}

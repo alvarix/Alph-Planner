@@ -248,6 +248,9 @@ body {
 }
 .task-row { cursor: pointer; }
 .task-row:hover .t-name { text-decoration: underline; text-underline-offset: 2px; }
+.task-row.selected { background: #eff6ff; }
+
+.sess.selected { outline: 2px solid var(--p3); outline-offset: 1px; z-index: 6; }
 
 /* ── Inline task edit ────────────────────────────────────────────────────── */
 .task-edit {

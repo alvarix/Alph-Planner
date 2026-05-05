@@ -52,7 +52,8 @@ export const app = $state({
   config: structuredClone(defaultConfig) as Config,
   drag: null as DragState | null,
   toast: null as { msg: string; error?: boolean } | null,
-  weather: {} as Record<string, DayWeather>
+  weather: {} as Record<string, DayWeather>,
+  selectedTaskId: null as string | null
 });
 
 // ── Action functions ───────────────────────────────────────────────────────────
@@ -155,6 +156,12 @@ export function markDone(sessId: string): void {
 export function deleteSess(sessId: string): void {
   app.sessions = app.sessions.filter(x => x.id !== sessId);
 }
+
+/** Highlight a task in the sidebar and open its inline editor. */
+export function selectTask(id: string): void { app.selectedTaskId = id; }
+
+/** Clear the sidebar highlight/edit selection. */
+export function clearSelection(): void { app.selectedTaskId = null; }
 
 /** Move a placed session back to the Overflow rail (drag off grid). */
 export function unscheduleSession(sessId: string): void {

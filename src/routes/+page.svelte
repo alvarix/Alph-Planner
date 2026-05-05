@@ -59,6 +59,11 @@
     fetchWeek().then(w => { app.weather = w; });
   });
 
+  // Switch to inbox tab when a session is clicked on mobile.
+  $effect(() => {
+    if (app.selectedTaskId) activeTab = 'inbox';
+  });
+
   // Persist state after every reactive update.
   // Accessing array .length and config registers them as dependencies.
   $effect(() => {
