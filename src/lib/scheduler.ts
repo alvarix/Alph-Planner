@@ -123,12 +123,18 @@ export function schedule(
       // 2. Among equal, prefer the day with most remaining free slots
       //    so the scheduler doesn't pack everything into Monday first.
       const order = [...workdays].sort((a, b) => {
+        // 1. Prefer days this task hasn't used yet
         const da = usedDays.has(a) ? 1 : 0;
         const db = usedDays.has(b) ? 1 : 0;
         if (da !== db) return da - db;
+        // 2. Prefer weekdays over weekends — weekends only used when weekdays are full
+        const wa = WKND.includes(a) ? 1 : 0;
+        const wb = WKND.includes(b) ? 1 : 0;
+        if (wa !== wb) return wa - wb;
+        // 3. Most remaining free capacity first
         const remA = config.hoursPerDay[a] * 2 - occ[a].size;
         const remB = config.hoursPerDay[b] * 2 - occ[b].size;
-        return remB - remA; // most free capacity first
+        return remB - remA;
       });
 
       let placed = false;
