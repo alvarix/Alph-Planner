@@ -425,6 +425,17 @@ body {
   color: var(--muted);
 }
 
+/* Past days — greyed header and column */
+.day-head.past { opacity: 0.45; }
+.day-col.past  { background: #f9fafb; }
+
+/* Unfinished sessions on past days — warm amber to demand attention */
+.day-col.past .sess {
+  background: #fffbeb;
+  border-left-color: #f59e0b;
+  color: #78350f;
+}
+
 #grid-body { display: flex; }
 
 #time-col {

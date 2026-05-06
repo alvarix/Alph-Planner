@@ -50,6 +50,7 @@ export const app = $state({
   unscheduled: [] as UnscheduledSession[],
   done: [] as DoneSession[],
   config: structuredClone(defaultConfig) as Config,
+  weekOffset: 0,   // 0 = current week, ±N = weeks from now
   drag: null as DragState | null,
   toast: null as { msg: string; error?: boolean } | null,
   weather: {} as Record<string, DayWeather>,

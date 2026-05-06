@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { app, autoSchedule, syncUidCounter } from '$lib/store.svelte.js';
+  import { weekRangeLabel } from '$lib/dates.js';
   import { saveState, loadState } from '$lib/persistence.js';
   import { fetchWeek } from '$lib/weather.js';
   import Inbox from '$lib/components/Inbox.svelte';
@@ -15,22 +16,11 @@
   /** Config drawer open state — bound to ConfigDrawer's `open` prop */
   let configOpen = $state(false);
 
-  /**
-   * Cosmetic week navigation.
-   * v1: cosmetic only — no real date calculation.
-   */
-  const WEEK_LABELS = ['Apr 28 – May 4, 2026', 'May 5 – 11, 2026', 'May 12 – 18, 2026'];
-  let weekOffset = $state(1);
+  const weekLabel = $derived(weekRangeLabel(app.weekOffset));
 
-  const weekLabel = $derived(WEEK_LABELS[weekOffset] ?? WEEK_LABELS[1]);
-
-  /**
-   * Shift the displayed week.
-   * @param dir - -1 = previous, 0 = today (reset), 1 = next
-   */
   function shiftWeek(dir: -1 | 0 | 1) {
-    if (dir === 0) weekOffset = 1;
-    else weekOffset = Math.max(0, Math.min(WEEK_LABELS.length - 1, weekOffset + dir));
+    if (dir === 0) app.weekOffset = 0;
+    else app.weekOffset += dir;
   }
 
   // ── Persistence ───────────────────────────────────────────────────────────
@@ -55,7 +45,13 @@
       autoSchedule();
     }
 
-    // Non-blocking weather fetch — grid renders fine without it.
+    // Non-blocking weather fetch; re-fetches when week changes via $effect below.
+    fetchWeek().then(w => { app.weather = w; });
+  });
+
+  // Re-fetch weather when navigating to a different week.
+  $effect(() => {
+    void app.weekOffset;
     fetchWeek().then(w => { app.weather = w; });
   });
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { app, setDrag, clearDrag, moveSession, scheduleUnscheduled, markDone, deleteSess, unscheduleSession, selectTask } from '$lib/store.svelte.js';
+  import { getWeekDays } from '$lib/dates.js';
   import type { DayKey } from '$lib/types.js';
 
   /**
@@ -13,19 +14,8 @@
   const NSLOTS = (DAY_END - DAY_START) * 2; // 18
   const SLOT_H = 40;
 
-  /**
-   * Static day descriptors for the week of May 5-11 2026.
-   * `today` marks Monday May 5 (today per the env context).
-   */
-  const DAYS: { key: DayKey; label: string; date: number; iso: string; weekend?: boolean; today?: boolean }[] = [
-    { key: 'mon', label: 'Mon', date: 5,  iso: '2026-05-05', today: true },
-    { key: 'tue', label: 'Tue', date: 6,  iso: '2026-05-06' },
-    { key: 'wed', label: 'Wed', date: 7,  iso: '2026-05-07' },
-    { key: 'thu', label: 'Thu', date: 8,  iso: '2026-05-08' },
-    { key: 'fri', label: 'Fri', date: 9,  iso: '2026-05-09' },
-    { key: 'sat', label: 'Sat', date: 10, iso: '2026-05-10', weekend: true },
-    { key: 'sun', label: 'Sun', date: 11, iso: '2026-05-11', weekend: true }
-  ];
+  /** Recalculate whenever weekOffset changes. */
+  const DAYS = $derived(getWeekDays(app.weekOffset));
 
   /**
    * Convert slot index to HH:MM display string.
@@ -142,6 +132,7 @@
           class="day-head"
           class:wknd={day.weekend}
           class:today={day.today}
+          class:past={day.past}
         >
           <div class="day-dn">{day.label}</div>
           <div class="day-num">{day.date}</div>
@@ -177,6 +168,7 @@
           <div
             class="day-col"
             class:wknd={day.weekend}
+            class:past={day.past}
             style="height:{NSLOTS * SLOT_H}px"
             ondragover={(e) => handleDragOver(e, day.key)}
             ondragleave={() => handleDragLeave(day.key)}
