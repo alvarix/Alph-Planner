@@ -11,7 +11,7 @@ export default defineConfig({
 				name: 'Alph-Planner',
 				short_name: 'Alph',
 				description: 'Weekly task planner with terse syntax and drag-and-drop scheduling',
-				theme_color: '#1e293b',
+				theme_color: '#ff8a00',
 				background_color: '#f8fafc',
 				display: 'standalone',
 				start_url: '/',

@@ -12,9 +12,12 @@
   --muted: #94a3b8;
   --p1: #ef4444; --p1-bg: #fee2e2; --p1-tx: #7f1d1d;
   --p2: #f97316; --p2-bg: #ffedd5; --p2-tx: #7c2d12;
-  --p3: #3b82f6; --p3-bg: #dbeafe; --p3-tx: #1e3a8a;
+  --p3: #00a3ff; --p3-bg: #e0f2fe; --p3-tx: #0369a1;
   --p4: #94a3b8; --p4-bg: #f1f5f9; --p4-tx: #475569;
-  font-family: system-ui, -apple-system, sans-serif;
+  --brand-a: #ff8a00;
+  --brand-b: #e52e71;
+  --brand-gradient: linear-gradient(135deg, var(--brand-a), var(--brand-b));
+  font-family: Lato, system-ui, -apple-system, sans-serif;
   font-size: 14px;
   color: var(--text);
   background: var(--bg);
@@ -35,27 +38,29 @@ body {
   padding: 0 16px;
   height: 46px;
   flex-shrink: 0;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--brand-gradient);
+  border-bottom: none;
 }
 
 #topbar h1 {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 900;
   letter-spacing: -.3px;
+  color: #fff;
 }
 
 .vtag {
   font-size: 10px;
-  color: var(--muted);
+  color: rgba(255,255,255,.7);
   padding: 2px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255,255,255,.35);
   border-radius: 99px;
 }
 
 #week-label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 400;
+  color: #fff;
 }
 
 .week-nav {
@@ -66,14 +71,15 @@ body {
 
 .btn-nav {
   padding: 3px 10px;
-  border: 1px solid var(--border);
-  background: none;
+  border: 1px solid rgba(255,255,255,.4);
+  background: rgba(255,255,255,.15);
   border-radius: 5px;
   font-size: 12px;
   cursor: pointer;
+  color: #fff;
 }
 
-.btn-nav:hover { background: var(--bg); }
+.btn-nav:hover { background: rgba(255,255,255,.3); }
 
 /* ── Main layout ──────────────────────────────────────────────────────────── */
 #main {
