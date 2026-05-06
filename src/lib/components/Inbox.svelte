@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     app, addTasks, autoSchedule, removeTask, updateTask,
-    clearAllTasks, clearSelection,
+    clearAllTasks, clearSelection, addDoneItems,
     deleteSelectedTasks, bulkSetPriority, bulkSetDuration
   } from '$lib/store.svelte.js';
   import { tick } from 'svelte';
@@ -88,8 +88,10 @@
 
   // ── Add tasks ────────────────────────────────────────────────────────────
   function handleAdd() {
-    const lines = parseMarkdown(inputText);
-    if (addTasks(lines) > 0) inputText = '';
+    const { active, done } = parseMarkdown(inputText);
+    const added = addTasks(active);
+    if (done.length > 0) addDoneItems(done);
+    if (added > 0 || done.length > 0) inputText = '';
   }
 
   function handleAddKey(e: KeyboardEvent) {

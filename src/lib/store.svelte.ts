@@ -160,6 +160,25 @@ export function deleteSess(sessId: string): void {
 /** Highlight a task in the sidebar and open its inline editor. */
 export function selectTask(id: string): void { app.selectedTaskId = id; }
 
+/**
+ * Push pre-completed items (from a markdown [x] import) directly into done[].
+ * Uses parseLine to extract duration; falls back to 30m default.
+ *
+ * @param lines - Bare task strings (already stripped of markdown syntax)
+ */
+export function addDoneItems(lines: string[]): void {
+  const now = new Date().toISOString();
+  for (const line of lines) {
+    const p = parseLine(line);
+    app.done.push({
+      id: uid(),
+      taskTitle: p?.title ?? line.trim(),
+      sessionMin: p?.sessionMin ?? 30,
+      doneAt: now
+    });
+  }
+}
+
 /** Clear the sidebar highlight/edit selection. */
 export function clearSelection(): void { app.selectedTaskId = null; }
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0] - 2026-05-06
+
+### Added
+- Checked markdown items (`- [x]`) now import into the Done tab instead of
+  being silently dropped; nested checked items become "parent: child" entries
+- `addDoneItems()` store action for direct done-list injection
+
+### Fixed
+- Multi-select bulk action bar only appeared after Select All (Set mutation
+  doesn't trigger Svelte 5 re-render); fixed by replacing Set on each toggle
+
 ## [0.4.0] - 2026-05-05
 
 ### Added

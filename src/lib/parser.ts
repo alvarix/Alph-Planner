@@ -61,65 +61,71 @@ export function parseLine(raw: string): Omit<Task, 'id' | 'createdAt'> | null {
 }
 
 /**
- * Pre-process a block of text that may contain GitHub-flavoured Markdown
- * task-list syntax, returning bare task strings for parseLine().
+ * Parse a Markdown task-list block into active (unchecked) and done (checked)
+ * task strings, both ready for parseLine().
  *
  * Rules:
- *   - `# heading` → skipped, resets nesting context
- *   - `- [x] done` → skipped at any indent level
- *   - `- [ ] task` → extracted; if indented under an unchecked parent,
- *     emitted as "parent: child"
- *   - Plain lines with no list marker → passed through as-is when no
- *     Markdown patterns are detected
+ *   - `# heading` → resets nesting context, skipped
+ *   - `- [ ] task` → active; if indented under an unchecked parent, emitted
+ *     as "parent: child"
+ *   - `- [x] task` → done; if indented under a checked parent, emitted as
+ *     "parent: child" in done
+ *   - Unchecked items nested under a checked parent → active (no prefix)
+ *   - Plain non-list text → passed through as active when no Markdown patterns
+ *     are detected
  *
  * @param text - Raw textarea content, possibly Markdown
- * @returns Array of bare task strings for parseLine()
+ * @returns `{ active, done }` — arrays of bare task strings for parseLine()
  */
-export function parseMarkdown(text: string): string[] {
-  const rawLines   = text.split('\n');
+export function parseMarkdown(text: string): { active: string[]; done: string[] } {
+  const rawLines    = text.split('\n');
   const hasMarkdown = rawLines.some(
     l => /^[\t ]*-\s*\[/.test(l) || /^\s*#{1,6}\s/.test(l)
   );
 
-  if (!hasMarkdown) return rawLines.map(l => l.trim()).filter(Boolean);
+  if (!hasMarkdown) {
+    return { active: rawLines.map(l => l.trim()).filter(Boolean), done: [] };
+  }
 
-  const result: string[]    = [];
-  let lastParent: string | null = null; // last unchecked top-level item text
+  const active: string[] = [];
+  const done:   string[] = [];
+  let lastUnchecked: string | null = null; // last unchecked top-level text
+  let lastChecked:   string | null = null; // last checked top-level text
 
   for (const raw of rawLines) {
     const indented = /^(\t| {2,})/.test(raw);
     const line     = raw.trim();
     if (!line) continue;
 
-    // Heading — reset parent context
     if (/^#{1,6}\s/.test(line)) {
-      lastParent = null;
+      lastUnchecked = null;
+      lastChecked   = null;
       continue;
     }
 
-    const checked   = line.match(/^-\s*\[x\]\s*(.*)/i);
-    const unchecked = line.match(/^-\s*\[\s*\]\s*(.*)/);
+    const chk  = line.match(/^-\s*\[x\]\s*(.*)/i);
+    const unch = line.match(/^-\s*\[\s*\]\s*(.*)/);
 
-    if (checked) {
-      if (!indented) lastParent = null; // checked top-level resets context
-      continue;                         // never import checked items
+    if (chk) {
+      const t = chk[1].trim();
+      if (!t) { if (!indented) { lastChecked = null; lastUnchecked = null; } continue; }
+      const label = (indented && lastChecked) ? `${lastChecked}: ${t}` : t;
+      done.push(label);
+      if (!indented) { lastChecked = t; lastUnchecked = null; }
+      continue;
     }
 
-    if (unchecked) {
-      const text = unchecked[1].trim();
-      if (!text) continue;
-
-      if (indented && lastParent) {
-        result.push(`${lastParent}: ${text}`);
-        // nested items don't become new parents
+    if (unch) {
+      const t = unch[1].trim();
+      if (!t) continue;
+      if (indented && lastUnchecked) {
+        active.push(`${lastUnchecked}: ${t}`);
       } else {
-        result.push(text);
-        if (!indented) lastParent = text;
+        active.push(t);
+        if (!indented) { lastUnchecked = t; lastChecked = null; }
       }
-      continue;
     }
-    // Non-list, non-heading lines are ignored in markdown mode
   }
 
-  return result.filter(Boolean);
+  return { active: active.filter(Boolean), done: done.filter(Boolean) };
 }

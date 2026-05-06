@@ -48,7 +48,7 @@ export interface DragState {
 
 export interface DoneSession {
   id: string;
-  taskId: string;
+  taskId?: string; // absent for items imported already-done from markdown
   taskTitle: string;
   sessionMin: number;
   doneAt: string; // ISO timestamp
