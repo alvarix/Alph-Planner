@@ -167,6 +167,38 @@ function placeOneTask(
 }
 
 /**
+ * Decide whether a placed session is still visually valid under the given config.
+ *
+ * Returns false only when the session would fall outside the visible day window
+ * (dayStart..dayEnd) or overlap a blockoff. Intentionally permissive about
+ * hoursPerDay caps and disabled (cap=0) days — those are soft policy hints,
+ * and the user may have manually overridden them by dragging. Data safety
+ * trumps tidy auto-placement.
+ *
+ * @param session - The placed session
+ * @param task - Its parent task (for slot width)
+ * @param config - The new config to validate against
+ */
+export function sessionFitsVisible(session: Session, task: Task, config: Config): boolean {
+  const slots = slotsFor(task.sessionMin);
+  const dayStart = config.dayStart ?? 9;
+  const dayEnd = config.dayEnd ?? 17.5;
+  const nslots = Math.round((dayEnd - dayStart) * 2);
+
+  if (session.slot < 0) return false;
+  if (session.slot + slots > nslots) return false;
+
+  const bos = dayBlockoffs(config, session.day);
+  for (let i = 0; i < slots; i++) {
+    const sl = session.slot + i;
+    for (const bo of bos) {
+      if (sl >= bo.startSlot && sl < bo.startSlot + bo.slots) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Greedily schedule all sessions by priority, then by total work descending.
  * Sessions for the same task are spread across different days where possible.
  * Sessions that can't be placed go to the unscheduled overflow.

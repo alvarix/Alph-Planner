@@ -4,6 +4,11 @@ import type { app as AppType } from './store.svelte.js';
 // different field names (min/total/done/p vs sessionMin/sessionsTotal/sessionsDone/priority).
 export const STORE_KEY = 'alph-planner-v1';
 
+// One-deep undo snapshot. Written immediately before any destructive
+// operation (e.g. the explicit Auto-schedule button) so a user can recover
+// by copying this key over STORE_KEY in devtools and reloading.
+export const SNAPSHOT_KEY = 'alph-planner-v1-snapshot';
+
 type AppSnapshot = typeof AppType;
 
 /**
@@ -43,6 +48,30 @@ export function loadState(): Partial<AppSnapshot> | null {
     return d;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Write a one-deep snapshot of the current state to a separate localStorage
+ * key. Called before any destructive operation. Overwrites any prior snapshot.
+ *
+ * Recovery: in devtools, copy SNAPSHOT_KEY value into STORE_KEY and reload.
+ *
+ * @param state - The app state object to snapshot
+ */
+export function snapshotState(state: AppSnapshot): void {
+  try {
+    const data = {
+      tasks: state.tasks,
+      sessions: state.sessions,
+      unscheduled: state.unscheduled,
+      done: state.done,
+      config: state.config,
+      _snapshotAt: new Date().toISOString()
+    };
+    localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(data));
+  } catch {
+    // Silently ignore storage errors
   }
 }
 

@@ -1,6 +1,7 @@
 import { parseLine } from './parser.js';
-import { schedule, placeTaskSessions } from './scheduler.js';
+import { schedule, placeTaskSessions, sessionFitsVisible } from './scheduler.js';
 import { getWeekDays } from './dates.js';
+import { snapshotState } from './persistence.js';
 import type { Task, Session, UnscheduledSession, DoneSession, Config, DragState, DayKey } from './types.js';
 import type { DayWeather } from './weather.js';
 
@@ -71,6 +72,10 @@ export const app = $state({
  * and overflow placements. Use rescheduleTask() for single-task mutations.
  */
 export function autoSchedule(): void {
+  // Snapshot current state before wiping so the user can recover from
+  // localStorage if Auto-schedule was clicked by mistake.
+  snapshotState(app);
+
   // Only schedule into today and future days — past days are read-only.
   const eligible = getWeekDays(app.weekOffset)
     .filter(d => !d.past)
@@ -128,7 +133,17 @@ export function addTasks(lines: string[]): number {
     added++;
   }
   if (added > 0) {
-    autoSchedule();
+    // Non-destructive: place only the new tasks. Existing sessions and
+    // overflow are preserved verbatim. Within the new batch, sort by
+    // priority (and total work) so higher-priority lines win the better
+    // slots — matching scheduler.ts's global ordering rule.
+    const newOnes = app.tasks.slice(app.tasks.length - added);
+    const sortedNew = [...newOnes].sort((a, b) =>
+      a.priority !== b.priority
+        ? a.priority - b.priority
+        : (b.sessionMin * b.sessionsTotal) - (a.sessionMin * a.sessionsTotal)
+    );
+    for (const t of sortedNew) rescheduleTask(t.id);
     showToast(`Added ${added} task${added > 1 ? 's' : ''}`);
   }
   return added;
@@ -311,13 +326,36 @@ export function removeTask(id: string): void {
 }
 
 /**
- * Replace the app config and re-schedule everything.
+ * Replace the app config without destroying placements.
+ *
+ * Sessions that still fit under the new config (within the visible day
+ * window and not overlapping any blockoff) stay exactly where they are.
+ * Sessions that would fall outside the grid or land on a new blockoff
+ * are moved to overflow so the user can re-place them deliberately.
  *
  * @param cfg - New config object
  */
 export function applyConfig(cfg: Config): void {
   app.config = cfg;
-  autoSchedule();
+
+  const kept: Session[] = [];
+  const evicted: UnscheduledSession[] = [];
+  for (const s of app.sessions) {
+    const t = app.tasks.find(x => x.id === s.taskId);
+    if (t && sessionFitsVisible(s, t, cfg)) {
+      kept.push(s);
+    } else {
+      evicted.push({ id: s.id, taskId: s.taskId });
+    }
+  }
+
+  app.sessions = kept;
+  if (evicted.length > 0) {
+    app.unscheduled = [...app.unscheduled, ...evicted];
+    showToast(
+      `${evicted.length} session${evicted.length > 1 ? 's' : ''} moved to overflow (no longer fit)`
+    );
+  }
 }
 
 /**

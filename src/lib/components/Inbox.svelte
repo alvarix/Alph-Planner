@@ -139,6 +139,23 @@
       selectedIds = new Set();
     }
   }
+
+  function confirmAutoSchedule() {
+    const placed = app.sessions.length;
+    const overflow = app.unscheduled.length;
+    if (placed === 0 && overflow === 0) {
+      autoSchedule();
+      return;
+    }
+    const msg =
+      `Auto-schedule will discard your manual time-slot edits ` +
+      `(${placed} placed${overflow ? `, ${overflow} in overflow` : ''}) ` +
+      `and re-place every task from scratch.\n\n` +
+      `A snapshot of the current state will be saved to localStorage ` +
+      `(key: alph-planner-v1-snapshot) so it can be recovered.\n\n` +
+      `Continue?`;
+    if (confirm(msg)) autoSchedule();
+  }
 </script>
 
 <svelte:window onkeydown={(e) => {
@@ -164,7 +181,7 @@
     </div>
     <div class="input-actions">
       <button class="btn-add" onclick={handleAdd}>Add <small style="opacity:.5">&#8984;&#8629;</small></button>
-      <button class="btn-sched" onclick={() => autoSchedule()}>Auto-schedule</button>
+      <button class="btn-sched" onclick={confirmAutoSchedule}>Auto-schedule</button>
     </div>
   </div>
 
