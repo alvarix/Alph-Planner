@@ -1,5 +1,6 @@
 import { parseLine } from './parser.js';
 import { schedule } from './scheduler.js';
+import { getWeekDays } from './dates.js';
 import type { Task, Session, UnscheduledSession, DoneSession, Config, DragState, DayKey } from './types.js';
 import type { DayWeather } from './weather.js';
 
@@ -64,7 +65,11 @@ export const app = $state({
  * replacing app.sessions and app.unscheduled in place.
  */
 export function autoSchedule(): void {
-  const result = schedule(app.tasks, app.config, uid);
+  // Only schedule into today and future days — past days are read-only.
+  const eligible = getWeekDays(app.weekOffset)
+    .filter(d => !d.past)
+    .map(d => d.key);
+  const result = schedule(app.tasks, app.config, uid, eligible);
   app.sessions = result.sessions;
   app.unscheduled = result.unscheduled;
 }

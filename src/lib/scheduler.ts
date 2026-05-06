@@ -79,7 +79,9 @@ function isFree(
 export function schedule(
   tasks: Task[],
   config: Config,
-  uidFn: () => string
+  uidFn: () => string,
+  /** When provided, restricts which days are eligible (e.g. today + future days only). */
+  eligibleDays?: DayKey[]
 ): { sessions: Session[]; unscheduled: UnscheduledSession[] } {
   const sessions: Session[] = [];
   const unscheduled: UnscheduledSession[] = [];
@@ -99,8 +101,9 @@ export function schedule(
     });
   });
 
-  // Eligible working days (positive hour cap)
-  const workdays = ALL_DAYS.filter(d => config.hoursPerDay[d] > 0);
+  // Eligible working days: positive hour cap AND not in the past
+  const pool = eligibleDays ?? ALL_DAYS;
+  const workdays = pool.filter(d => config.hoursPerDay[d] > 0);
 
   // Sort: priority asc (p1 first), then total work desc
   const sorted = [...tasks].sort((a, b) =>
