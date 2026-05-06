@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { app, autoSchedule, syncUidCounter } from '$lib/store.svelte.js';
   import { weekRangeLabel } from '$lib/dates.js';
-  import { saveState, loadState } from '$lib/persistence.js';
+  import { saveState, loadState, postSnapshot } from '$lib/persistence.js';
   import { fetchWeek } from '$lib/weather.js';
   import Inbox from '$lib/components/Inbox.svelte';
   import WeekGrid from '$lib/components/WeekGrid.svelte';
@@ -69,6 +69,7 @@
     void app.done.length;
     void app.config;
     saveState(app);
+    postSnapshot(app);
   });
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────

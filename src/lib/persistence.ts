@@ -75,6 +75,30 @@ export function snapshotState(state: AppSnapshot): void {
   }
 }
 
+let _snapTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Send a copy of the current state to the dev-only snapshot endpoint.
+ * Debounced 500ms. No-op outside dev. Fire-and-forget.
+ *
+ * @param state - The app state object
+ */
+export function postSnapshot(state: AppSnapshot): void {
+  if (!import.meta.env.DEV) return;
+  if (_snapTimer) clearTimeout(_snapTimer);
+  _snapTimer = setTimeout(() => {
+    const data = JSON.stringify({
+      tasks: state.tasks,
+      sessions: state.sessions,
+      unscheduled: state.unscheduled,
+      done: state.done,
+      config: state.config
+    });
+    fetch('/api/snapshot', { method: 'POST', body: data, headers: { 'content-type': 'application/json' } })
+      .catch(() => {});
+  }, 500);
+}
+
 /**
  * Export the full app state as a downloadable JSON file.
  *

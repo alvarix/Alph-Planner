@@ -50,7 +50,7 @@ import { dev } from '$app/environment';
 import { writeFile, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 
-const DIR = join(process.cwd(), '._-', 'snapshots');
+const DIR = 'snapshots';
 const KEEP = 500;
 
 export const POST: RequestHandler = async ({ request }) => {

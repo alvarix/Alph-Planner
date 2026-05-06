@@ -108,4 +108,44 @@ Connect the repo to a Vercel project. `adapter-vercel` handles the build. No env
 
 State is saved to `localStorage` under `alph-planner-v1`. Use Config → Export JSON to back up or move data between devices.
 
+## Dev: state history and recovery
+
+When running `npm run dev`, the app automatically writes a timestamped JSON snapshot to `snapshots/` after every state change (debounced 500ms). Up to 500 snapshots are kept; older ones are pruned automatically.
+
+**This is dev-only.** The snapshot endpoint is hard-gated on the `dev` flag from `$app/environment` — it returns 405 in `npm run preview` and in production. Nothing is shipped to Vercel. No configuration required to enable it; it runs whenever you run `npm run dev`.
+
+**There is no on/off toggle.** Snapshots are always captured during dev. They are fire-and-forget — if the write fails (e.g. disk full) the app ignores it.
+
+### Listing snapshots
+
+```sh
+ls -t snapshots/ | head -20
+```
+
+### Recovering a past state
+
+1. Pick a file by timestamp:
+   ```sh
+   ls -t snapshots/ | head -20
+   ```
+2. Copy it to the clipboard:
+   ```sh
+   pbcopy < snapshots/2026-05-06T13-42-03-512Z.json
+   ```
+3. In the browser devtools Console, paste and run:
+   ```js
+   localStorage.setItem('alph-planner-v1', '<paste here>')
+   ```
+4. Reload the page.
+
+### File format
+
+Each file is plain JSON matching the `alph-planner-v1` localStorage shape:
+
+```json
+{ "tasks": [...], "sessions": [...], "unscheduled": [...], "done": [...], "config": {...} }
+```
+
+The filename is the ISO timestamp of the write, colons and dots replaced with dashes.
+
 See `docs/features.md` for the full feature reference and `docs/wishlist.md` for planned work.
