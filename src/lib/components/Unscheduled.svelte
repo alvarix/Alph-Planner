@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, setDrag, clearDrag, rollToNextWeek } from '$lib/store.svelte.js';
+  import { app, setDrag, clearDrag, rollToNextWeek, deleteDoneItem, clearDoneHistory } from '$lib/store.svelte.js';
 
   let { activeOnMobile = false }: { activeOnMobile?: boolean } = $props();
 
@@ -14,9 +14,40 @@
   }
 
   function fmtTime(iso: string): string {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
+
+  /**
+   * Label for a date relative to today.
+   * @param iso - ISO timestamp string
+   */
+  function dateLabel(iso: string): string {
+    const d = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  /**
+   * Group done items by calendar date (newest first), each group sorted newest first.
+   * Returns array of [dateLabel, items[], totalMin] tuples.
+   */
+  const doneGroups = $derived(
+    (() => {
+      const map = new Map<string, { items: typeof app.done; totalMin: number }>();
+      for (const d of [...app.done].reverse()) {
+        const key = dateLabel(d.doneAt);
+        if (!map.has(key)) map.set(key, { items: [], totalMin: 0 });
+        const g = map.get(key)!;
+        g.items.push(d);
+        g.totalMin += d.sessionMin;
+      }
+      return [...map.entries()];
+    })()
+  );
 
   const capPct = $derived(
     (() => {
@@ -35,11 +66,20 @@
   }
 
   function handleDragEnd() { clearDrag(); }
+
+  function handleDeleteDone(id: string, title: string) {
+    if (confirm(`Remove "${title}" from done history?`)) deleteDoneItem(id);
+  }
+
+  function handleClearDone() {
+    if (confirm(`Clear all ${app.done.length} done item${app.done.length > 1 ? 's' : ''}?`)) {
+      clearDoneHistory();
+    }
+  }
 </script>
 
 <aside id="unscheduled" class:active={activeOnMobile}>
 
-  <!-- Tab toggle header -->
   <div class="right-tabs">
     <button class="rtab" class:active={tab === 'overflow'} onclick={() => (tab = 'overflow')}>
       Overflow
@@ -83,17 +123,35 @@
     </div>
   {/if}
 
-  <!-- Done tab -->
+  <!-- Done tab — flat list grouped by date -->
   {#if tab === 'done'}
     <div id="done-list">
-      {#each [...app.done].reverse() as d (d.id)}
-        <div class="done-row">
-          <span class="done-title">{d.taskTitle}</span>
-          <span class="done-meta">{fmtDur(d.sessionMin)} · {fmtTime(d.doneAt)}</span>
-        </div>
-      {/each}
-      {#if app.done.length === 0}
+      {#if doneGroups.length === 0}
         <div class="empty-state">Nothing done yet</div>
+      {:else}
+        {#each doneGroups as [label, { items, totalMin }]}
+          <div class="done-date-group">
+            <div class="done-date-head">
+              <span>{label}</span>
+              <span class="done-date-total">{fmtDur(totalMin)}</span>
+            </div>
+            {#each items as d (d.id)}
+              <div class="done-row">
+                <span class="done-title">{d.taskTitle}</span>
+                <span class="done-meta">{fmtDur(d.sessionMin)} &middot; {fmtTime(d.doneAt)}</span>
+                <button
+                  class="done-del"
+                  title="Remove from history"
+                  onclick={() => handleDeleteDone(d.id, d.taskTitle)}
+                >&#x2715;</button>
+              </div>
+            {/each}
+          </div>
+        {/each}
+
+        <div class="done-footer">
+          <button class="btn-clear-done" onclick={handleClearDone}>Clear history</button>
+        </div>
       {/if}
     </div>
   {/if}

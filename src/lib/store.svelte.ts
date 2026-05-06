@@ -179,6 +179,16 @@ export function addDoneItems(lines: string[]): void {
   }
 }
 
+/** Remove a single entry from the done history. */
+export function deleteDoneItem(id: string): void {
+  app.done = app.done.filter(d => d.id !== id);
+}
+
+/** Clear all done history entries. */
+export function clearDoneHistory(): void {
+  app.done = [];
+}
+
 /** Clear the sidebar highlight/edit selection. */
 export function clearSelection(): void { app.selectedTaskId = null; }
 

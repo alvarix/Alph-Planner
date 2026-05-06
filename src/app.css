@@ -620,13 +620,29 @@ body {
 .rtab:hover { color: var(--text); }
 .rtab.active { color: var(--text); border-bottom-color: var(--text); }
 
-#done-list { overflow-y: auto; flex: 1; padding: 8px; }
-.done-row {
-  display: flex; flex-direction: column; gap: 2px;
-  padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 12px;
+#done-list { overflow-y: auto; flex: 1; }
+.done-date-group { border-bottom: 1px solid var(--border); }
+.done-date-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 10px; background: var(--bg);
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .4px; color: var(--muted); position: sticky; top: 0;
 }
-.done-title { font-weight: 500; }
-.done-meta { font-size: 10px; color: var(--muted); }
+.done-date-total { font-weight: 600; color: var(--text); }
+.done-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-top: 1px solid var(--border); font-size: 12px;
+}
+.done-title { flex: 1; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.done-meta { font-size: 10px; color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.done-del { border: none; background: none; color: var(--muted); cursor: pointer; font-size: 11px; opacity: .4; padding: 0 2px; flex-shrink: 0; }
+.done-del:hover { opacity: 1; color: var(--p1); }
+.done-footer { padding: 8px 10px; }
+.btn-clear-done {
+  width: 100%; padding: 5px; font-size: 11px; background: none;
+  border: 1px solid var(--border); border-radius: 5px; cursor: pointer; color: var(--muted);
+}
+.btn-clear-done:hover { border-color: var(--p1); color: var(--p1); background: var(--p1-bg); }
 .empty-state { padding: 16px 12px; font-size: 12px; color: var(--muted); text-align: center; }
 
 .unsched-actions {
