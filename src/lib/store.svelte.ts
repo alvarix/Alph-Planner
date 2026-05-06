@@ -1,5 +1,5 @@
 import { parseLine } from './parser.js';
-import { schedule } from './scheduler.js';
+import { schedule, placeTaskSessions } from './scheduler.js';
 import { getWeekDays } from './dates.js';
 import type { Task, Session, UnscheduledSession, DoneSession, Config, DragState, DayKey } from './types.js';
 import type { DayWeather } from './weather.js';
@@ -35,7 +35,10 @@ const defaultConfig: Config = {
   weekendsEnabled: false,
   blockoffs: [
     { id: 'bo1', day: 'weekday', startSlot: 6, slots: 2, label: 'lunch' }
-  ]
+  ],
+  dayStart: 9,
+  dayEnd: 17.5,
+  scheduleDirection: 'back'
 };
 
 // ── Reactive app state (Svelte 5 runes) ───────────────────────────────────────
@@ -63,6 +66,9 @@ export const app = $state({
 /**
  * Re-run the scheduler against current tasks and config,
  * replacing app.sessions and app.unscheduled in place.
+ *
+ * WARNING: this is destructive — it discards all manual time-slot edits
+ * and overflow placements. Use rescheduleTask() for single-task mutations.
  */
 export function autoSchedule(): void {
   // Only schedule into today and future days — past days are read-only.
@@ -72,6 +78,29 @@ export function autoSchedule(): void {
   const result = schedule(app.tasks, app.config, uid, eligible);
   app.sessions = result.sessions;
   app.unscheduled = result.unscheduled;
+}
+
+/**
+ * Re-place sessions for a single task without disturbing other tasks.
+ * Removes the task's existing sessions and overflow entries, then runs
+ * the scheduler against the remaining occupancy. Manual edits to other
+ * tasks' sessions and other tasks' overflow are preserved.
+ *
+ * @param id - Task id to re-schedule
+ */
+export function rescheduleTask(id: string): void {
+  // Drop this task's existing placements before computing new ones.
+  const remainingSessions = app.sessions.filter(s => s.taskId !== id);
+  const otherUnscheduled  = app.unscheduled.filter(u => u.taskId !== id);
+
+  const eligible = getWeekDays(app.weekOffset)
+    .filter(d => !d.past)
+    .map(d => d.key);
+
+  const result = placeTaskSessions(id, app.tasks, app.config, remainingSessions, uid, eligible);
+
+  app.sessions = [...remainingSessions, ...result.sessions];
+  app.unscheduled = [...otherUnscheduled, ...result.unscheduled];
 }
 
 /**
@@ -227,7 +256,7 @@ export function updateTask(
   t.sessionMin = sessionMin;
   t.sessionsTotal = sessionsTotal;
   t.priority = priority;
-  if (structural) autoSchedule();
+  if (structural) rescheduleTask(id);
 }
 
 /** Remove all tasks, sessions, overflow, and done history. */
@@ -246,22 +275,22 @@ export function deleteSelectedTasks(ids: string[]): void {
   app.unscheduled = app.unscheduled.filter(u => !set.has(u.taskId));
 }
 
-/** Set priority on a group of tasks, then re-schedule. */
+/** Set priority on a group of tasks, then re-place each affected task individually. */
 export function bulkSetPriority(ids: string[], priority: 1 | 2 | 3 | 4): void {
   for (const id of ids) {
     const t = app.tasks.find(x => x.id === id);
     if (t) t.priority = priority;
   }
-  autoSchedule();
+  for (const id of ids) rescheduleTask(id);
 }
 
-/** Set duration (minutes) on a group of tasks, then re-schedule. */
+/** Set duration (minutes) on a group of tasks, then re-place each affected task individually. */
 export function bulkSetDuration(ids: string[], sessionMin: number): void {
   for (const id of ids) {
     const t = app.tasks.find(x => x.id === id);
     if (t) t.sessionMin = sessionMin;
   }
-  autoSchedule();
+  for (const id of ids) rescheduleTask(id);
 }
 
 /**

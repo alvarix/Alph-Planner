@@ -51,21 +51,36 @@
   }
 
   /**
-   * Convert "HH:MM" to a slot index relative to 9am (DAY_START).
+   * Convert "HH:MM" to a slot index relative to draft.dayStart.
    * @param hhmm - Time string like "12:00"
    */
   function timeToSlot(hhmm: string): number {
     const [h, m] = hhmm.split(':').map(Number);
-    return (h * 60 + m - 9 * 60) / 30;
+    const start = draft.dayStart ?? 9;
+    return (h * 60 + m - start * 60) / 30;
   }
 
   /**
    * Convert slot index back to "HH:MM" for display.
-   * @param slot - Zero-based slot index from 9am
+   * @param slot - Zero-based slot index from draft.dayStart
    */
   function slotToTime(slot: number): string {
-    const m = 9 * 60 + slot * 30;
+    const start = draft.dayStart ?? 9;
+    const m = start * 60 + slot * 30;
     return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  }
+
+  /** Convert "HH:MM" string to decimal hours (e.g. "17:30" → 17.5). */
+  function hhmmToHours(hhmm: string): number {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h + m / 60;
+  }
+
+  /** Convert decimal hours to "HH:MM" string (e.g. 17.5 → "17:30"). */
+  function hoursToHhmm(hours: number): string {
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
   }
 
   function addBlockoff() {
@@ -129,7 +144,10 @@
     app.config = {
       hoursPerDay: { mon: 6, tue: 6, wed: 6, thu: 6, fri: 4, sat: 0, sun: 0 },
       weekendsEnabled: false,
-      blockoffs: [{ id: uid(), day: 'weekday', startSlot: 6, slots: 2, label: 'lunch' }]
+      blockoffs: [{ id: uid(), day: 'weekday', startSlot: 6, slots: 2, label: 'lunch' }],
+      dayStart: 9,
+      dayEnd: 17.5,
+      scheduleDirection: 'back'
     };
     showToast('Reset');
     open = false;
@@ -199,6 +217,46 @@
         {/each}
       </div>
     {/if}
+  </div>
+
+  <!-- Work window -->
+  <div class="cfg-section">
+    <div class="cfg-stitle">Work window</div>
+    <div class="window-row">
+      <label for="cfg-day-start">Start</label>
+      <select
+        id="cfg-day-start"
+        value={hoursToHhmm(draft.dayStart ?? 9)}
+        onchange={(e) => { draft.dayStart = hhmmToHours((e.target as HTMLSelectElement).value); }}
+      >
+        {#each timeOptions as t}
+          <option value={t}>{t}</option>
+        {/each}
+      </select>
+      <label for="cfg-day-end">End</label>
+      <select
+        id="cfg-day-end"
+        value={hoursToHhmm(draft.dayEnd ?? 17.5)}
+        onchange={(e) => { draft.dayEnd = hhmmToHours((e.target as HTMLSelectElement).value); }}
+      >
+        {#each timeOptions as t}
+          <option value={t}>{t}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="toggle-row">
+      Fill from end of day
+      <label class="sw">
+        <input
+          type="checkbox"
+          checked={(draft.scheduleDirection ?? 'back') === 'back'}
+          onchange={(e) => {
+            draft.scheduleDirection = (e.target as HTMLInputElement).checked ? 'back' : 'front';
+          }}
+        />
+        <span class="sw-track"></span>
+      </label>
+    </div>
   </div>
 
   <!-- Block-offs -->

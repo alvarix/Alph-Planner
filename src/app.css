@@ -898,6 +898,24 @@ body {
 
 .hour-input:focus { border-color: var(--p3); }
 
+.window-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.window-row label { color: var(--text-dim); }
+.window-row select {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
 .toggle-row {
   display: flex;
   align-items: center;

@@ -38,6 +38,12 @@ export interface Config {
   hoursPerDay: Record<DayKey, number>;
   weekendsEnabled: boolean;
   blockoffs: Blockoff[];
+  /** Work day start hour (e.g. 9 for 9:00am) */
+  dayStart: number;
+  /** Work day end hour (e.g. 17.5 for 5:30pm) */
+  dayEnd: number;
+  /** Whether auto-schedule fills from the end of day backwards or from the start */
+  scheduleDirection: 'front' | 'back';
 }
 
 export interface DragState {

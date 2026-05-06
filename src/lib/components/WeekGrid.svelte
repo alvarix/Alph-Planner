@@ -9,10 +9,11 @@
    */
   let { activeOnMobile = true }: { activeOnMobile?: boolean } = $props();
 
-  const DAY_START = 9;
-  const DAY_END = 18;
-  const NSLOTS = (DAY_END - DAY_START) * 2; // 18
   const SLOT_H = 40;
+
+  const DAY_START = $derived(app.config.dayStart ?? 9);
+  const DAY_END = $derived(app.config.dayEnd ?? 17.5);
+  const NSLOTS = $derived(Math.round((DAY_END - DAY_START) * 2));
 
   /** Recalculate whenever weekOffset changes. */
   const DAYS = $derived(getWeekDays(app.weekOffset));
