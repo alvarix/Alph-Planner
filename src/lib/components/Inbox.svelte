@@ -12,6 +12,7 @@
 
   // ── Input ────────────────────────────────────────────────────────────────
   let inputText = $state('');
+  let inputPlaceholder = $state("draft email .5h x2, p2\nship invoice 1h, p1\ndeep work 2h x3, p3");
 
   // ── Inline edit ──────────────────────────────────────────────────────────
   let editingId = $state<string | null>(null);
@@ -91,7 +92,7 @@
     const { active, done } = parseMarkdown(inputText);
     const added = addTasks(active);
     if (done.length > 0) addDoneItems(done);
-    if (added > 0 || done.length > 0) inputText = '';
+    if (added > 0 || done.length > 0) { inputPlaceholder = inputText; inputText = ''; }
   }
 
   function handleAddKey(e: KeyboardEvent) {
@@ -173,7 +174,7 @@
       id="task-input"
       bind:value={inputText}
       onkeydown={handleAddKey}
-      placeholder={"draft email .5h x2, p2\nship invoice 1h, p1\ndeep work 2h x3, p3"}
+      placeholder={inputPlaceholder}
     ></textarea>
     <div class="input-hint">
       title &nbsp;<strong>1h</strong> | <strong>.5h</strong> | <strong>90m</strong>
