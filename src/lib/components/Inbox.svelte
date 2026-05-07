@@ -2,7 +2,8 @@
   import {
     app, addTasks, autoSchedule, removeTask, updateTask,
     clearAllTasks, clearSelection, addDoneItems,
-    deleteSelectedTasks, bulkSetPriority, bulkSetDuration
+    deleteSelectedTasks, bulkSetPriority, bulkSetDuration,
+    duplicateTask
   } from '$lib/store.svelte.js';
   import { tick } from 'svelte';
   import { parseMarkdown } from '$lib/parser.js';
@@ -276,6 +277,14 @@
           <span class="t-name">{task.title}</span>
           <span class="t-dur">{fmtDur(task.sessionMin)}</span>
           <span class="t-prog" class:done={full}>{placed}/{task.sessionsTotal}</span>
+          <span
+            class="t-dup"
+            title="Duplicate"
+            role="button"
+            tabindex="0"
+            onclick={(e) => { e.stopPropagation(); duplicateTask(task.id); }}
+            onkeydown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); duplicateTask(task.id); } }}
+          >&#x29C9;</span>
           <span
             class="t-del"
             title="Remove"

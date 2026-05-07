@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, setDrag, clearDrag, moveSession, scheduleUnscheduled, markDone, deleteSess, unscheduleSession, selectTask } from '$lib/store.svelte.js';
+  import { app, setDrag, clearDrag, moveSession, scheduleUnscheduled, markDone, deleteSess, unscheduleSession, selectTask, createTaskAtSlot } from '$lib/store.svelte.js';
   import { getWeekDays } from '$lib/dates.js';
   import type { DayKey } from '$lib/types.js';
 
@@ -95,6 +95,28 @@
     clearDrag();
   }
 
+  /**
+   * Double-click on an empty slot to create a new 30-min task pinned at that
+   * slot. Ignored on past days, on existing sessions/blockoffs, and on
+   * weekend columns when weekends are disabled.
+   * @param e - Mouse event from .day-col
+   * @param day - Day key for the column
+   * @param past - Whether this column is in the past (read-only)
+   */
+  function handleDayDblClick(e: MouseEvent, day: DayKey, past: boolean) {
+    if (past) return;
+    const target = e.target as HTMLElement;
+    // Only fire when the click lands on the column background or a slot grid
+    // line — never on an existing session, blockoff, or interactive child.
+    if (target !== e.currentTarget && !target.classList.contains('slot-line')) return;
+    const col = e.currentTarget as HTMLElement;
+    const rect = col.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const slot = clampSlot(y, 1);
+    const newId = createTaskAtSlot(day, slot);
+    selectTask(newId);
+  }
+
   function handleSessDragStart(e: DragEvent, sessId: string, slots: number) {
     setDrag({ type: 'sess', id: sessId, slots });
     confirmSess = null;
@@ -164,6 +186,7 @@
             ondragover={(e) => handleDragOver(e, day.key)}
             ondragleave={() => handleDragLeave(day.key)}
             ondrop={(e) => handleDrop(e, day.key)}
+            ondblclick={(e) => handleDayDblClick(e, day.key, day.past)}
           >
             <!-- Slot grid lines -->
             {#each { length: NSLOTS } as _, i}

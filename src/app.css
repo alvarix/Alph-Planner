@@ -240,7 +240,8 @@ body {
   font-weight: 600;
 }
 
-.t-del {
+.t-del,
+.t-dup {
   font-size: 11px;
   color: var(--muted);
   cursor: pointer;
@@ -251,6 +252,11 @@ body {
 .t-del:hover {
   opacity: 1;
   color: var(--p1);
+}
+
+.t-dup:hover {
+  opacity: 1;
+  color: var(--fg);
 }
 /* ── Select bar ──────────────────────────────────────────────────────────── */
 .select-bar {

@@ -251,6 +251,60 @@ export function unscheduleSession(sessId: string): void {
 }
 
 /**
+ * Duplicate a task. Clones structural fields, resets progress, and
+ * re-schedules the new copy without disturbing other placements.
+ *
+ * @param id - Source task id
+ * @returns New task id, or null if source not found
+ */
+export function duplicateTask(id: string): string | null {
+  const src = app.tasks.find(t => t.id === id);
+  if (!src) return null;
+  const newId = uid();
+  app.tasks.push({
+    id: newId,
+    title: src.title,
+    sessionMin: src.sessionMin,
+    sessionsTotal: src.sessionsTotal,
+    sessionsDone: 0,
+    priority: src.priority,
+    createdAt: new Date().toISOString()
+  });
+  rescheduleTask(newId);
+  showToast('Task duplicated');
+  return newId;
+}
+
+/**
+ * Create a new task and pin its single session at a specific day/slot.
+ * Bypasses the scheduler so the placement is exactly where requested.
+ * Used by the grid's double-click-to-add affordance.
+ *
+ * @param day - Target day key
+ * @param slot - Target slot index (zero-based from DAY_START)
+ * @param title - Initial title (defaults to "New task")
+ * @returns New task id
+ */
+export function createTaskAtSlot(
+  day: DayKey,
+  slot: number,
+  title = 'New task'
+): string {
+  const newId = uid();
+  app.tasks.push({
+    id: newId,
+    title,
+    sessionMin: 30,
+    sessionsTotal: 1,
+    sessionsDone: 0,
+    priority: 3,
+    createdAt: new Date().toISOString()
+  });
+  app.sessions.push({ id: uid(), taskId: newId, day, slot });
+  return newId;
+}
+
+/**
  * Update a task's fields; re-schedules if structural data changed.
  * Title-only changes skip the full re-schedule.
  */

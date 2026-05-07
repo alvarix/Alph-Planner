@@ -248,6 +248,55 @@ test('markdown: attached xN (1hx2) produces correct session count', async ({ pag
 	await expect(page.locator('.sess')).toHaveCount(2);
 });
 
+// ── Duplicate task ─────────────────────────────────────────────────────────
+
+test('duplicate: clones a task with reset progress', async ({ page }) => {
+	await page.goto('/');
+	await page.waitForSelector('#topbar');
+	await page.evaluate(() => localStorage.clear());
+	await page.reload();
+	await page.waitForSelector('#topbar');
+
+	await page.fill('#task-input', 'clone me 1h, p2');
+	await page.click('button.btn-add');
+	await expect(page.locator('.task-row')).toHaveCount(1);
+
+	await page.locator('.task-row').first().locator('.t-dup').click();
+
+	// Two task-rows with the same title now exist
+	await expect(page.locator('.task-row')).toHaveCount(2);
+	await expect(page.locator('#task-list')).toContainText('clone me');
+	const titles = await page.locator('.t-name').allTextContents();
+	expect(titles.filter(t => t === 'clone me').length).toBe(2);
+});
+
+// ── Double-click to add ────────────────────────────────────────────────────
+
+test('dblclick on empty slot creates a pinned task and opens its editor', async ({ page }) => {
+	await page.goto('/');
+	await page.waitForSelector('#topbar');
+	await page.evaluate(() => localStorage.clear());
+	await page.reload();
+	await page.waitForSelector('#topbar');
+
+	const before = await page.locator('.sess').count();
+
+	// Pick the first non-past day column and double-click roughly mid-column.
+	const col = page.locator('.day-col:not(.past)').first();
+	await col.dblclick({ position: { x: 20, y: 200 } });
+
+	// One new session block on the grid
+	await expect(page.locator('.sess')).toHaveCount(before + 1);
+
+	// Inline editor opens for the new task with the default title — the
+	// row is replaced by the edit form so the title lives in the input.
+	await expect(page.locator('.task-edit .edit-title')).toBeVisible();
+	await expect(page.locator('.task-edit .edit-title')).toHaveValue('New task');
+
+	// Session block on the grid carries the same default title
+	await expect(page.locator('.sess').last()).toContainText('New task');
+});
+
 test('markdown: bare decimal duration (.5 with no h) is treated as hours', async ({ page }) => {
 	await page.goto('/');
 	await page.waitForSelector('#topbar');
