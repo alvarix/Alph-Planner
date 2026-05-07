@@ -35,7 +35,7 @@ const defaultConfig: Config = {
   hoursPerDay: { mon: 6, tue: 6, wed: 6, thu: 6, fri: 4, sat: 0, sun: 0 },
   weekendsEnabled: false,
   blockoffs: [
-    { id: 'bo1', day: 'weekday', startSlot: 6, slots: 2, label: 'lunch' }
+    { id: 'bo1', day: 'weekday', startSlot: 9, slots: 2, label: 'lunch' }
   ],
   dayStart: 9,
   dayEnd: 17.5,

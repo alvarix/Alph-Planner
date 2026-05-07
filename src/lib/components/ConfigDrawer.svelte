@@ -36,8 +36,8 @@
   // New block-off form fields
   let boLabel = $state('');
   let boDay = $state<RecurKey>('weekday');
-  let boStart = $state('12:00');
-  let boEnd = $state('13:00');
+  let boStart = $state('13:30');
+  let boEnd = $state('14:30');
 
   /**
    * Time option strings from 06:00 to 22:00 in 30-min steps.

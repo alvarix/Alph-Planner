@@ -54,19 +54,9 @@
     mon: null, tue: null, wed: null, thu: null, fri: null, sat: null, sun: null
   });
 
-  /**
-   * Get blockoffs that apply to a specific day,
-   * expanding 'weekday'/'weekend' patterns.
-   * @param key - Day key to check
-   */
-  function dayBlockoffs(key: DayKey) {
-    const WKND: DayKey[] = ['sat', 'sun'];
-    return app.config.blockoffs.filter(b =>
-      b.day === key ||
-      (b.day === 'weekday' && !WKND.includes(key)) ||
-      (b.day === 'weekend' && WKND.includes(key))
-    );
-  }
+  const WKND: DayKey[] = ['sat', 'sun'];
+
+  $inspect('blockoffs', app.config.blockoffs);
 
   /** Get sessions placed on a given day. */
   function daySessions(key: DayKey) {
@@ -185,7 +175,7 @@
             {/each}
 
             <!-- Block-offs -->
-            {#each dayBlockoffs(day.key) as bo (bo.id)}
+            {#each app.config.blockoffs.filter(b => b.day === day.key || (b.day === 'weekday' && !WKND.includes(day.key)) || (b.day === 'weekend' && WKND.includes(day.key))) as bo (bo.id)}
               <div
                 class="blockoff"
                 style="top:{bo.startSlot * SLOT_H}px;height:{bo.slots * SLOT_H}px"
