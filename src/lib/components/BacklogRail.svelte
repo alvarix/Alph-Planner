@@ -64,6 +64,13 @@
 					{/if}
 				</div>
 			</div>
+			{#if task.children.length > 0}
+				<div class="bk-children">
+					{#each task.children as child}
+						<div class="bk-child" class:done={child.done}>{child.title}</div>
+					{/each}
+				</div>
+			{/if}
 		{/each}
 
 		{#if allItems.length === 0}
@@ -109,6 +116,16 @@
 .bk-title { font-size: 12px; font-weight: 500; line-height: 1.3; }
 .bk-title.starred { font-weight: 700; }
 .bk-dur { font-size: 10px; color: #b91c1c; opacity: .7; margin-left: 4px; }
+
+.bk-children {
+	padding: 0 10px 4px 28px; border-bottom: 1px solid #fecaca;
+	background: rgba(254,226,226,.25);
+}
+.bk-child {
+	font-size: 11px; color: #7f1d1d; padding: 2px 0;
+	border-left: 2px solid #fca5a5; padding-left: 6px; margin: 1px 0;
+}
+.bk-child.done { text-decoration: line-through; opacity: .5; }
 
 .date-tag {
 	display: inline-block; font-size: 10px; font-weight: 600;
