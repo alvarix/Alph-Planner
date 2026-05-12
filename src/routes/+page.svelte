@@ -1,161 +1,107 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { app, autoSchedule, syncUidCounter } from '$lib/store.svelte.js';
-  import { weekRangeLabel } from '$lib/dates.js';
-  import { saveState, loadState, postSnapshot } from '$lib/persistence.js';
-  import { fetchWeek } from '$lib/weather.js';
-  import Inbox from '$lib/components/Inbox.svelte';
-  import WeekGrid from '$lib/components/WeekGrid.svelte';
-  import Unscheduled from '$lib/components/Unscheduled.svelte';
-  import ConfigDrawer from '$lib/components/ConfigDrawer.svelte';
-  import Toast from '$lib/components/Toast.svelte';
+	import { onMount } from 'svelte';
+	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
+	import { restoreFolder } from '$lib/fs/folder.js';
+	import { state, refresh, tasksForFile, folderReady } from '$lib/state.svelte.js';
+	import FolderPicker from '$lib/components/FolderPicker.svelte';
+	import DayColumn from '$lib/components/DayColumn.svelte';
+	import Toast from '$lib/components/Toast.svelte';
 
-  /** Mobile tab state */
-  let activeTab = $state<'grid' | 'inbox' | 'unsched'>('grid');
+	const weekDays   = $derived(getWeekDays(state.weekOffset));
+	const weekLabel  = $derived(weekRangeLabel(state.weekOffset));
 
-  /** Config drawer open state — bound to ConfigDrawer's `open` prop */
-  let configOpen = $state(false);
+	function shiftWeek(dir: -1 | 0 | 1) {
+		if (dir === 0) state.weekOffset = 0;
+		else state.weekOffset += dir;
+	}
 
-  const weekLabel = $derived(weekRangeLabel(app.weekOffset));
+	onMount(async () => {
+		// Try to restore previously picked folder silently.
+		const restored = await restoreFolder();
+		state.folder = restored;
+		if (restored.status === 'ready') await refresh();
+	});
 
-  function shiftWeek(dir: -1 | 0 | 1) {
-    if (dir === 0) app.weekOffset = 0;
-    else app.weekOffset += dir;
-  }
-
-  // ── Persistence ───────────────────────────────────────────────────────────
-
-  onMount(() => {
-    const saved = loadState();
-    if (saved) {
-      if (saved.tasks) app.tasks = saved.tasks;
-      if (saved.sessions) app.sessions = saved.sessions;
-      if (saved.unscheduled) app.unscheduled = saved.unscheduled;
-      if ((saved as any).done) app.done = (saved as any).done;
-      if (saved.config) app.config = saved.config;
-      // Advance uid counter past any loaded ids to avoid collisions
-      const allIds = [
-        ...app.tasks.map(t => t.id),
-        ...app.sessions.map(s => s.id),
-        ...app.unscheduled.map(u => u.id),
-        ...app.config.blockoffs.map(b => b.id)
-      ];
-      syncUidCounter(allIds);
-    } else {
-      autoSchedule();
-    }
-
-    // Non-blocking weather fetch; re-fetches when week changes via $effect below.
-    fetchWeek().then(w => { app.weather = w; });
-  });
-
-  // Re-fetch weather when navigating to a different week.
-  $effect(() => {
-    void app.weekOffset;
-    fetchWeek().then(w => { app.weather = w; });
-  });
-
-  // Switch to inbox tab when a session is clicked on mobile.
-  $effect(() => {
-    if (app.selectedTaskId) activeTab = 'inbox';
-  });
-
-  // Persist state after every reactive update.
-  // Accessing array .length and config registers them as dependencies.
-  $effect(() => {
-    void app.tasks.length;
-    void app.sessions.length;
-    void app.unscheduled.length;
-    void app.done.length;
-    void app.config;
-    saveState(app);
-    postSnapshot(app);
-  });
-
-  // ── Keyboard shortcuts ────────────────────────────────────────────────────
-
-  function handleKeydown(e: KeyboardEvent) {
-    const target = e.target as HTMLElement;
-    if (
-      e.key === 'n' &&
-      !e.metaKey &&
-      !e.ctrlKey &&
-      target.tagName !== 'TEXTAREA' &&
-      target.tagName !== 'INPUT'
-    ) {
-      activeTab = 'inbox';
-      // Small delay lets the tab switch render before focus
-      setTimeout(() => {
-        const ta = document.getElementById('task-input');
-        if (ta) ta.focus();
-      }, 50);
-    }
-  }
+	// Refresh cache whenever the window regains focus.
+	function handleFocus() {
+		if (folderReady()) refresh();
+	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onfocus={handleFocus} />
+
+{#if !folderReady()}
+	<FolderPicker />
+{/if}
 
 <div id="topbar">
-  <h1>Alph-Planner</h1>
-  <span class="vtag">v0.1</span>
-  <span id="week-label">{weekLabel}</span>
-
-  <div class="week-nav">
-    <button class="btn-nav" onclick={() => shiftWeek(-1)}>&#8592;</button>
-    <button class="btn-nav" onclick={() => shiftWeek(0)}>Today</button>
-    <button class="btn-nav" onclick={() => shiftWeek(1)}>&#8594;</button>
-  </div>
-
-  <button
-    class="btn-nav"
-    style="font-size:15px;padding:3px 8px;"
-    title="Config"
-    onclick={() => (configOpen = true)}
-  >&#9881;</button>
+	<h1>Alph-Planner</h1>
+	<div class="week-nav">
+		<button class="btn-nav" onclick={() => shiftWeek(-1)}>&#8592;</button>
+		<button class="btn-nav" onclick={() => shiftWeek(0)}>Today</button>
+		<button class="btn-nav" onclick={() => shiftWeek(1)}>&#8594;</button>
+	</div>
+	<span id="week-label">{weekLabel}</span>
+	<div class="spacer"></div>
+	{#if state.folder.status === 'ready'}
+		<span class="folder-badge">{state.folder.name}/</span>
+	{/if}
+	{#if state.conflicts.length > 0}
+		<span class="conflict-badge" title={state.conflicts.join(', ')}>
+			&#9888; {state.conflicts.length} conflict{state.conflicts.length > 1 ? 's' : ''}
+		</span>
+	{/if}
 </div>
 
 <div id="main">
-  <!--
-    On desktop all three panels are side-by-side (flex row).
-    On mobile (max-width:640px) the CSS positions them absolute/inset,
-    and the .active class shows only the current panel.
-  -->
-  <Inbox activeOnMobile={activeTab === 'inbox'} />
-  <WeekGrid activeOnMobile={activeTab === 'grid'} />
-  <Unscheduled activeOnMobile={activeTab === 'unsched'} />
+	<div id="columns">
+		{#each weekDays as day}
+			<DayColumn
+				{day}
+				tasks={tasksForFile(day.iso + '.md')}
+			/>
+		{/each}
+	</div>
 </div>
 
-<!-- Mobile tab bar (display:none on desktop) -->
-<div id="tab-bar">
-  <button
-    class="tab-btn"
-    class:active={activeTab === 'grid'}
-    onclick={() => (activeTab = 'grid')}
-    data-tab="grid"
-  >
-    <span class="tab-icon">&#128197;</span>
-    Week
-  </button>
-  <button
-    class="tab-btn"
-    class:active={activeTab === 'inbox'}
-    onclick={() => (activeTab = 'inbox')}
-    data-tab="inbox"
-  >
-    <span class="tab-icon">&#9998;</span>
-    Tasks
-  </button>
-  <button
-    class="tab-btn"
-    class:active={activeTab === 'unsched'}
-    onclick={() => (activeTab = 'unsched')}
-    data-tab="unsched"
-  >
-    <span class="tab-icon">&#9783;</span>
-    Overflow
-    <span class="tab-dot" class:on={app.unscheduled.length > 0}></span>
-  </button>
-</div>
-
-<ConfigDrawer bind:open={configOpen} />
 <Toast />
+
+<style>
+:global(*, *::before, *::after) { box-sizing: border-box; margin: 0; padding: 0; }
+:global(:root) {
+	font-family: system-ui, -apple-system, sans-serif;
+	font-size: 14px; color: #1e293b; background: #f8fafc;
+}
+:global(body) { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+#topbar {
+	display: flex; align-items: center; gap: 8px;
+	padding: 0 14px; height: 46px; flex-shrink: 0;
+	background: #fff; border-bottom: 1px solid #e2e8f0;
+}
+h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
+.week-nav { display: flex; gap: 4px; }
+.btn-nav {
+	padding: 3px 9px; border: 1px solid #e2e8f0;
+	background: none; border-radius: 5px; font-size: 12px; cursor: pointer;
+}
+.btn-nav:hover { background: #f8fafc; }
+#week-label { font-size: 13px; font-weight: 500; }
+.spacer { flex: 1; }
+.folder-badge {
+	font-size: 11px; color: #94a3b8; font-family: monospace;
+	background: #f8fafc; border: 1px solid #e2e8f0;
+	padding: 2px 7px; border-radius: 5px;
+}
+.conflict-badge {
+	font-size: 11px; font-weight: 600; color: #dc2626;
+	background: #fee2e2; border: 1px solid #fecaca;
+	padding: 2px 8px; border-radius: 5px; cursor: default;
+}
+
+#main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+#columns { flex: 1; display: flex; overflow-x: auto; }
+
+:global(::-webkit-scrollbar) { width: 4px; height: 4px; }
+:global(::-webkit-scrollbar-thumb) { background: #e2e8f0; border-radius: 2px; }
+</style>
