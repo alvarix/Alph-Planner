@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alph-Planner — MD-first Mockup</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f8fafc;
+  --surface: #fff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --muted: #94a3b8;
+  --today-col: #f0f9ff;
+  --today-accent: #0ea5e9;
+  --backlog-w: 180px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* ── Topbar ─────────────────────────────────────────── */
+#topbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 14px; height: 46px; flex-shrink: 0;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+#topbar h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; margin-right: 2px; }
+.vtag { font-size: 10px; color: var(--muted); padding: 2px 6px; border: 1px solid var(--border); border-radius: 99px; }
+.week-nav { display: flex; gap: 4px; }
+.btn-nav {
+  padding: 3px 9px; border: 1px solid var(--border);
+  background: none; border-radius: 5px; font-size: 12px; cursor: pointer;
+}
+.btn-nav:hover { background: var(--bg); }
+#week-label { font-size: 13px; font-weight: 500; }
+.spacer { flex: 1; }
+.topbar-btn {
+  padding: 3px 9px; border: 1px solid var(--border); background: none;
+  border-radius: 5px; font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.topbar-btn:hover { background: var(--bg); }
+.topbar-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+.folder-badge {
+  font-size: 11px; color: var(--muted); font-family: monospace;
+  background: var(--bg); border: 1px solid var(--border); padding: 2px 7px;
+  border-radius: 5px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Main row (backlog + day columns) ───────────────── */
+#main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+
+/* ── Backlog rail ───────────────────────────────────── */
+#backlog {
+  width: var(--backlog-w); flex-shrink: 0;
+  display: flex; flex-direction: column;
+  background: #fff5f5; border-right: 1px solid #fecaca;
+  overflow: hidden;
+}
+.rail-head {
+  padding: 8px 12px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px; color: #b91c1c;
+  border-bottom: 1px solid #fecaca; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.badge {
+  background: #fee2e2; color: #b91c1c; font-size: 10px;
+  padding: 1px 6px; border-radius: 99px; font-weight: 700;
+}
+#backlog-list { flex: 1; overflow-y: auto; }
+
+.backlog-item {
+  padding: 7px 10px; border-bottom: 1px solid #fecaca;
+  cursor: grab; display: flex; align-items: flex-start;
+  gap: 6px; transition: background .1s;
+}
+.backlog-item:hover { background: #fee2e220; }
+.backlog-item.dragging { opacity: .35; }
+
+.bk-drag { color: #fca5a5; font-size: 11px; flex-shrink: 0; padding-top: 1px; }
+.bk-body { flex: 1; min-width: 0; }
+.bk-title { font-size: 12px; font-weight: 500; line-height: 1.3; }
+.bk-title.starred { font-weight: 700; }
+
+/* red date tag */
+.date-tag {
+  display: inline-block; font-size: 10px; font-weight: 600; font-family: monospace;
+  background: #fee2e2; color: #dc2626; padding: 1px 5px;
+  border-radius: 3px; margin-top: 3px; white-space: nowrap;
+}
+
+.backlog-actions {
+  padding: 8px 10px; border-top: 1px solid #fecaca; flex-shrink: 0;
+}
+.btn-roll {
+  width: 100%; padding: 6px 10px; font-size: 11px; font-weight: 600;
+  background: var(--surface); border: 1px solid #fecaca;
+  border-radius: 5px; cursor: pointer; color: #b91c1c;
+}
+.btn-roll:hover { background: #fee2e2; }
+
+/* ── Day columns ────────────────────────────────────── */
+#columns { flex: 1; display: flex; overflow-x: auto; overflow-y: hidden; }
+
+.day-col {
+  flex: 1; min-width: 110px; display: flex; flex-direction: column;
+  border-right: 1px solid var(--border); background: var(--surface);
+  overflow: hidden; transition: background .12s, border-color .12s;
+}
+.day-col.today { background: var(--today-col); }
+.day-col.drag-over {
+  background: #eff6ff !important;
+  border-right-color: #93c5fd;
+  box-shadow: inset 0 0 0 2px #bfdbfe;
+}
+.day-col:last-child { border-right: none; }
+
+.day-head {
+  padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.day-col.today .day-head { border-bottom: 2px solid var(--today-accent); }
+.day-dn {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); font-weight: 600;
+}
+.day-col.today .day-dn { color: var(--today-accent); }
+.day-date-num { font-size: 20px; font-weight: 700; line-height: 1.2; margin: 2px 0 1px; }
+.day-col.today .day-date-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; background: var(--today-accent); color: #fff;
+  border-radius: 50%; font-size: 14px;
+}
+.day-total { font-size: 10px; color: var(--muted); }
+
+/* ── Task list ──────────────────────────────────────── */
+.task-list { flex: 1; overflow-y: auto; }
+
+.task-item {
+  display: flex; align-items: flex-start; gap: 6px;
+  padding: 5px 6px 5px 4px; border-bottom: 1px solid var(--border);
+  position: relative; cursor: default; transition: background .08s;
+}
+.task-item:hover { background: rgba(0,0,0,.02); }
+.task-item:last-child { border-bottom: none; }
+.task-item.done { opacity: .55; }
+.task-item.done .task-title { text-decoration: line-through; color: var(--muted); }
+.task-item.dragging { opacity: .3; }
+
+/* drag handle — always visible, subtle; darkens on hover */
+.drag-handle {
+  color: #cbd5e1; font-size: 12px; cursor: grab;
+  flex-shrink: 0; padding-top: 2px; line-height: 1;
+  transition: color .1s;
+}
+.task-item:hover .drag-handle { color: #94a3b8; }
+
+input[type=checkbox] {
+  flex-shrink: 0; width: 14px; height: 14px; margin-top: 2px;
+  accent-color: var(--today-accent); cursor: pointer;
+}
+
+.task-title { font-size: 12px; flex: 1; line-height: 1.4; }
+.task-title.starred { font-weight: 700; }
+.task-dur { font-size: 10px; color: var(--muted); flex-shrink: 0; padding-top: 3px; }
+
+/* subtask badge */
+.sub-badge {
+  font-size: 10px; color: var(--muted); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 1px 5px; cursor: pointer; flex-shrink: 0;
+  font-family: monospace; margin-top: 2px;
+}
+.sub-badge:hover { border-color: var(--muted); color: var(--text); }
+
+/* subtask rows */
+.subtasks { background: var(--bg); border-bottom: 1px solid var(--border); display: none; }
+.subtasks.open { display: block; }
+.subtask-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px 4px 20px; border-bottom: 1px solid var(--border);
+}
+.subtask-row:last-child { border-bottom: none; }
+.subtask-row input[type=checkbox] { width: 12px; height: 12px; }
+.subtask-row .st-title { font-size: 11px; color: #475569; }
+.subtask-row.done .st-title { text-decoration: line-through; color: var(--muted); }
+
+/* ── Subtask color groups ────────────────────────── */
+/* parent task gets a colored left bar; subtask panel inherits same color */
+.task-item.grp-a  { border-left: 3px solid #60a5fa; padding-left: 5px; }
+.subtasks.grp-a   { border-left: 3px solid #60a5fa; background: #eff6ff; }
+
+.task-item.grp-b  { border-left: 3px solid #4ade80; padding-left: 5px; }
+.subtasks.grp-b   { border-left: 3px solid #4ade80; background: #f0fdf4; }
+
+.task-item.grp-c  { border-left: 3px solid #a78bfa; padding-left: 5px; }
+.subtasks.grp-c   { border-left: 3px solid #a78bfa; background: #faf5ff; }
+
+.task-item.grp-d  { border-left: 3px solid #fb923c; padding-left: 5px; }
+.subtasks.grp-d   { border-left: 3px solid #fb923c; background: #fff7ed; }
+
+.task-item.grp-e  { border-left: 3px solid #f472b6; padding-left: 5px; }
+.subtasks.grp-e   { border-left: 3px solid #f472b6; background: #fdf2f8; }
+
+/* ── Column footer ──────────────────────────────────── */
+.col-footer { flex-shrink: 0; border-top: 1px solid var(--border); }
+.btn-add-task {
+  width: 100%; padding: 7px 10px; font-size: 11px;
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  text-align: left; display: flex; align-items: center; gap: 5px;
+}
+.btn-add-task:hover { background: var(--bg); color: var(--text); }
+.add-input-wrap { padding: 6px 8px; display: none; }
+.add-input-wrap.open { display: block; }
+.add-input {
+  width: 100%; border: 1px solid var(--today-accent); border-radius: 5px;
+  padding: 5px 8px; font-size: 12px; outline: none; background: var(--surface);
+  box-shadow: 0 0 0 2px #bae6fd30;
+}
+.add-hint { font-size: 10px; color: var(--muted); margin-top: 3px; font-family: monospace; }
+
+/* ── Done log — aligns with backlog + columns ────────── */
+#done-log {
+  flex-shrink: 0; background: var(--surface);
+  border-top: 2px solid var(--border);
+  display: flex; max-height: 0; overflow: hidden;
+  transition: max-height .22s ease;
+}
+#done-log.open { max-height: 130px; overflow-y: auto; }
+
+/* spacer matching backlog rail so day columns line up */
+.done-log-spacer {
+  width: var(--backlog-w); flex-shrink: 0;
+  border-right: 1px solid #fecaca; background: #fff5f5;
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px 10px;
+}
+.done-log-spacer span { font-size: 10px; color: #fca5a5; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+
+.done-log-cols { flex: 1; display: flex; overflow-x: auto; }
+
+.done-day-col {
+  flex: 1; min-width: 110px; padding: 8px 10px;
+  border-right: 1px solid var(--border);
+}
+.done-day-col:last-child { border-right: none; }
+.done-day-head {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .4px; color: var(--muted); margin-bottom: 4px;
+}
+.done-entry { font-size: 11px; color: var(--muted); padding: 2px 0; text-decoration: line-through; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.done-none { font-size: 11px; color: #dde1e7; font-style: italic; }
+
+/* ── Toast ──────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: var(--text); color: #fff;
+  padding: 8px 18px; border-radius: 6px;
+  font-size: 12px; font-weight: 500; z-index: 300;
+  opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Folder picker overlay ──────────────────────────── */
+#folder-overlay {
+  position: fixed; inset: 0; background: rgba(248,250,252,.96);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+}
+#folder-overlay.hidden { display: none; }
+.folder-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 30px 36px; text-align: center;
+  max-width: 360px; width: 90%; box-shadow: 0 8px 24px rgba(0,0,0,.07);
+}
+.folder-card h2 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+.folder-card p { font-size: 13px; color: var(--muted); line-height: 1.65; margin-bottom: 22px; }
+.folder-card code { font-family: monospace; font-size: 11px; background: var(--bg); padding: 2px 6px; border-radius: 4px; }
+.btn-choose {
+  display: block; width: 100%; padding: 11px; font-size: 13px; font-weight: 600;
+  background: var(--text); color: #fff; border: none; border-radius: 7px;
+  cursor: pointer; margin-bottom: 8px;
+}
+.btn-choose:hover { background: #334155; }
+.btn-demo-mode {
+  display: block; width: 100%; padding: 9px; font-size: 12px;
+  background: none; border: 1px solid var(--border);
+  border-radius: 7px; cursor: pointer; color: var(--muted);
+}
+.btn-demo-mode:hover { background: var(--bg); color: var(--text); }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div id="topbar">
+  <h1>Alph-Planner</h1>
+  <span class="vtag">md-first</span>
+  <div class="week-nav">
+    <button class="btn-nav" onclick="shiftWeek(-1)">&#8592;</button>
+    <button class="btn-nav" onclick="shiftWeek(0)">Today</button>
+    <button class="btn-nav" onclick="shiftWeek(1)">&#8594;</button>
+  </div>
+  <span id="week-label">May 5 – 11, 2026</span>
+  <div class="spacer"></div>
+  <button class="topbar-btn" id="donelog-btn" onclick="toggleDoneLog()">Done log</button>
+  <span class="folder-badge" title="MasterAlf/Daily/">MasterAlf/Daily/</span>
+  <button class="topbar-btn" onclick="showFolderPicker()">Change folder</button>
+</div>
+
+<!-- Main: backlog + day columns -->
+<div id="main">
+
+  <!-- Backlog rail -->
+  <aside id="backlog">
+    <div class="rail-head">
+      Backlog
+      <span class="badge">5</span>
+    </div>
+    <div id="backlog-list">
+
+      <!-- free-form todo — no date, lives at top of an md file -->
+      <div class="backlog-item" draggable="true" ondragstart="bkDragStart(event)" ondragend="bkDragEnd(event)">
+        <span class="bk-drag">&#8942;&#8942;</span>
+        <div class="bk-body">
+          <div class="bk-title">design system cleanup</div>
+        </div>
+      </div>
+
+      <!-- past unchecked tasks — show red date tag -->
+      <div class="backlog-item" draggable="true" ondragstart="bkDragStart(event)" ondragend="bkDragEnd(event)">
+        <span class="bk-drag">&#8942;&#8942;</span>
+        <div class="bk-body">
+          <div class="bk-title starred">review contract</div>
+          <div><span class="date-tag">Tue May 6</span></div>
+        </div>
+      </div>
+
+      <div class="backlog-item" draggable="true" ondragstart="bkDragStart(event)" ondragend="bkDragEnd(event)">
+        <span class="bk-drag">&#8942;&#8942;</span>
+        <div class="bk-body">
+          <div class="bk-title">groceries</div>
+          <div><span class="date-tag">Wed May 7</span></div>
+        </div>
+      </div>
+
+      <div class="backlog-item" draggable="true" ondragstart="bkDragStart(event)" ondragend="bkDragEnd(event)">
+        <span class="bk-drag">&#8942;&#8942;</span>
+        <div class="bk-body">
+          <div class="bk-title">prep slides</div>
+          <div><span class="date-tag">Thu May 8</span></div>
+        </div>
+      </div>
+
+      <div class="backlog-item" draggable="true" ondragstart="bkDragStart(event)" ondragend="bkDragEnd(event)">
+        <span class="bk-drag">&#8942;&#8942;</span>
+        <div class="bk-body">
+          <div class="bk-title">bike ride</div>
+          <div><span class="date-tag">Sat May 10</span></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="backlog-actions">
+      <button class="btn-roll" onclick="rollAll()">Roll all to today &rarr;</button>
+    </div>
+  </aside>
+
+  <!-- Day columns -->
+  <div id="columns">
+
+    <!-- Monday May 5 (past) -->
+    <div class="day-col past" id="col-mon"
+      ondragover="colDragOver(event,this)" ondragleave="colDragLeave(this)" ondrop="colDrop(event,this,'Mon 5')">
+      <div class="day-head">
+        <div class="day-dn">Mon</div>
+        <div class="day-date-num">5</div>
+        <div class="day-total">1.5h done</div>
+      </div>
+      <div class="task-list">
+        <div class="task-item done" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" checked onchange="toggleDone(this)">
+          <span class="task-title">email Mike</span>
+          <span class="task-dur">30m</span>
+        </div>
+        <div class="task-item done" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" checked onchange="toggleDone(this)">
+          <span class="task-title">taxes</span>
+          <span class="task-dur">1h</span>
+        </div>
+      </div>
+      <div class="col-footer">
+        <button class="btn-add-task" onclick="openAddInput('mon')">+ add task</button>
+        <div class="add-input-wrap" id="add-mon">
+          <input class="add-input" placeholder="task title 1h" onkeydown="handleAddKey(event,'mon')">
+          <div class="add-hint">title [duration] &middot; **title** = starred &middot; Esc cancel</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tuesday May 6 (past, has a backlog item) -->
+    <div class="day-col past" id="col-tue"
+      ondragover="colDragOver(event,this)" ondragleave="colDragLeave(this)" ondrop="colDrop(event,this,'Tue 6')">
+      <div class="day-head">
+        <div class="day-dn">Tue</div>
+        <div class="day-date-num">6</div>
+        <div class="day-total">1h done</div>
+      </div>
+      <div class="task-list">
+        <div class="task-item done" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" checked onchange="toggleDone(this)">
+          <span class="task-title">gym session</span>
+          <span class="task-dur">1h</span>
+        </div>
+        <!-- unchecked past task: dimmed, still in its day col -->
+        <div class="task-item" style="opacity:.45" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" onchange="toggleDone(this)">
+          <span class="task-title starred">review contract</span>
+          <span class="task-dur">2h</span>
+        </div>
+      </div>
+      <div class="col-footer">
+        <button class="btn-add-task" onclick="openAddInput('tue')">+ add task</button>
+        <div class="add-input-wrap" id="add-tue">
+          <input class="add-input" placeholder="task title 1h" onkeydown="handleAddKey(event,'tue')">
+          <div class="add-hint">title [duration] &middot; **title** = starred &middot; Esc cancel</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wednesday May 7 (past, collapsed subtasks) -->
+    <div class="day-col past" id="col-wed"
+      ondragover="colDragOver(event,this)" ondragleave="colDragLeave(this)" ondrop="colDrop(event,this,'Wed 7')">
+      <div class="day-head">
+        <div class="day-dn">Wed</div>
+        <div class="day-date-num">7</div>
+        <div class="day-total">30m done</div>
+      </div>
+      <div class="task-list">
+        <div class="task-item done" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" checked onchange="toggleDone(this)">
+          <span class="task-title">team standup</span>
+          <span class="task-dur">30m</span>
+        </div>
+        <!-- collapsed subtasks indicator -->
+        <div class="task-item grp-b" style="opacity:.45" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" onchange="toggleDone(this)">
+          <span class="task-title">groceries</span>
+          <span class="sub-badge" onclick="toggleSubs('subs-wed')">&#8595; 3</span>
+        </div>
+        <div class="subtasks grp-b" id="subs-wed">
+          <div class="subtask-row done">
+            <input type="checkbox" checked onchange="toggleSubDone(this)">
+            <span class="st-title">buy milk</span>
+          </div>
+          <div class="subtask-row">
+            <input type="checkbox" onchange="toggleSubDone(this)">
+            <span class="st-title">buy eggs</span>
+          </div>
+          <div class="subtask-row">
+            <input type="checkbox" onchange="toggleSubDone(this)">
+            <span class="st-title">buy bread</span>
+          </div>
+        </div>
+      </div>
+      <div class="col-footer">
+        <button class="btn-add-task" onclick="openAddInput('wed')">+ add task</button>
+        <div class="add-input-wrap" id="add-wed">
+          <input class="add-input" placeholder="task title 1h" onkeydown="handleAddKey(event,'wed')">
+          <div class="add-hint">title [duration] &middot; **title** = starred &middot; Esc cancel</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Thursday May 8 (past) -->
+    <div class="day-col past" id="col-thu"
+      ondragover="colDragOver(event,this)" ondragleave="colDragLeave(this)" ondrop="colDrop(event,this,'Thu 8')">
+      <div class="day-head">
+        <div class="day-dn">Thu</div>
+        <div class="day-date-num">8</div>
+        <div class="day-total">1h done</div>
+      </div>
+      <div class="task-list">
+        <div class="task-item done" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" checked onchange="toggleDone(this)">
+          <span class="task-title starred">ship invoice</span>
+          <span class="task-dur">1h</span>
+        </div>
+        <div class="task-item" style="opacity:.45" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" onchange="toggleDone(this)">
+          <span class="task-title">prep slides</span>
+          <span class="task-dur">1.5h</span>
+        </div>
+      </div>
+      <div class="col-footer">
+        <button class="btn-add-task" onclick="openAddInput('thu')">+ add task</button>
+        <div class="add-input-wrap" id="add-thu">
+          <input class="add-input" placeholder="task title 1h" onkeydown="handleAddKey(event,'thu')">
+          <div class="add-hint">title [duration] &middot; **title** = starred &middot; Esc cancel</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Friday May 9 (past, fully done) -->
+    <div class="day-col past" id="col-fri"
+      ondragover="colDragOver(event,this)" ondragleave="colDragLeave(this)" ondrop="colDrop(event,this,'Fri 9')">
+      <div class="day-head">
+        <div class="day-dn">Fri</div>
+        <div class="day-date-num">9</div>
+        <div class="day-total">2h done</div>
+      </div>
+      <div class="task-list">
+        <div class="task-item done" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" checked onchange="toggleDone(this)">
+          <span class="task-title">code review</span>
+          <span class="task-dur">1h</span>
+        </div>
+        <div class="task-item done" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" checked onchange="toggleDone(this)">
+          <span class="task-title">lunch &amp; walk</span>
+          <span class="task-dur">1h</span>
+        </div>
+      </div>
+      <div class="col-footer">
+        <button class="btn-add-task" onclick="openAddInput('fri')">+ add task</button>
+        <div class="add-input-wrap" id="add-fri">
+          <input class="add-input" placeholder="task title 1h" onkeydown="handleAddKey(event,'fri')">
+          <div class="add-hint">title [duration] &middot; **title** = starred &middot; Esc cancel</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saturday May 10 (past) -->
+    <div class="day-col past" id="col-sat"
+      ondragover="colDragOver(event,this)" ondragleave="colDragLeave(this)" ondrop="colDrop(event,this,'Sat 10')">
+      <div class="day-head">
+        <div class="day-dn">Sat</div>
+        <div class="day-date-num">10</div>
+        <div class="day-total">1h done</div>
+      </div>
+      <div class="task-list">
+        <div class="task-item" style="opacity:.45" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" onchange="toggleDone(this)">
+          <span class="task-title">bike ride</span>
+          <span class="task-dur">2h</span>
+        </div>
+        <div class="task-item done" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" checked onchange="toggleDone(this)">
+          <span class="task-title">read</span>
+          <span class="task-dur">1h</span>
+        </div>
+      </div>
+      <div class="col-footer">
+        <button class="btn-add-task" onclick="openAddInput('sat')">+ add task</button>
+        <div class="add-input-wrap" id="add-sat">
+          <input class="add-input" placeholder="task title 1h" onkeydown="handleAddKey(event,'sat')">
+          <div class="add-hint">title [duration] &middot; **title** = starred &middot; Esc cancel</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sunday May 11 — TODAY (expanded subtasks, open add input) -->
+    <div class="day-col today" id="col-sun"
+      ondragover="colDragOver(event,this)" ondragleave="colDragLeave(this)" ondrop="colDrop(event,this,'Sun 11')">
+      <div class="day-head">
+        <div class="day-dn">Sun</div>
+        <div class="day-date-num">11</div>
+        <div class="day-total">4h planned</div>
+      </div>
+      <div class="task-list" id="today-list">
+        <div class="task-item" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" onchange="toggleDone(this)">
+          <span class="task-title starred">fix taxes</span>
+          <span class="task-dur">2h</span>
+        </div>
+        <div class="task-item" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" onchange="toggleDone(this)">
+          <span class="task-title">meal prep</span>
+          <span class="task-dur">1h</span>
+        </div>
+        <!-- expanded subtasks -->
+        <div class="task-item grp-c" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" onchange="toggleDone(this)">
+          <span class="task-title">call family</span>
+          <span class="sub-badge" onclick="toggleSubs('subs-sun')">&#8593; 2</span>
+        </div>
+        <div class="subtasks grp-c open" id="subs-sun">
+          <div class="subtask-row">
+            <input type="checkbox" onchange="toggleSubDone(this)">
+            <span class="st-title">call mom</span>
+          </div>
+          <div class="subtask-row">
+            <input type="checkbox" onchange="toggleSubDone(this)">
+            <span class="st-title">call sister</span>
+          </div>
+        </div>
+        <div class="task-item" draggable="true" ondragstart="taskDragStart(event)" ondragend="taskDragEnd(event)">
+          <span class="drag-handle">&#8942;&#8942;</span>
+          <input type="checkbox" onchange="toggleDone(this)">
+          <span class="task-title">draft blog post</span>
+          <span class="task-dur">1h</span>
+        </div>
+      </div>
+      <div class="col-footer">
+        <button class="btn-add-task" onclick="openAddInput('sun')">+ add task</button>
+        <div class="add-input-wrap open" id="add-sun">
+          <input class="add-input" id="sun-input" placeholder="**starred** 1h or plain task" onkeydown="handleAddKey(event,'sun')">
+          <div class="add-hint">**title** = starred &middot; Enter add &middot; Esc cancel</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- #columns -->
+</div><!-- #main -->
+
+<!-- Done log — spacer matches backlog, columns align with day grid -->
+<div id="done-log">
+  <div class="done-log-spacer">
+    <span>Backlog</span>
+  </div>
+  <div class="done-log-cols">
+    <div class="done-day-col">
+      <div class="done-day-head">Mon 5</div>
+      <div class="done-entry">email Mike</div>
+      <div class="done-entry">taxes</div>
+    </div>
+    <div class="done-day-col">
+      <div class="done-day-head">Tue 6</div>
+      <div class="done-entry">gym session</div>
+    </div>
+    <div class="done-day-col">
+      <div class="done-day-head">Wed 7</div>
+      <div class="done-entry">team standup</div>
+    </div>
+    <div class="done-day-col">
+      <div class="done-day-head">Thu 8</div>
+      <div class="done-entry">ship invoice</div>
+    </div>
+    <div class="done-day-col">
+      <div class="done-day-head">Fri 9</div>
+      <div class="done-entry">code review</div>
+      <div class="done-entry">lunch &amp; walk</div>
+    </div>
+    <div class="done-day-col">
+      <div class="done-day-head">Sat 10</div>
+      <div class="done-entry">read</div>
+    </div>
+    <div class="done-day-col">
+      <div class="done-day-head">Sun 11</div>
+      <div class="done-none">none yet</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- Folder picker overlay -->
+<div id="folder-overlay">
+  <div class="folder-card">
+    <h2>Choose your daily folder</h2>
+    <p>
+      Point Alph-Planner at the folder where your daily Markdown files live —
+      one file per day, named <code>YYYY-MM-DD.md</code>.<br><br>
+      Tasks stay in your files. The app is just a view.
+    </p>
+    <button class="btn-choose" onclick="hideFolderPicker()">Choose folder&hellip;</button>
+    <button class="btn-demo-mode" onclick="hideFolderPicker()">Continue with demo data</button>
+  </div>
+</div>
+
+<script>
+const WEEK_LABELS = [
+  'Apr 28 – May 4, 2026',
+  'May 5 – 11, 2026',
+  'May 12 – 18, 2026',
+];
+let weekOffset = 1;
+function shiftWeek(dir) {
+  if (dir === 0) weekOffset = 1;
+  else weekOffset = Math.max(0, Math.min(2, weekOffset + dir));
+  document.getElementById('week-label').textContent = WEEK_LABELS[weekOffset];
+}
+
+/* ── Checkbox toggles ─────────────────────────────── */
+function toggleDone(cb) {
+  cb.closest('.task-item').classList.toggle('done', cb.checked);
+}
+function toggleSubDone(cb) {
+  cb.closest('.subtask-row').classList.toggle('done', cb.checked);
+}
+
+/* ── Subtask expand/collapse ──────────────────────── */
+function toggleSubs(id) {
+  const panel = document.getElementById(id);
+  const badge = panel.previousElementSibling.querySelector('.sub-badge');
+  const open = panel.classList.toggle('open');
+  if (badge) {
+    const count = panel.querySelectorAll('.subtask-row').length;
+    badge.innerHTML = (open ? '&#8593; ' : '&#8595; ') + count;
+  }
+}
+
+/* ── Add task input ───────────────────────────────── */
+function openAddInput(day) {
+  document.querySelectorAll('.add-input-wrap').forEach(w => {
+    if (w.id !== 'add-' + day) w.classList.remove('open');
+  });
+  const wrap = document.getElementById('add-' + day);
+  wrap.classList.toggle('open');
+  if (wrap.classList.contains('open')) {
+    const inp = wrap.querySelector('.add-input');
+    inp.value = '';
+    inp.focus();
+  }
+}
+
+function handleAddKey(e, day) {
+  if (e.key === 'Escape') {
+    document.getElementById('add-' + day).classList.remove('open');
+    return;
+  }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const val = e.target.value.trim();
+    if (val) addTaskToColumn(day, val);
+    e.target.value = '';
+  }
+}
+
+function addTaskToColumn(day, raw) {
+  const col = document.getElementById('col-' + day);
+  const list = col.querySelector('.task-list');
+  const durMatch = raw.match(/(\d*\.?\d+)\s*(h|m)\s*$/i);
+  const dur = durMatch ? durMatch[0].trim() : '';
+  const title = durMatch ? raw.slice(0, durMatch.index).trim() : raw;
+  const starred = title.startsWith('**') && title.endsWith('**');
+  const clean = starred ? title.slice(2, -2) : title;
+
+  const item = document.createElement('div');
+  item.className = 'task-item';
+  item.draggable = true;
+  item.innerHTML = `
+    <span class="drag-handle">&#8942;&#8942;</span>
+    <input type="checkbox" onchange="toggleDone(this)">
+    <span class="task-title${starred ? ' starred' : ''}">${clean}</span>
+    ${dur ? `<span class="task-dur">${dur}</span>` : ''}`;
+  item.addEventListener('dragstart', e => taskDragStart(e));
+  item.addEventListener('dragend',   e => taskDragEnd(e));
+  list.appendChild(item);
+  toast(`Added to ${day}`);
+}
+
+/* ── Drag and drop ────────────────────────────────── */
+let dragType = null; // 'task' | 'backlog'
+let dragEl   = null;
+
+function taskDragStart(e) {
+  dragType = 'task';
+  dragEl   = e.currentTarget;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragEl.querySelector('.task-title').textContent);
+  setTimeout(() => dragEl.classList.add('dragging'), 0);
+}
+function taskDragEnd(e) {
+  if (dragEl) dragEl.classList.remove('dragging');
+  dragType = dragEl = null;
+}
+
+function bkDragStart(e) {
+  dragType = 'backlog';
+  dragEl   = e.currentTarget;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragEl.querySelector('.bk-title').textContent);
+  setTimeout(() => dragEl.classList.add('dragging'), 0);
+}
+function bkDragEnd(e) {
+  if (dragEl) dragEl.classList.remove('dragging');
+  dragType = dragEl = null;
+}
+
+function colDragOver(e, col) {
+  if (!dragType) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  col.classList.add('drag-over');
+}
+function colDragLeave(col) {
+  col.classList.remove('drag-over');
+}
+function colDrop(e, col, label) {
+  e.preventDefault();
+  col.classList.remove('drag-over');
+  if (!dragType || !dragEl) return;
+
+  const title = e.dataTransfer.getData('text/plain');
+  toast(`Moved "${title}" to ${label}`);
+
+  if (dragType === 'backlog') {
+    /* remove from backlog rail and append to column */
+    dragEl.remove();
+    const item = document.createElement('div');
+    item.className = 'task-item';
+    item.draggable = true;
+    const bkTitle = dragEl.querySelector('.bk-title');
+    const starred = bkTitle.classList.contains('starred');
+    item.innerHTML = `
+      <span class="drag-handle">&#8942;&#8942;</span>
+      <input type="checkbox" onchange="toggleDone(this)">
+      <span class="task-title${starred ? ' starred' : ''}">${bkTitle.textContent}</span>`;
+    item.addEventListener('dragstart', e2 => taskDragStart(e2));
+    item.addEventListener('dragend',   e2 => taskDragEnd(e2));
+    col.querySelector('.task-list').appendChild(item);
+    /* update badge count */
+    const badge = document.querySelector('#backlog .badge');
+    badge.textContent = Math.max(0, parseInt(badge.textContent) - 1);
+  } else {
+    /* move task row to target column */
+    const list = col.querySelector('.task-list');
+    list.appendChild(dragEl);
+  }
+  dragType = dragEl = null;
+}
+
+/* ── Roll all ─────────────────────────────────────── */
+function rollAll() {
+  const items = [...document.querySelectorAll('#backlog-list .backlog-item')];
+  const todayList = document.getElementById('today-list');
+  items.forEach(bk => {
+    const bkTitle = bk.querySelector('.bk-title');
+    const starred = bkTitle.classList.contains('starred');
+    const item = document.createElement('div');
+    item.className = 'task-item';
+    item.draggable = true;
+    item.innerHTML = `
+      <span class="drag-handle">&#8942;&#8942;</span>
+      <input type="checkbox" onchange="toggleDone(this)">
+      <span class="task-title${starred ? ' starred' : ''}">${bkTitle.textContent}</span>`;
+    item.addEventListener('dragstart', e => taskDragStart(e));
+    item.addEventListener('dragend',   e => taskDragEnd(e));
+    todayList.appendChild(item);
+    bk.remove();
+  });
+  document.querySelector('#backlog .badge').textContent = '0';
+  toast(`Rolled ${items.length} tasks to today`);
+}
+
+/* ── Done log toggle ──────────────────────────────── */
+let doneLogOpen = false;
+function toggleDoneLog() {
+  doneLogOpen = !doneLogOpen;
+  document.getElementById('done-log').classList.toggle('open', doneLogOpen);
+  document.getElementById('donelog-btn').classList.toggle('active', doneLogOpen);
+}
+
+/* ── Folder picker ────────────────────────────────── */
+function showFolderPicker() { document.getElementById('folder-overlay').classList.remove('hidden'); }
+function hideFolderPicker() {
+  document.getElementById('folder-overlay').classList.add('hidden');
+  setTimeout(() => document.getElementById('sun-input').focus(), 80);
+}
+
+/* ── Toast ────────────────────────────────────────── */
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ── Keyboard ─────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  if (e.key === 'n' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== 'INPUT')
+    openAddInput('sun');
+});
+</script>
+</body>
+</html>

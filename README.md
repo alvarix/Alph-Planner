@@ -1,104 +1,71 @@
 # Alph-Planner
 
-Weekly task planner PWA. Type tasks in a terse syntax (or paste a Markdown checklist), auto-schedule them into a 7-column week grid, drag sessions between slots, and track what's done.
+Weekly task planner PWA. Your Markdown daily notes in Obsidian are the source of truth — the app is a read/write view over those files. No database, no sync service, no lock-in.
 
-## Task syntax
+## How it works
 
-```
-draft email .5h x2, p2
-ship invoice 1h, p1
-deep work 2h x3, p3
-stand-up 15m
-buy milk          ← no duration → 30m default, p3
-```
+Point the app at the folder where your Obsidian daily notes live. It reads one `.md` file per day plus a `Backlog.md` for floating tasks. Everything you see in the app lives in those files; everything you do in the app writes back to them immediately.
 
-| Token | Meaning | Default |
-|---|---|---|
-| `title` | Free text before the first duration token | required |
-| `1h` / `.5h` / `90m` | Session duration (15 min – 8 h) | 30m |
-| `xN` | Number of sessions (e.g. `x3` = three separate slots) | 1 |
-| `pN` | Priority 1–4, p1 = highest | 3 |
+Open the same folder in Obsidian and edits appear in the app on the next focus. The app is optional — your files are always readable without it.
 
-Tasks with no duration are accepted and get a 30m / p3 default. Only completely blank lines are ignored.
-
-## Markdown import
-
-Paste a GitHub-style checklist directly into the input and press Add:
+## File format
 
 ```markdown
-# Week plan
+# Work
+- [ ] **ship invoice** 1h
+  - [ ] draft
+  - [x] send
 
-- [ ] fix bug 1h p1
-- [x] already done 1h
-- [ ] review PR .5h x2, p2
-
-## Side project
-- [ ] refactor auth 2h p3
+# Personal
+- [ ] groceries
+- [x] gym
 ```
 
-- Unchecked items (`- [ ]`) are imported; checked (`- [x]`) are skipped
-- `# Headings` and `## Sections` are skipped
-- Indented subtasks become `parent: child` — e.g. `fix bug: add test 30m`
-- Items with no duration get the 30m / p3 default
+| Element | Meaning |
+|---|---|
+| `# Category` | Optional H1 section header — tasks below inherit the category |
+| `- [ ] title` | Unchecked task |
+| `- [x] title` | Done task |
+| `**bold title**` | Starred (priority) task |
+| `30m` / `1h` / `1.5h` | Optional duration estimate at end of title |
+| Indented `- [ ]` | Subtask — moves with parent, expands on click |
+
+- Date comes from the filename (`YYYY-MM-DD.md`), not from a heading
+- `Backlog.md` follows the same format; H1 categories work there too
+- `![[Backlog]]` Obsidian embeds are preserved verbatim and ignored by the parser
+- All unknown lines (prose, frontmatter, blank lines) survive any write-back byte-identical
+
+## Backlog
+
+`Backlog.md` in the same folder holds free-form todos without a specific day. Unchecked tasks from past daily files surface here with a red date tag. Drag any backlog item into a day column, or use "Roll all" to move everything to today.
 
 ## Keyboard shortcuts
 
 | Key | Action |
 |---|---|
-| `n` | Focus task input |
-| `Cmd+Enter` | Add tasks |
-| `Escape` | Cancel inline edit or dismiss done/remove prompt |
-
-## Week grid
-
-- Sessions are colour-coded by priority (red → orange → blue → grey)
-- **Drag** a session to move it; drop it outside all day columns to send it to Overflow
-- **Click ✓** on a session → choose **Done** (logged to Done tab) or **Remove** (discarded)
-- Weather forecast appears in day headers (browser geolocation, falls back to Brooklyn 11238)
-
-## Task list
-
-- **Click** any task row to edit inline (title, duration, sessions, priority)
-- Press **Enter** to save, **Escape** to cancel
-- **✕** on a row removes the task and all its sessions
-- **Clear all tasks** button at the bottom (requires confirmation)
-
-## Overflow / Done panel
-
-Right rail has two tabs:
-
-- **Overflow** — sessions that didn't fit the week; drag them onto the grid to schedule manually; *Roll to next week* clears the list
-- **Done** — completed sessions in reverse-chronological order; persists across reloads
-
-## Config
-
-Click **⚙** in the top bar:
-
-- Hours per day (Mon–Sun; weekends hidden until toggled on)
-- Block-offs: recurring (`Every weekday`) or per-day (e.g. dentist on Wed)
-- Export / Import JSON backup
-- Reset everything
-
-## Scheduling
-
-The auto-scheduler sorts tasks by priority (p1 first), then spreads sessions across days with the most remaining capacity rather than filling Monday first. Sessions of the same task are placed on different days when possible. Anything that doesn't fit goes to Overflow.
+| `n` | Focus add-task input for today |
 
 ## Local dev
 
 ```sh
 npm install
-npm run dev        # http://localhost:5173
-npm test           # Playwright smoke tests
-npm run check      # TypeScript + Svelte type check
+npm run dev            # http://localhost:5173
+npm run test:unit      # Vitest unit tests (parser + serializer)
+npm test               # Playwright smoke tests
+npm run check          # TypeScript + Svelte type check
 ```
 
 ## Stack
 
 - SvelteKit 5 (runes mode), Vite 8, adapter-vercel
+- File System Access API for local file read/write (Chromium only)
+- IndexedDB for persisting the directory handle across reloads
 - vite-plugin-pwa (service worker, installable)
-- Native HTML5 drag-and-drop
-- Open-Meteo weather API (free, no key)
-- Playwright for tests
+- Vitest for unit tests, Playwright for smoke tests
+
+## Browser support
+
+Requires a Chromium browser (Chrome, Edge, Arc) for the File System Access API. Safari and Firefox are not supported.
 
 ## Deploy
 
@@ -106,46 +73,8 @@ Connect the repo to a Vercel project. `adapter-vercel` handles the build. No env
 
 ## Data
 
-State is saved to `localStorage` under `alph-planner-v1`. Use Config → Export JSON to back up or move data between devices.
+Source of truth is your local Markdown files. The app holds an in-memory cache rebuilt from disk on every window focus and after every write. Deleting the app or clearing browser data does not affect your files.
 
-## Dev: state history and recovery
+## Architecture
 
-When running `npm run dev`, the app automatically writes a timestamped JSON snapshot to `snapshots/` after every state change (debounced 500ms). Up to 500 snapshots are kept; older ones are pruned automatically.
-
-**This is dev-only.** The snapshot endpoint is hard-gated on the `dev` flag from `$app/environment` — it returns 405 in `npm run preview` and in production. Nothing is shipped to Vercel. No configuration required to enable it; it runs whenever you run `npm run dev`.
-
-**There is no on/off toggle.** Snapshots are always captured during dev. They are fire-and-forget — if the write fails (e.g. disk full) the app ignores it.
-
-### Listing snapshots
-
-```sh
-ls -t snapshots/ | head -20
-```
-
-### Recovering a past state
-
-1. Pick a file by timestamp:
-   ```sh
-   ls -t snapshots/ | head -20
-   ```
-2. Copy it to the clipboard:
-   ```sh
-   pbcopy < snapshots/2026-05-06T13-42-03-512Z.json
-   ```
-3. In the browser devtools Console, paste and run:
-   ```js
-   localStorage.setItem('alph-planner-v1', '<paste here>')
-   ```
-4. Reload the page.
-
-### File format
-
-Each file is plain JSON matching the `alph-planner-v1` localStorage shape:
-
-```json
-{ "tasks": [...], "sessions": [...], "unscheduled": [...], "done": [...], "config": {...} }
-```
-
-The filename is the ISO timestamp of the write, colons and dots replaced with dashes.
-
-See `docs/features.md` for the full feature reference and `docs/wishlist.md` for planned work.
+See `docs/markdown-first-plan.md` for the full design spec and `docs/postmortem-grid-version.md` for why the v0 time-slot grid was retired.

@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.0.0] - 2026-05-12 (markdown-first rewrite)
+
+Complete rewrite on the `markdown-first` branch. v0 grid archived as `v0-grid-archive`.
+
+### Added
+- File System Access API folder picker — points app at local Markdown daily notes
+- IndexedDB persistence for directory handle (silent re-grant across reloads)
+- `src/lib/md/parse.ts` — pure TS parser: H1 categories, starred (`**bold**`),
+  duration (`1h`/`30m`/`1.5h`), subtasks, `![[Obsidian]]` embeds preserved
+- `src/lib/md/serialize.ts` — line-preserving write-back: only the mutated line
+  changes; all other lines (prose, blank, frontmatter) survive byte-identical
+- 44 unit tests (Vitest) covering parse + serialize round-trip invariants
+- `DayColumn` + `TaskRow` components rendering from parsed files
+- `FolderPicker` overlay with permission re-grant flow
+- Checkbox write-back wired to disk (task and subtask)
+- `Backlog.md` as the canonical floating-task store
+- iCloud conflict-file detection (`filename (MacBook).md`)
+- Window-focus cache refresh
+
+### Removed
+- Time-slot grid, auto-scheduler, block-offs, priority pills (p1–p4)
+- localStorage as source of truth
+- Weather widget
+- Inbox rail, Unscheduled rail, Config drawer
+
+### Changed
+- Priority model: bold title = starred only. No numbered levels.
+- Source of truth: `YYYY-MM-DD.md` daily files + `Backlog.md`
+- Subtasks get a color-matched left accent per parent group
+
+---
+
 ## [0.5.0] - 2026-05-06
 
 ### Added
@@ -37,18 +69,13 @@
 ## [0.2.0] - 2026-05-05
 
 ### Added
-- Week weather overview: day headers show emoji + forecast high temp via Open-Meteo (free, no API key); uses browser geolocation with silent fallback on deny or network failure
-- `docs/features.md`: plain-English feature reference, updated with each change
+- Week weather overview via Open-Meteo
 
 ## [0.1.0] - 2026-05-05
 
 ### Added
-- Task input with terse syntax parser (title, duration, xN sessions, pN priority)
+- Task input with terse syntax parser
 - Greedy priority-first weekly scheduler
 - Draggable week grid with 30-min slots
-- Unscheduled overflow rail with roll-to-next-week
-- Config drawer: per-day hour caps, weekends toggle, block-offs (recurring + one-off)
-- localStorage persistence with JSON export/import
-- Mobile layout with bottom tab navigation
-- PWA manifest and service worker
-- Vercel deployment
+- Unscheduled overflow rail, config drawer, localStorage persistence
+- Mobile layout, PWA manifest, Vercel deployment

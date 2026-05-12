@@ -1,230 +1,206 @@
 # Alph-Planner
 
-Weekly task planner PWA. Input tasks with estimates and priorities; output
-a draggable weekly schedule.
-
-`*` in the project name denotes planning mode - no code yet.
+Daily task planner PWA over a folder of plain markdown files. The
+user's daily MD files in `MasterAlf/` are the single source of truth.
+The app reads, renders, and edits those files. It owns no state of
+its own.
 
 ## Goals
 
 - Capture tasks fast (one line, terse syntax)
-- Auto-place sessions into a weekly grid by priority
-- Re-plan by dragging
+- See the week as columns of tasks pulled from per-day MD files
+- Re-plan by dragging tasks between days and reordering within a day
+- Star tasks for priority (renders as bold in Obsidian outline view)
+- Surface unchecked past tasks ("overdue") and roll them forward
 - Work offline, install to home screen
-- Deploy to Vercel from day one (preview per branch)
-- Stay file-based until sync or multi-device demands a real DB
+- Deploy to Vercel (preview per branch)
+- Files-as-database: zero proprietary state, fully readable in any
+  text editor or Obsidian
 
-## Non-goals (v1)
+## Non-goals
 
-- Multi-user / sync
+- Multi-user / cloud sync (rely on iCloud / Obsidian sync for the
+  files themselves)
 - Calendar integration (Google, iCal)
-- Recurring tasks (deferred to v2)
+- Time-of-day scheduling. Day-level granularity only; ordering within
+  a day is by line order, not clock time.
+- Recurring tasks
+- Multi-session tasks. One task = one line. Multi-day work = put it in
+  multiple files.
 - Mobile-first (responsive yes, but designed desktop-first)
 
-## Task syntax
+## File format
 
-Single-line input parses into a task:
+One file per day in the user's chosen folder.
 
-```
-draft email .5h x2, p2
-ship invoice 1h, p1
-deep work 2h x3, p3
+Filename: `YYYY-MM-DD.md` (e.g. `2026-05-05.md`). ISO format because
+it's sortable in Finder and unambiguous internationally.
+
+Contents:
+
+```markdown
+# 2026-05-05
+- [ ] **fix tax return** 1h
+	- [x] call mike
+	- [ ] call IRS
+- [x] alph-planner 30m
+- [ ] groceries
 ```
 
 Grammar:
 
-- `<title>` (free text up to first time token)
-- `<estimate>` like `.5h`, `1h`, `90m`
-- `xN` optional session count (default 1)
-- `pN` priority 1-4 (default 3)
+- H1 on first non-blank line = the date for this file. Required.
+- Top-level `- [ ]` or `- [x]` line = a task. Order in file = order
+  in the day's column.
+- Indented children of a task = subtasks / notes. Travel with the
+  parent. Not scheduled independently in v1.
+- `**bold title**` on a task line = starred (priority).
+- Optional trailing duration token: `30m`, `1h`, `1.5h`, `90m`. Reuses
+  the existing `parser.ts` duration grammar.
+- No `xN` session count. No `pN` priority levels — star or no star.
+- Anything else in the file (frontmatter, blank lines, free text
+  between tasks, headings other than the H1 date) is preserved
+  verbatim on write-back.
 
-## Scheduler
-
-Greedy, priority-first:
-
-1. Sort tasks by priority (p1 first), then by total hours desc.
-2. For each task, place each session into the earliest open slot.
-3. Sessions of the same task spread across days when possible (no two
-   sessions of the same task in the same day unless no other day fits).
-4. Respect per-day hour caps and time block-offs.
-5. Anything that doesn't fit lands in the **Unscheduled** list.
-6. Manual action: "Roll unscheduled to next week" - copies remaining
-   sessions to the next week's schedule.
-7. Manual action: "Compress day" - lets the user temporarily extend a
-   day's hour cap to absorb overflow, with a warning.
-
-## UI
+## Views
 
 Three regions:
 
-1. **Inbox** - text input + parsed task list (top or left rail)
-2. **Week grid** - 7 columns (Mon-Sun), rows are time slots. Sessions
-   render as draggable blocks.
-3. **Unscheduled** - sidebar / drawer for overflow.
+1. **Week strip** — N columns (default 7), each one a day. Today
+   highlighted. Each column lists the top-level tasks from its file
+   in file order. Empty/missing file = empty column. Click "+" or
+   double-click the column to create the file lazily on first write.
+2. **Overdue rail** — left rail listing every unchecked top-level
+   task from any past-dated file. Drag to a day or click "Roll all"
+   to bulk-move into today.
+3. **New task input** — terse one-line input. Default target = the
+   focused day's column (today by default). Hotkey `n`.
 
-Interactions:
+Optional toggleable view:
 
-- Drag a session block within the grid to move it.
-- Drag from Unscheduled into the grid to schedule it.
-- Drag out of the grid to unschedule.
-- Click a block to edit / split / delete.
-- Keyboard: `n` new task, `enter` submit, arrow keys to navigate grid.
+- **Done log** — scans past N days of files for `[x]` lines, grouped
+  by date. Free, since the files have it.
+
+## Interactions
+
+- Click checkbox → rewrites the line's `[ ]` ↔ `[x]` in its file.
+- Drag task between days → remove line from source file, append to
+  target file. Two-step write: target first, then source. Rollback if
+  the source write fails.
+- Drag to reorder within a day → rewrite that file with reordered
+  task lines.
+- Edit title inline → rewrite the line.
+- Star/unstar → toggle `**` around the title in the line.
+- Delete → remove the line (and any indented children) from the file.
+- Keyboard: `n` new task, `enter` submit, arrow keys to navigate
+  columns.
+
+## Data model
+
+There is no internal data model. The files are the model. In memory
+the app holds a parsed cache for performance:
+
+```ts
+type Task = {
+  file: string;          // "2026-05-05.md"
+  date: string;          // "2026-05-05"
+  lineRange: [number, number]; // for write-back
+  title: string;
+  starred: boolean;
+  estimateMin: number | null;
+  done: boolean;
+  children: Task[];      // subtasks
+  raw: string;           // original line, for round-trip
+};
+```
+
+The cache invalidates on window focus and after every write. No
+reconciliation, no conflict resolution beyond detecting iCloud
+conflict filenames (e.g. `2026-05-05 (alvar's MacBook).md`) and
+surfacing a banner.
+
+## Round-trip guarantee
+
+The app's most important invariant: **parse → serialize without
+modification = byte-identical to the original file**. Tested directly
+against real files from the user's folder. Every edit only touches
+matched task lines; everything else is preserved verbatim.
+
+## File system access
+
+Browser File System Access API (Chromium browsers). On first launch
+the user picks the folder. The directory handle is stored in
+IndexedDB and re-used on subsequent launches with a permission prompt
+only when needed.
+
+If the API is unavailable (Safari, Firefox), the app falls back to a
+read-only mode using uploaded files, with a clear message that
+writing isn't supported in this browser.
 
 ## Configuration
 
-Stored in the same JSON record as the schedule.
+Minimal:
 
-### Weekdays vs weekends
+- Folder handle (chosen on first launch, persisted in IndexedDB).
+- Number of days visible in the week strip (default 7, configurable).
+- Done log lookback window (default 30 days).
 
-Weekdays and weekends are configured as **two separate blocks**, with a
-master toggle for weekends.
-
-- **Weekdays** (Mon-Fri): per-day hour caps and a shared day window.
-- **Weekends** (Sat, Sun): separately toggleable. When off, weekends
-  are zero-hour and the grid renders them collapsed. When on, they get
-  their own per-day hour caps and day window (typically narrower).
-
-This makes the common cases easy:
-
-- "I don't work weekends" - leave weekends off, grid is 5 columns.
-- "Saturday morning only" - weekends on, Sat = 3h with a 09:00-12:00
-  window, Sun = 0h.
-
-### Other config
-
-- Default session granularity (e.g. 30m)
-- Block-offs: recurring (e.g. lunch every weekday 12-1) or one-off
-  (e.g. dentist Wed 3-4)
-
-## Data model (JSON)
-
-One file per week, plus a global config file. File-based until a real
-DB is justified.
-
-```json
-// config.json
-{
-  "version": 1,
-  "weekdays": {
-    "enabled": true,
-    "hoursPerDay": { "mon": 6, "tue": 6, "wed": 6, "thu": 6, "fri": 4 },
-    "dayWindow": { "start": "09:00", "end": "18:00" }
-  },
-  "weekends": {
-    "enabled": false,
-    "hoursPerDay": { "sat": 0, "sun": 0 },
-    "dayWindow": { "start": "10:00", "end": "14:00" }
-  },
-  "granularityMinutes": 30,
-  "blockOffs": [
-    { "id": "bo_lunch", "recurring": "weekday", "start": "12:00", "end": "13:00", "label": "lunch" },
-    { "id": "bo_xx", "date": "2026-05-06", "start": "15:00", "end": "16:00", "label": "dentist" }
-  ]
-}
-```
-
-```json
-// week-2026-W19.json
-{
-  "version": 1,
-  "weekStart": "2026-05-04",
-  "tasks": [
-    {
-      "id": "t_01",
-      "title": "draft email",
-      "sessionMinutes": 30,
-      "sessionsTotal": 2,
-      "sessionsDone": 0,
-      "priority": 2,
-      "createdAt": "2026-05-05T10:00:00Z",
-      "notes": ""
-    }
-  ],
-  "sessions": [
-    { "id": "s_01", "taskId": "t_01", "day": "mon", "start": "09:00", "end": "09:30", "status": "scheduled" },
-    { "id": "s_02", "taskId": "t_01", "day": "wed", "start": "09:00", "end": "09:30", "status": "scheduled" }
-  ],
-  "unscheduled": []
-}
-```
-
-When to migrate to Postgres:
-
-- Multi-device sync needed
-- More than one user
-- History queries beyond "last few weeks"
-- Until then: JSON in localStorage, with import / export to disk.
+No weekday/weekend split, no per-day hour caps, no block-offs, no
+schedule direction. The app does not schedule; the user does.
 
 ## Stack
 
-Recommended: **SvelteKit + TypeScript + svelte-dnd-action**
-
-- SvelteKit has first-class PWA story (vite-plugin-pwa)
-- Svelte produces smaller bundles, less boilerplate
-- svelte-dnd-action is simple and solid for this use case
-- `@sveltejs/adapter-vercel` makes Vercel deploy zero-config
-
-Alternative: Vite + React + TS + dnd-kit if you'd rather stay in React
-(works on Vercel too, just different adapter).
-
-Other deps:
-
+- SvelteKit + TypeScript (kept from current app)
 - vite-plugin-pwa for service worker + manifest
 - date-fns for date math
-- zod for parsing the task input grammar safely
-- (optional) idb-keyval for cleaner localStorage
+- svelte-dnd-action for drag-and-drop
+- idb-keyval for the directory handle in IndexedDB
 
-No backend in v1. JSON read/write through `localStorage` plus an
-import/export pair using the File System Access API where available.
+No backend. No env vars. No secrets.
 
-## Deployment - Vercel from day one
+## Deployment
 
-- GitHub repo connected to a Vercel project on commit 1.
-- Adapter: `@sveltejs/adapter-vercel` (or `@vercel/static-build` for
-  the React option).
-- Every PR gets a preview URL automatically.
-- `main` deploys to production.
-- Static site only in v1 (no API routes), so the Vercel build is just
-  a static export. Costs nothing on the Hobby plan.
-- Add a `vercel.json` only if we need custom headers (cache, CSP).
+Vercel, `@sveltejs/adapter-vercel`. Same project as the current app.
+Every PR gets a preview URL; `main` deploys to production.
 
-When the data layer moves off localStorage:
-
-- Add Vercel KV or Postgres at that point.
-- Until then, no env vars, no secrets.
+The previous time-slot grid version is preserved on the
+`v0-grid-archive` git tag.
 
 ## Build estimate
 
-**~16 - 23 hours for v1**, broken down:
+**~12 hours** across 6 phases. See
+[docs/markdown-first-plan.md](docs/markdown-first-plan.md) for the
+phase breakdown and per-phase test plan.
 
-- 1.5h - Project setup, PWA manifest, service worker, base layout
-- 1h - Vercel project, adapter, preview deploy verified on commit 1
-- 2h - Task input parser (grammar + zod schema + tests)
-- 1.5h - Task list / inbox UI
-- 3h - Scheduler algorithm + tests
-- 4h - Week grid view + drag-and-drop
-- 2h - Config UI (weekday block, weekend block w/ toggle, block-offs)
-- 1h - Unscheduled drawer + roll-to-next-week
-- 1h - Import / export JSON
-- 2h - Polish, offline test, install flow, Lighthouse pass
-- 2h buffer
+## Migration
 
-The Vercel-from-day-one and weekend-as-separate-block additions add
-roughly 1 - 1.5h vs the original estimate.
+This app replaces the prior weekly-plan workflow:
+
+- Old: occasional LLM prompt distributing tasks over a weekly plan
+  file like `week plan 050526.md`.
+- New: tasks live in per-day files (`2026-05-05.md`, etc.) edited
+  freely in Obsidian or in the app.
+
+There is no automated migration. Existing weekly plan files remain
+untouched in `MasterAlf/`; new daily files are created alongside.
 
 ## Open questions
 
-- Should the week start on Mon or Sun (configurable)?
-- Should completed sessions persist for a "what I did" view, or be cleared weekly?
-- Mobile target: usable read-only, or full editing?
-- Do block-offs count against `hoursPerDay`, or are they additional?
-- Snap-to-grid only, or free placement at the minute level?
+- Should the week start on Mon or Sun (configurable later)?
+- Done log: persist across all time, or rolling N-day window?
+- Mobile target: read-only, or full editing? (FS Access API is
+  desktop-Chromium; mobile is currently read-only by stack
+  constraint.)
+- iCloud conflict files: surface and let user resolve, or attempt an
+  auto-merge of unique lines?
 
 ## Milestones
 
-1. **M1 - Capture + parse**: input box, task list, JSON persistence,
-   first Vercel preview deploy live.
-2. **M2 - Scheduler v0**: priority-greedy placement into a static week.
-3. **M3 - Drag**: rearrange in the grid, drag to/from Unscheduled.
-4. **M4 - Config**: weekday + weekend blocks, block-offs.
-5. **M5 - PWA polish**: offline, install, import/export, Lighthouse.
+1. **M1 — Read-only week view**: folder picker, parse, render today's
+   file. First Vercel preview live. Round-trip test passing.
+2. **M2 — Edit**: checkbox toggle, reorder within a day, line-preserving
+   write-back.
+3. **M3 — Cross-day**: week strip, drag between days with rollback.
+4. **M4 — Overdue rail**: scan past files, roll forward.
+5. **M5 — Capture & polish**: new task input, star toggle, estimate
+   edit, done log, refresh on focus, PWA install pass.
