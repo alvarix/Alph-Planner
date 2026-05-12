@@ -2,38 +2,60 @@
 	import { onMount } from 'svelte';
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
 	import { restoreFolder } from '$lib/fs/folder.js';
-	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, folderReady } from '$lib/state.svelte.js';
+	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady } from '$lib/state.svelte.js';
 	import type { Task } from '$lib/types.js';
 	import FolderPicker from '$lib/components/FolderPicker.svelte';
 	import DayColumn from '$lib/components/DayColumn.svelte';
 	import BacklogRail from '$lib/components/BacklogRail.svelte';
+	import DoneLog from '$lib/components/DoneLog.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import { toast } from '$lib/components/Toast.svelte';
 
 	const weekDays  = $derived(getWeekDays(appState.weekOffset));
 	const weekLabel = $derived(weekRangeLabel(appState.weekOffset));
-	const todayISO  = $derived(weekDays.find(d => d.today)?.iso ?? weekDays[0].iso);
 
-	let draggingTask: Task | null = $state(null);
+	// todayISO is always real today regardless of which week is displayed.
+	const todayISO = getWeekDays(0).find(d => d.today)?.iso ?? getWeekDays(0)[0].iso;
+
+	let draggingTask: Task | null  = $state(null);
+	let doneLogOpen               = $state(false);
+	// Incrementing triggers the today column to open its add input.
+	let todayAddSignal            = $state(0);
 
 	function shiftWeek(dir: -1 | 0 | 1) {
 		if (dir === 0) appState.weekOffset = 0;
 		else appState.weekOffset += dir;
 	}
 
+	// Surface FS errors as toasts.
+	$effect(() => {
+		if (appState.lastError) {
+			toast(appState.lastError, true);
+			appState.lastError = null;
+		}
+	});
+
 	onMount(async () => {
-		// Try to restore previously picked folder silently.
 		const restored = await restoreFolder();
 		appState.folder = restored;
 		if (restored.status === 'ready') await refresh();
 	});
 
-	// Refresh cache whenever the window regains focus.
 	function handleFocus() {
 		if (folderReady()) refresh();
 	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		const tag = (e.target as HTMLElement).tagName;
+		if (e.key === 'n' && !e.metaKey && !e.ctrlKey && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+			// If today's week isn't visible, navigate to it first.
+			if (appState.weekOffset !== 0) appState.weekOffset = 0;
+			todayAddSignal++;
+		}
+	}
 </script>
 
-<svelte:window onfocus={handleFocus} />
+<svelte:window onfocus={handleFocus} onkeydown={handleKeydown} />
 
 {#if !folderReady()}
 	<FolderPicker />
@@ -48,6 +70,11 @@
 	</div>
 	<span id="week-label">{weekLabel}</span>
 	<div class="spacer"></div>
+	<button
+		class="btn-nav"
+		class:active={doneLogOpen}
+		onclick={() => (doneLogOpen = !doneLogOpen)}
+	>Done log</button>
 	{#if appState.folder.status === 'ready'}
 		<span class="folder-badge">{appState.folder.name}/</span>
 	{/if}
@@ -71,11 +98,16 @@
 				{day}
 				tasks={tasksForFile(day.iso + '.md')}
 				externalDragTask={draggingTask}
+				openSignal={day.today ? todayAddSignal : 0}
 				ondragTaskStart={(t) => (draggingTask = t)}
 			/>
 		{/each}
 	</div>
 </div>
+
+{#if doneLogOpen}
+	<DoneLog groups={doneTasksByDate(todayISO)} />
+{/if}
 
 <Toast />
 
@@ -99,6 +131,7 @@ h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
 	background: none; border-radius: 5px; font-size: 12px; cursor: pointer;
 }
 .btn-nav:hover { background: #f8fafc; }
+.btn-nav.active { background: #1e293b; color: #fff; border-color: #1e293b; }
 #week-label { font-size: 13px; font-weight: 500; }
 .spacer { flex: 1; }
 .folder-badge {

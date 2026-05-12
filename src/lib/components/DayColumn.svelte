@@ -10,15 +10,22 @@
 		tasks,
 		ondragTaskStart,
 		externalDragTask = null,
+		openSignal       = 0,
 	}: {
 		day:               WeekDay;
 		tasks:             Task[];
 		ondragTaskStart?:  (task: Task) => void;
 		externalDragTask?: Task | null;
+		openSignal?:       number;
 	} = $props();
 
 	let dragOver      = $state(false);
 	let addingOpen    = $state(false);
+
+	// When the parent increments openSignal (e.g. via n key), open the add input.
+	$effect(() => {
+		if (openSignal > 0) addingOpen = true;
+	});
 	let dragFromIndex: number | null = null;
 	let dragOverIndex: number | null = $state(null);
 

@@ -11,7 +11,7 @@ export default defineConfig({
 			manifest: {
 				name: 'Alph-Planner',
 				short_name: 'Alph',
-				description: 'Weekly task planner',
+				description: 'Markdown-first weekly planner. Your daily notes are the source of truth.',
 				theme_color: '#0ea5e9',
 				background_color: '#f8fafc',
 				display: 'standalone',

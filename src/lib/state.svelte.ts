@@ -15,11 +15,12 @@ interface FileCache {
 }
 
 interface AppState {
-	folder:    FolderState;
-	cache:     FileCache;
-	loading:   boolean;
-	conflicts: string[];
+	folder:     FolderState;
+	cache:      FileCache;
+	loading:    boolean;
+	conflicts:  string[];
 	weekOffset: number;
+	lastError:  string | null;
 }
 
 /** Template written when the app creates a new daily file from scratch. */
@@ -31,7 +32,12 @@ export const appState = $state<AppState>({
 	loading:    false,
 	conflicts:  [],
 	weekOffset: 0,
+	lastError:  null,
 });
+
+function fail(msg: string) {
+	appState.lastError = msg;
+}
 
 /** True when a folder is ready to read. */
 export function folderReady(): boolean {
@@ -117,7 +123,8 @@ export async function moveTask(task: Task, targetFilename: string): Promise<void
 			rb.splice(rb.length - childLines.length - 1, 1 + childLines.length);
 			await writeFile(d, targetFilename, rb.join('\n'));
 		}
-		throw new Error(`moveTask: source write failed, rolled back target`);
+		fail('Move failed — source could not be updated. Change rolled back.');
+		return;
 	}
 
 	// ── 3. Update cache for both files ────────────────────────────────────────
@@ -193,11 +200,13 @@ export function backlogTasks(): Task[] {
 export async function toggleTask(task: Task): Promise<void> {
 	const d = dir();
 	if (!d) return;
-	const current = await readFile(d, task.file);
-	if (current === null) return;
-	const updated = toggleTaskDone(current, task);
-	await writeFile(d, task.file, updated);
-	appState.cache[task.file] = parseFile(updated, task.file);
+	try {
+		const current = await readFile(d, task.file);
+		if (current === null) return;
+		const updated = toggleTaskDone(current, task);
+		await writeFile(d, task.file, updated);
+		appState.cache[task.file] = parseFile(updated, task.file);
+	} catch { fail('Could not save checkbox — check file permissions.'); }
 }
 
 /**
@@ -228,11 +237,41 @@ export async function reorderFileTasks(
 export async function toggleChild(task: Task, child: ChildTask): Promise<void> {
 	const d = dir();
 	if (!d) return;
-	const current = await readFile(d, task.file);
-	if (current === null) return;
-	const updated = toggleChildDone(current, child);
-	await writeFile(d, task.file, updated);
-	appState.cache[task.file] = parseFile(updated, task.file);
+	try {
+		const current = await readFile(d, task.file);
+		if (current === null) return;
+		const updated = toggleChildDone(current, child);
+		await writeFile(d, task.file, updated);
+		appState.cache[task.file] = parseFile(updated, task.file);
+	} catch { fail('Could not save subtask — check file permissions.'); }
+}
+
+/**
+ * Return done tasks grouped by date, newest first, for the done log.
+ * Limited to files within the last `days` days.
+ *
+ * @param todayISO - Today's ISO date string.
+ * @param days     - How many past days to scan (default 30).
+ */
+export function doneTasksByDate(
+	todayISO: string,
+	days = 30
+): { date: string; tasks: Task[] }[] {
+	const cutoff = new Date(todayISO + 'T12:00:00');
+	cutoff.setDate(cutoff.getDate() - days);
+	const cutoffISO = cutoff.toISOString().slice(0, 10);
+
+	return Object.entries(appState.cache)
+		.filter(([name]) => {
+			const m = name.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
+			return m && m[1] >= cutoffISO && m[1] <= todayISO;
+		})
+		.map(([name, tasks]) => ({
+			date:  name.replace('.md', ''),
+			tasks: tasks.filter(t => t.done),
+		}))
+		.filter(g => g.tasks.length > 0)
+		.sort((a, b) => b.date.localeCompare(a.date));
 }
 
 /**
