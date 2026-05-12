@@ -1,4 +1,6 @@
-import type { Task } from './types.js';
+/** Legacy parser — kept only for duration grammar reference. Not used by md/parse.ts. */
+
+type LegacyTask = { title: string; sessionMin: number; sessionsTotal: number; sessionsDone: number; priority: 1|2|3|4 };
 
 /**
  * Parse one line of task input into a partial Task object.
@@ -16,7 +18,7 @@ import type { Task } from './types.js';
  * @param raw - Raw text line
  * @returns Parsed task fields or null if line is blank / has no title
  */
-export function parseLine(raw: string): Omit<Task, 'id' | 'createdAt'> | null {
+export function parseLine(raw: string): LegacyTask | null {
   const line = raw.trim();
   if (!line) return null;
 

@@ -1,61 +1,26 @@
-export type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
-export type RecurKey = DayKey | 'weekday' | 'weekend';
+export interface ChildTask {
+	/** Line index within the file (0-based). */
+	lineIndex: number;
+	title: string;
+	done: boolean;
+	/** Original line verbatim — used for round-trip write-back. */
+	raw: string;
+}
 
 export interface Task {
-  id: string;
-  title: string;
-  /** Duration of one session in minutes */
-  sessionMin: number;
-  sessionsTotal: number;
-  sessionsDone: number;
-  priority: 1 | 2 | 3 | 4;
-  createdAt: string;
-}
-
-export interface Session {
-  id: string;
-  taskId: string;
-  day: DayKey;
-  /** Zero-based slot index from DAY_START (0 = 9:00, 1 = 9:30, etc.) */
-  slot: number;
-}
-
-export interface UnscheduledSession {
-  id: string;
-  taskId: string;
-}
-
-export interface Blockoff {
-  id: string;
-  /** DayKey for a single day, or 'weekday'/'weekend' for recurring */
-  day: RecurKey;
-  startSlot: number;
-  slots: number;
-  label: string;
-}
-
-export interface Config {
-  hoursPerDay: Record<DayKey, number>;
-  weekendsEnabled: boolean;
-  blockoffs: Blockoff[];
-  /** Work day start hour (e.g. 9 for 9:00am) */
-  dayStart: number;
-  /** Work day end hour (e.g. 17.5 for 5:30pm) */
-  dayEnd: number;
-  /** Whether auto-schedule fills from the end of day backwards or from the start */
-  scheduleDirection: 'front' | 'back';
-}
-
-export interface DragState {
-  type: 'sess' | 'unsched';
-  id: string;
-  slots: number;
-}
-
-export interface DoneSession {
-  id: string;
-  taskId?: string; // absent for items imported already-done from markdown
-  taskTitle: string;
-  sessionMin: number;
-  doneAt: string; // ISO timestamp
+	/** Filename, e.g. "2026-05-12.md" or "Backlog.md". */
+	file: string;
+	/** ISO date string or null for Backlog.md entries. */
+	date: string | null;
+	/** [startLine, endLine] inclusive, covering parent + all children (0-based). */
+	lineRange: [number, number];
+	/** H1 section name this task falls under, or null if before any H1. */
+	category: string | null;
+	title: string;
+	starred: boolean;
+	estimateMin: number | null;
+	done: boolean;
+	children: ChildTask[];
+	/** Original parent line verbatim — used for round-trip write-back. */
+	raw: string;
 }

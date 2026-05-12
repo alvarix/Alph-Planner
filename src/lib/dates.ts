@@ -1,4 +1,4 @@
-import type { DayKey } from './types.js';
+export type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
 export interface WeekDay {
 	key: DayKey;
