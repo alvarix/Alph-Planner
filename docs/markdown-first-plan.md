@@ -254,6 +254,34 @@ focus the app, see the change without refresh.
   before pointing the app at it the first time. The round-trip test
   protects you, but disk-level backup is cheap insurance.
 
+## Known gaps — spec, not yet implemented
+
+### H1 category capture on task creation
+
+The parser correctly reads H1 categories from existing files (implemented).
+**Task creation does not yet let the user specify a category.** Two parts to
+this gap:
+
+1. **`appendTask(content, line, null)` is wrong for files with H1s.**
+   Today, null category appends at end of file — which silently lands the
+   task inside whatever the last H1 section is. The intended semantics:
+   `null` means *uncategorized*, which should insert before the first H1
+   (i.e. at the end of the uncategorized region at the top of the file).
+   If no H1s exist, end of file is correct.
+
+2. **UI has no per-category add affordance.** Every `+` button in
+   `DayColumn` calls `addTask` with `category: null`. Plan:
+   - Each section header (H1 divider) gets its own `+` button that opens
+     an inline `NewTaskInput` bound to that section's category.
+   - The footer `+ add task` button stays for uncategorized adds.
+   - On submit, the new task is appended under the matching H1 (already
+     supported by `appendTask(content, line, category)`).
+
+Tests required when this is implemented:
+- `appendTask(src, line, null)` with H1s present → inserts before first H1.
+- `appendTask(src, line, null)` with no H1s → appends at end (current).
+- Round-trip: existing tasks in other categories are not moved.
+
 ## Iteration
 
 (Updates to this plan during execution go below this line.)
