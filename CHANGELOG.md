@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1] - 2026-05-12
+
+### Fixed
+- PWA installed app crashed with `non-precached-url: index.html` — set
+  `workbox.navigateFallback: null` and removed `.html` from glob patterns;
+  SSR (adapter-vercel) has no static index.html to precache
+
 ## [1.0.0] - 2026-05-12 (markdown-first rewrite)
 
 Complete rewrite on the `markdown-first` branch. v0 grid archived as `v0-grid-archive`.
