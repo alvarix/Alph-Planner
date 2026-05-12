@@ -175,6 +175,34 @@ export async function deleteTask(task: Task): Promise<void> {
 }
 
 /**
+ * Update the title of a task in-place, preserving starred markers and duration.
+ *
+ * @param task     - The task whose title to replace.
+ * @param newTitle - Plain text; starred wrapping is re-applied from task.starred.
+ */
+export async function editTaskTitle(task: Task, newTitle: string): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	const trimmed = newTitle.trim();
+	if (!trimmed) return;
+	const current = await readFile(d, task.file);
+	if (current === null) return;
+	const lines = current.split('\n');
+	const line  = lines[task.lineRange[0]];
+	const m     = line.match(/^(\s*-\s*\[[ xX]\]\s*)(.*)/);
+	if (!m) return;
+	const prefix   = m[1];
+	const rest     = m[2];
+	const durMatch = rest.match(/(\s+\d*\.?\d+\s*(?:h|m))$/i);
+	const dur      = durMatch ? durMatch[1] : '';
+	const titled   = task.starred ? `**${trimmed}**` : trimmed;
+	lines[task.lineRange[0]] = `${prefix}${titled}${dur}`;
+	const updated = lines.join('\n');
+	await writeFile(d, task.file, updated);
+	appState.cache[task.file] = parseFile(updated, task.file);
+}
+
+/**
  * Toggle starred on a task (wraps/unwraps ** around the title in the file).
  */
 export async function toggleStar(task: Task): Promise<void> {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar, deleteTask } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle } from '$lib/state.svelte.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -23,7 +23,31 @@
 		ondragend?:   (e: DragEvent) => void;
 	} = $props();
 
-	let subtasksOpen = $state(false);
+	let subtasksOpen  = $state(false);
+	let editing       = $state(false);
+	let editValue     = $state('');
+	let editInputEl: HTMLInputElement;
+
+	function startEdit() {
+		editValue = task.title;
+		editing   = true;
+	}
+
+	async function commitEdit() {
+		editing = false;
+		if (editValue.trim() && editValue.trim() !== task.title) {
+			await editTaskTitle(task, editValue.trim());
+		}
+	}
+
+	function handleEditKey(e: KeyboardEvent) {
+		if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
+		if (e.key === 'Escape') { editing = false; }
+	}
+
+	$effect(() => {
+		if (editing) editInputEl?.focus();
+	});
 
 	const color = $derived(
 		colorIndex !== null ? GROUP_COLORS[colorIndex % GROUP_COLORS.length] : null
@@ -46,7 +70,22 @@
 >
 	<span class="drag-handle">&#8942;&#8942;</span>
 	<input type="checkbox" checked={task.done} onchange={() => toggleTask(task)} />
-	<span class="task-title" class:starred={task.starred}>{task.title}</span>
+	{#if editing}
+		<input
+			bind:this={editInputEl}
+			bind:value={editValue}
+			class="edit-input"
+			onkeydown={handleEditKey}
+			onblur={commitEdit}
+		/>
+	{:else}
+		<span
+			class="task-title"
+			class:starred={task.starred}
+			ondblclick={startEdit}
+			title="Double-click to edit"
+		>{task.title}</span>
+	{/if}
 	{#if task.estimateMin}
 		<span class="task-dur">{formatDur(task.estimateMin)}</span>
 	{/if}
@@ -109,8 +148,13 @@ input[type=checkbox] {
 	accent-color: #0ea5e9; cursor: pointer;
 }
 
-.task-title { font-size: 12px; flex: 1; line-height: 1.4; }
+.task-title { font-size: 12px; flex: 1; line-height: 1.4; cursor: default; }
 .task-title.starred { font-weight: 700; }
+.edit-input {
+	flex: 1; font-size: 12px; border: 1px solid #0ea5e9;
+	border-radius: 3px; padding: 1px 5px; outline: none;
+	box-shadow: 0 0 0 2px #bae6fd40;
+}
 .task-dur { font-size: 10px; color: #94a3b8; flex-shrink: 0; padding-top: 3px; }
 
 .sub-badge {
