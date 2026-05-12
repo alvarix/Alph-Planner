@@ -55,7 +55,7 @@
 	}
 </script>
 
-<svelte:window onfocus={handleFocus} onkeydown={handleKeydown} />
+<svelte:window onfocus={handleFocus} onkeydown={handleKeydown} ondragend={() => (draggingTask = null)} />
 
 {#if !folderReady()}
 	<FolderPicker />
