@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { moveTask } from '$lib/state.svelte.js';
+	import { moveTask, addTask } from '$lib/state.svelte.js';
 
 	let {
 		backlog,
@@ -8,13 +8,22 @@
 		todayFilename,
 		ondragstart,
 	}: {
-		backlog:       Task[];           // tasks from Backlog.md
-		overdue:       Task[];           // unchecked tasks from past daily files
-		todayFilename: string;           // "YYYY-MM-DD.md" for today
+		backlog:       Task[];
+		overdue:       Task[];
+		todayFilename: string;
 		ondragstart?:  (task: Task) => void;
 	} = $props();
 
 	const allItems = $derived([...backlog, ...overdue]);
+
+	const categories = $derived(
+		[...new Set(backlog.map(t => t.category).filter((c): c is string => !!c))]
+	);
+
+	let adding     = $state(false);
+	let addValue   = $state('');
+	let addCat     = $state('');
+	let addInputEl: HTMLInputElement;
 
 	async function rollAll() {
 		for (const task of allItems) {
@@ -26,6 +35,35 @@
 		const d = new Date(iso + 'T12:00:00');
 		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
+
+	/** Build raw markdown line from terse input. */
+	function buildLine(raw: string): string | null {
+		const text = raw.trim();
+		if (!text) return null;
+		const durMatch = text.match(/\s+(\d*\.?\d+\s*(?:h|m))$/i);
+		const dur      = durMatch ? durMatch[0] : '';
+		const title    = durMatch ? text.slice(0, durMatch.index).trim() : text;
+		if (!title) return null;
+		return `- [ ] ${title}${dur}`;
+	}
+
+	async function submitAdd() {
+		const line = buildLine(addValue);
+		if (!line) return;
+		await addTask('Backlog.md', line, addCat || null);
+		addValue = '';
+		addCat   = '';
+		adding   = false;
+	}
+
+	function handleAddKey(e: KeyboardEvent) {
+		if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitAdd(); }
+		if (e.key === 'Escape') { adding = false; addValue = ''; addCat = ''; }
+	}
+
+	$effect(() => {
+		if (adding) addInputEl?.focus();
+	});
 </script>
 
 <aside id="backlog-rail">
@@ -34,7 +72,29 @@
 		{#if allItems.length > 0}
 			<span class="badge">{allItems.length}</span>
 		{/if}
+		<button class="add-btn" onclick={() => (adding = !adding)} title="Add to backlog">+</button>
 	</div>
+
+	{#if adding}
+		<div class="add-form">
+			{#if categories.length > 0}
+				<select class="add-cat" bind:value={addCat}>
+					<option value="">no category</option>
+					{#each categories as cat}
+						<option value={cat}>{cat}</option>
+					{/each}
+				</select>
+			{/if}
+			<input
+				bind:this={addInputEl}
+				bind:value={addValue}
+				class="add-input"
+				placeholder="task title 1h"
+				onkeydown={handleAddKey}
+			/>
+			<div class="add-hint">Enter to add &middot; Esc cancel</div>
+		</div>
+	{/if}
 
 	<div class="rail-list">
 		{#each allItems as task}
@@ -98,6 +158,29 @@
 	border-bottom: 1px solid #fecaca; flex-shrink: 0;
 	display: flex; align-items: center; justify-content: space-between;
 }
+.add-btn {
+	background: none; border: none; cursor: pointer;
+	color: #b91c1c; font-size: 16px; line-height: 1;
+	padding: 0 2px; margin-left: auto;
+}
+.add-btn:hover { color: #7f1d1d; }
+
+.add-form {
+	padding: 6px 8px; border-bottom: 1px solid #fecaca;
+	background: #fff5f5;
+}
+.add-cat {
+	width: 100%; margin-bottom: 4px; font-size: 11px;
+	border: 1px solid #fecaca; border-radius: 4px;
+	padding: 3px 5px; background: #fff; color: #7f1d1d;
+}
+.add-input {
+	width: 100%; border: 1px solid #f87171; border-radius: 4px;
+	padding: 4px 7px; font-size: 12px; outline: none;
+	background: #fff; box-shadow: 0 0 0 2px #fecaca40;
+}
+.add-hint { font-size: 10px; color: #fca5a5; margin-top: 3px; }
+
 .badge {
 	background: #fee2e2; color: #b91c1c; font-size: 10px;
 	padding: 1px 6px; border-radius: 99px; font-weight: 700;
