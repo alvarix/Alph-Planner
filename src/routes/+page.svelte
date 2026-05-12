@@ -2,14 +2,16 @@
 	import { onMount } from 'svelte';
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
 	import { restoreFolder } from '$lib/fs/folder.js';
-	import { appState, refresh, tasksForFile, folderReady } from '$lib/state.svelte.js';
+	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, folderReady } from '$lib/state.svelte.js';
 	import type { Task } from '$lib/types.js';
 	import FolderPicker from '$lib/components/FolderPicker.svelte';
 	import DayColumn from '$lib/components/DayColumn.svelte';
+	import BacklogRail from '$lib/components/BacklogRail.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 
 	const weekDays  = $derived(getWeekDays(appState.weekOffset));
 	const weekLabel = $derived(weekRangeLabel(appState.weekOffset));
+	const todayISO  = $derived(weekDays.find(d => d.today)?.iso ?? weekDays[0].iso);
 
 	let draggingTask: Task | null = $state(null);
 
@@ -57,6 +59,12 @@
 </div>
 
 <div id="main">
+	<BacklogRail
+		backlog={backlogTasks()}
+		overdue={overdueTasks(todayISO)}
+		todayFilename={todayISO + '.md'}
+		ondragstart={(t) => (draggingTask = t)}
+	/>
 	<div id="columns">
 		{#each weekDays as day}
 			<DayColumn
