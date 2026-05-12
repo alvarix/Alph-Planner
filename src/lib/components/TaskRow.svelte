@@ -23,7 +23,8 @@
 		ondragend?:   (e: DragEvent) => void;
 	} = $props();
 
-	let subtasksOpen  = $state(false);
+	let subtasksOpen   = $state(false);
+	let confirmDelete  = $state(false);
 	let editing       = $state(false);
 	let editValue     = $state('');
 	let editInputEl: HTMLInputElement;
@@ -96,12 +97,19 @@
 		title={task.starred ? 'unstar' : 'star'}
 		aria-label={task.starred ? 'unstar task' : 'star task'}
 	>&#9733;</button>
-	<button
-		class="del-btn"
-		onclick={() => deleteTask(task)}
-		title="Delete task"
-		aria-label="Delete task"
-	>&#x2715;</button>
+	{#if confirmDelete}
+		<span class="del-confirm">
+			<button class="del-yes" onclick={async () => { await deleteTask(task); confirmDelete = false; }}>del</button>
+			<button class="del-no"  onclick={() => (confirmDelete = false)}>no</button>
+		</span>
+	{:else}
+		<button
+			class="del-btn"
+			onclick={() => (confirmDelete = true)}
+			title="Delete task"
+			aria-label="Delete task"
+		>&#x2715;</button>
+	{/if}
 	{#if task.children.length > 0}
 		<button
 			class="sub-badge"
@@ -180,6 +188,18 @@ input[type=checkbox] {
 }
 .task-item:hover .del-btn { opacity: 1; }
 .del-btn:hover { color: #ef4444; }
+
+.del-confirm {
+	display: flex; gap: 3px; align-items: center; flex-shrink: 0;
+}
+.del-yes, .del-no {
+	font-size: 10px; border-radius: 3px; border: 1px solid;
+	padding: 1px 5px; cursor: pointer; line-height: 1.4;
+}
+.del-yes { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+.del-yes:hover { background: #fee2e2; }
+.del-no  { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
+.del-no:hover  { background: #f1f5f9; }
 
 .subtasks { border-bottom: 1px solid #e2e8f0; }
 .subtask-row {
