@@ -39,6 +39,17 @@ Open the same folder in Obsidian and edits appear in the app on the next focus. 
 
 `Backlog.md` in the same folder holds free-form todos without a specific day. Unchecked tasks from past daily files surface here with a red date tag. Drag any backlog item into a day column, or use "Roll all" to move everything to today.
 
+Use the **+** button in the backlog header to add a task directly to `Backlog.md`. If categories already exist in the backlog a dropdown lets you assign one. Subtasks are shown indented under their parent in the rail.
+
+## Task actions
+
+| Action | How |
+|---|---|
+| Check / uncheck | Checkbox |
+| Star / unstar | ★ button (shows on hover) |
+| Edit title | Double-click the title |
+| Delete | ✕ button (shows on hover) → confirm with **del** |
+
 ## Keyboard shortcuts
 
 | Key | Action |

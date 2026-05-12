@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.0] - 2026-05-12
+
+### Added
+- BacklogRail: subtasks shown indented under their parent item
+- BacklogRail: **+** button adds a task directly to `Backlog.md`; category
+  dropdown auto-populated from existing H1 sections in the backlog
+- TaskRow: double-click title to edit inline (Enter to save, Esc to cancel)
+- TaskRow: delete requires inline confirmation (**del** / **no**) to avoid
+  accidental data loss
+
 ## [1.0.1] - 2026-05-12
 
 ### Fixed
