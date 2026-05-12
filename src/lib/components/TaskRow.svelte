@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask } from '$lib/state.svelte.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -57,6 +57,12 @@
 		title={task.starred ? 'unstar' : 'star'}
 		aria-label={task.starred ? 'unstar task' : 'star task'}
 	>&#9733;</button>
+	<button
+		class="del-btn"
+		onclick={() => deleteTask(task)}
+		title="Delete task"
+		aria-label="Delete task"
+	>&#x2715;</button>
 	{#if task.children.length > 0}
 		<button
 			class="sub-badge"
@@ -122,6 +128,14 @@ input[type=checkbox] {
 }
 .star-btn.starred { color: #f59e0b; }
 .star-btn:hover { color: #f59e0b; }
+
+.del-btn {
+	font-size: 10px; background: none; border: none; cursor: pointer;
+	color: #cbd5e1; flex-shrink: 0; padding: 0 2px; line-height: 1;
+	opacity: 0; transition: opacity .1s, color .1s;
+}
+.task-item:hover .del-btn { opacity: 1; }
+.del-btn:hover { color: #ef4444; }
 
 .subtasks { border-bottom: 1px solid #e2e8f0; }
 .subtask-row {

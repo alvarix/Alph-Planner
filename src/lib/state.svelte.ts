@@ -158,6 +158,23 @@ export async function addTask(
 }
 
 /**
+ * Delete a task (parent + all children) from its file.
+ */
+export async function deleteTask(task: Task): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	try {
+		const current = await readFile(d, task.file);
+		if (current === null) return;
+		const lines = current.split('\n');
+		lines.splice(task.lineRange[0], task.lineRange[1] - task.lineRange[0] + 1);
+		const updated = lines.join('\n');
+		await writeFile(d, task.file, updated);
+		appState.cache[task.file] = parseFile(updated, task.file);
+	} catch { fail('Could not delete task — check file permissions.'); }
+}
+
+/**
  * Toggle starred on a task (wraps/unwraps ** around the title in the file).
  */
 export async function toggleStar(task: Task): Promise<void> {
