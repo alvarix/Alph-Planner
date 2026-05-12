@@ -5,7 +5,7 @@
  */
 
 import { parseFile } from './md/parse.js';
-import { toggleTaskDone, toggleChildDone } from './md/serialize.js';
+import { toggleTaskDone, toggleChildDone, reorderTasks } from './md/serialize.js';
 import { readFile, writeFile, listDailyFiles, detectConflicts } from './fs/files.js';
 import type { Task, ChildTask } from './types.js';
 import type { FolderState } from './fs/folder.js';
@@ -93,6 +93,28 @@ export async function toggleTask(task: Task): Promise<void> {
 	const updated = toggleTaskDone(current, task);
 	await writeFile(d, task.file, updated);
 	state.cache[task.file] = parseFile(updated, task.file);
+}
+
+/**
+ * Reorder tasks within a file and write back to disk.
+ *
+ * @param filename  - File to mutate.
+ * @param fromIndex - Current task index.
+ * @param toIndex   - Target task index.
+ */
+export async function reorderFileTasks(
+	filename: string,
+	fromIndex: number,
+	toIndex: number
+): Promise<void> {
+	const d = dir();
+	if (!d || fromIndex === toIndex) return;
+	const current = await readFile(d, filename);
+	if (current === null) return;
+	const tasks   = state.cache[filename] ?? [];
+	const updated = reorderTasks(current, tasks, fromIndex, toIndex);
+	await writeFile(d, filename, updated);
+	state.cache[filename] = parseFile(updated, filename);
 }
 
 /**

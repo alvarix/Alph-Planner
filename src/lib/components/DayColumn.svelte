@@ -2,18 +2,19 @@
 	import type { Task } from '$lib/types.js';
 	import type { WeekDay } from '$lib/dates.js';
 	import TaskRow from './TaskRow.svelte';
+	import { reorderFileTasks } from '$lib/state.svelte.js';
 
 	let {
 		day,
 		tasks,
-		ondrop,
 	}: {
-		day:    WeekDay;
-		tasks:  Task[];
-		ondrop?: (filename: string, task: Task) => void;
+		day:   WeekDay;
+		tasks: Task[];
 	} = $props();
 
-	let dragOver = $state(false);
+	let dragOver   = $state(false);
+	let dragFromIndex: number | null = null;
+	let dragOverIndex: number | null = $state(null);
 
 	/** Assign a stable color index per task-with-children within this column. */
 	const colorMap = $derived.by(() => {
@@ -55,8 +56,8 @@
 	class:drag-over={dragOver}
 	role="list"
 	ondragover={(e) => { e.preventDefault(); dragOver = true; }}
-	ondragleave={() => (dragOver = false)}
-	ondrop={(e) => { e.preventDefault(); dragOver = false; }}
+	ondragleave={() => { dragOver = false; dragOverIndex = null; }}
+	ondrop={(e) => { e.preventDefault(); dragOver = false; dragOverIndex = null; }}
 >
 	<!-- Header -->
 	<div class="day-head">
@@ -76,11 +77,29 @@
 				{#if section.category}
 					<div class="section-head">{section.category}</div>
 				{/if}
-				{#each section.tasks as task}
-					<TaskRow
-						{task}
-						colorIndex={colorMap.get(task) ?? null}
-					/>
+				{#each section.tasks as task, si}
+					{@const globalIndex = tasks.indexOf(task)}
+					<div
+						class="drop-target"
+						class:active={dragOverIndex === globalIndex}
+						role="none"
+						ondragover={(e) => { e.preventDefault(); e.stopPropagation(); dragOverIndex = globalIndex; }}
+						ondrop={(e) => {
+							e.preventDefault(); e.stopPropagation();
+							dragOver = false; dragOverIndex = null;
+							if (dragFromIndex !== null && dragFromIndex !== globalIndex) {
+								reorderFileTasks(day.iso + '.md', dragFromIndex, globalIndex);
+								dragFromIndex = null;
+							}
+						}}
+					>
+						<TaskRow
+							{task}
+							colorIndex={colorMap.get(task) ?? null}
+							ondragstart={(_e, _t) => { dragFromIndex = globalIndex; }}
+							ondragend={() => { dragFromIndex = null; dragOverIndex = null; }}
+						/>
+					</div>
 				{/each}
 			{/each}
 		{/if}
@@ -125,6 +144,13 @@
 .day-total { font-size: 10px; color: #94a3b8; }
 
 .task-list { flex: 1; overflow-y: auto; }
+
+.drop-target { position: relative; }
+.drop-target.active::before {
+	content: '';
+	position: absolute; top: 0; left: 6px; right: 6px; height: 2px;
+	background: #0ea5e9; border-radius: 1px; z-index: 10;
+}
 
 .section-head {
 	padding: 5px 10px 3px;
