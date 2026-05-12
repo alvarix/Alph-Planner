@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar } from '$lib/state.svelte.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -50,6 +50,13 @@
 	{#if task.estimateMin}
 		<span class="task-dur">{formatDur(task.estimateMin)}</span>
 	{/if}
+	<button
+		class="star-btn"
+		class:starred={task.starred}
+		onclick={() => toggleStar(task)}
+		title={task.starred ? 'unstar' : 'star'}
+		aria-label={task.starred ? 'unstar task' : 'star task'}
+	>&#9733;</button>
 	{#if task.children.length > 0}
 		<button
 			class="sub-badge"
@@ -107,6 +114,14 @@ input[type=checkbox] {
 	font-family: monospace; margin-top: 2px;
 }
 .sub-badge:hover { border-color: #94a3b8; color: #1e293b; }
+
+.star-btn {
+	font-size: 12px; background: none; border: none; cursor: pointer;
+	color: #cbd5e1; flex-shrink: 0; padding: 0 1px; line-height: 1;
+	padding-top: 2px; transition: color .1s;
+}
+.star-btn.starred { color: #f59e0b; }
+.star-btn:hover { color: #f59e0b; }
 
 .subtasks { border-bottom: 1px solid #e2e8f0; }
 .subtask-row {

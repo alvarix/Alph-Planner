@@ -3,6 +3,7 @@
 	import type { WeekDay } from '$lib/dates.js';
 	import TaskRow from './TaskRow.svelte';
 	import { reorderFileTasks, moveTask } from '$lib/state.svelte.js';
+	import NewTaskInput from './NewTaskInput.svelte';
 
 	let {
 		day,
@@ -17,6 +18,7 @@
 	} = $props();
 
 	let dragOver      = $state(false);
+	let addingOpen    = $state(false);
 	let dragFromIndex: number | null = null;
 	let dragOverIndex: number | null = $state(null);
 
@@ -118,7 +120,14 @@
 
 	<!-- Add task footer -->
 	<div class="col-footer">
-		<button class="btn-add">+ add task</button>
+		{#if addingOpen}
+			<NewTaskInput
+				filename={day.iso + '.md'}
+				onclose={() => (addingOpen = false)}
+			/>
+		{:else}
+			<button class="btn-add" onclick={() => (addingOpen = true)}>+ add task</button>
+		{/if}
 	</div>
 </div>
 

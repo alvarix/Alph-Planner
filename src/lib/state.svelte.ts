@@ -128,6 +128,55 @@ export async function moveTask(task: Task, targetFilename: string): Promise<void
 }
 
 /**
+ * Append a new task to a file and refresh its cache entry.
+ *
+ * @param filename - Target file, e.g. "2026-05-12.md".
+ * @param rawLine  - The markdown line, e.g. "- [ ] **ship invoice** 1h".
+ * @param category - H1 section to append under, or null for end of file.
+ */
+export async function addTask(
+	filename: string,
+	rawLine: string,
+	category: string | null = null
+): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	const current = (await readFile(d, filename)) ?? '';
+	const updated = appendTask(current, rawLine, category);
+	await writeFile(d, filename, updated);
+	appState.cache[filename] = parseFile(updated, filename);
+}
+
+/**
+ * Toggle starred on a task (wraps/unwraps ** around the title in the file).
+ */
+export async function toggleStar(task: Task): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	const current = await readFile(d, task.file);
+	if (current === null) return;
+	const lines = current.split('\n');
+	const line  = lines[task.lineRange[0]];
+	// Extract the checkbox prefix and the rest of the line.
+	const m = line.match(/^(\s*-\s*\[[ xX]\]\s*)(.*)/);
+	if (!m) return;
+	const prefix = m[1];
+	const rest   = m[2];
+	// rest may end with a duration token — preserve it.
+	const durMatch = rest.match(/(\s+\d*\.?\d+\s*(?:h|m))$/i);
+	const dur      = durMatch ? durMatch[1] : '';
+	const titleRaw = durMatch ? rest.slice(0, durMatch.index) : rest;
+	const starred  = titleRaw.trim().startsWith('**') && titleRaw.trim().endsWith('**');
+	const newTitle = starred
+		? titleRaw.trim().slice(2, -2)
+		: `**${titleRaw.trim()}**`;
+	lines[task.lineRange[0]] = `${prefix}${newTitle}${dur}`;
+	const updated = lines.join('\n');
+	await writeFile(d, task.file, updated);
+	appState.cache[task.file] = parseFile(updated, task.file);
+}
+
+/**
  * Return backlog tasks (from Backlog.md), from cache.
  */
 export function backlogTasks(): Task[] {
