@@ -78,9 +78,19 @@ npm run check          # TypeScript + Svelte type check
 
 Requires a Chromium browser (Chrome, Edge, Arc) for the File System Access API. Safari and Firefox are not supported.
 
-## Deploy
+## Updating the installed app (localhost:5177)
 
-Connect the repo to a Vercel project. `adapter-vercel` handles the build. No environment variables required.
+The app runs as an installed PWA from the local dev server. After pulling or editing code:
+
+```sh
+npm run dev -- --port 5177   # keep the port stable so the installed app re-uses the same origin
+```
+
+1. Make your code changes.
+2. Vite hot-reloads most changes automatically — no reinstall needed.
+3. For changes to `vite.config.ts` or the service-worker manifest, stop and restart the dev server.
+4. Open Chrome at `chrome://apps` or the address bar, click the installed Alph-Planner icon.
+5. If the app shows stale content, open DevTools → Application → Service Workers → click **Update**, then reload.
 
 ## Data
 
