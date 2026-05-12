@@ -22,6 +22,9 @@ interface AppState {
 	weekOffset: number;
 }
 
+/** Template written when the app creates a new daily file from scratch. */
+const NEW_DAILY_TEMPLATE = '![[Backlog]]\n\n';
+
 export const appState = $state<AppState>({
 	folder:     { status: 'none' },
 	cache:      {},
@@ -87,7 +90,7 @@ export async function moveTask(task: Task, targetFilename: string): Promise<void
 	if (!d || task.file === targetFilename) return;
 
 	// ── 1. Append to target ───────────────────────────────────────────────────
-	const targetContent = (await readFile(d, targetFilename)) ?? '';
+	const targetContent = (await readFile(d, targetFilename)) ?? NEW_DAILY_TEMPLATE;
 	const taskLine = task.raw;
 	const childLines = task.children.map(c => c.raw);
 	const block = [taskLine, ...childLines].join('\n');
@@ -141,7 +144,7 @@ export async function addTask(
 ): Promise<void> {
 	const d = dir();
 	if (!d) return;
-	const current = (await readFile(d, filename)) ?? '';
+	const current = (await readFile(d, filename)) ?? NEW_DAILY_TEMPLATE;
 	const updated = appendTask(current, rawLine, category);
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
