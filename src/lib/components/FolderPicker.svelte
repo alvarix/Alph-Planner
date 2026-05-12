@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { pickFolder, requestPermission } from '$lib/fs/folder.js';
-	import { state, refresh } from '$lib/state.svelte.js';
+	import { appState, refresh } from '$lib/state.svelte.js';
 
 	async function choose() {
 		const result = await pickFolder();
-		state.folder = result;
+		appState.folder = result;
 		if (result.status === 'ready') await refresh();
 	}
 
 	async function grant() {
-		if (state.folder.status !== 'needs-permission') return;
-		const result = await requestPermission(state.folder.handle);
-		state.folder = result;
+		if (appState.folder.status !== 'needs-permission') return;
+		const result = await requestPermission(appState.folder.handle);
+		appState.folder = result;
 		if (result.status === 'ready') await refresh();
 	}
 </script>
@@ -25,17 +25,17 @@
 			<code>Backlog.md</code> for your running task list.
 		</p>
 
-		{#if state.folder.status === 'needs-permission'}
+		{#if appState.folder.status === 'needs-permission'}
 			<p class="hint">
-				Previously used <strong>{state.folder.name}</strong>. Re-grant access to continue.
+				Previously used <strong>{appState.folder.name}</strong>. Re-grant access to continue.
 			</p>
 			<button class="btn-primary" onclick={grant}>Re-grant access</button>
 		{:else}
 			<button class="btn-primary" onclick={choose}>Choose folder&hellip;</button>
 		{/if}
 
-		{#if state.folder.status === 'error'}
-			<p class="error">{state.folder.message}</p>
+		{#if appState.folder.status === 'error'}
+			<p class="error">{appState.folder.message}</p>
 		{/if}
 	</div>
 </div>

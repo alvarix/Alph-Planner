@@ -2,23 +2,26 @@
 	import { onMount } from 'svelte';
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
 	import { restoreFolder } from '$lib/fs/folder.js';
-	import { state, refresh, tasksForFile, folderReady } from '$lib/state.svelte.js';
+	import { appState, refresh, tasksForFile, folderReady } from '$lib/state.svelte.js';
+	import type { Task } from '$lib/types.js';
 	import FolderPicker from '$lib/components/FolderPicker.svelte';
 	import DayColumn from '$lib/components/DayColumn.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 
-	const weekDays   = $derived(getWeekDays(state.weekOffset));
-	const weekLabel  = $derived(weekRangeLabel(state.weekOffset));
+	const weekDays  = $derived(getWeekDays(appState.weekOffset));
+	const weekLabel = $derived(weekRangeLabel(appState.weekOffset));
+
+	let draggingTask: Task | null = $state(null);
 
 	function shiftWeek(dir: -1 | 0 | 1) {
-		if (dir === 0) state.weekOffset = 0;
-		else state.weekOffset += dir;
+		if (dir === 0) appState.weekOffset = 0;
+		else appState.weekOffset += dir;
 	}
 
 	onMount(async () => {
 		// Try to restore previously picked folder silently.
 		const restored = await restoreFolder();
-		state.folder = restored;
+		appState.folder = restored;
 		if (restored.status === 'ready') await refresh();
 	});
 
@@ -43,12 +46,12 @@
 	</div>
 	<span id="week-label">{weekLabel}</span>
 	<div class="spacer"></div>
-	{#if state.folder.status === 'ready'}
-		<span class="folder-badge">{state.folder.name}/</span>
+	{#if appState.folder.status === 'ready'}
+		<span class="folder-badge">{appState.folder.name}/</span>
 	{/if}
-	{#if state.conflicts.length > 0}
-		<span class="conflict-badge" title={state.conflicts.join(', ')}>
-			&#9888; {state.conflicts.length} conflict{state.conflicts.length > 1 ? 's' : ''}
+	{#if appState.conflicts.length > 0}
+		<span class="conflict-badge" title={appState.conflicts.join(', ')}>
+			&#9888; {appState.conflicts.length} conflict{appState.conflicts.length > 1 ? 's' : ''}
 		</span>
 	{/if}
 </div>
@@ -59,6 +62,8 @@
 			<DayColumn
 				{day}
 				tasks={tasksForFile(day.iso + '.md')}
+				externalDragTask={draggingTask}
+				ondragTaskStart={(t) => (draggingTask = t)}
 			/>
 		{/each}
 	</div>

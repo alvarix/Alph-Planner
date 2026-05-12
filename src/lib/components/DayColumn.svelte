@@ -2,17 +2,21 @@
 	import type { Task } from '$lib/types.js';
 	import type { WeekDay } from '$lib/dates.js';
 	import TaskRow from './TaskRow.svelte';
-	import { reorderFileTasks } from '$lib/state.svelte.js';
+	import { reorderFileTasks, moveTask } from '$lib/state.svelte.js';
 
 	let {
 		day,
 		tasks,
+		ondragTaskStart,
+		externalDragTask = null,
 	}: {
-		day:   WeekDay;
-		tasks: Task[];
+		day:               WeekDay;
+		tasks:             Task[];
+		ondragTaskStart?:  (task: Task) => void;
+		externalDragTask?: Task | null;
 	} = $props();
 
-	let dragOver   = $state(false);
+	let dragOver      = $state(false);
 	let dragFromIndex: number | null = null;
 	let dragOverIndex: number | null = $state(null);
 
@@ -57,7 +61,14 @@
 	role="list"
 	ondragover={(e) => { e.preventDefault(); dragOver = true; }}
 	ondragleave={() => { dragOver = false; dragOverIndex = null; }}
-	ondrop={(e) => { e.preventDefault(); dragOver = false; dragOverIndex = null; }}
+	ondrop={(e) => {
+		e.preventDefault();
+		dragOver = false; dragOverIndex = null;
+		// Cross-day drop: move task from another column into this one.
+		if (externalDragTask && externalDragTask.file !== day.iso + '.md') {
+			moveTask(externalDragTask, day.iso + '.md');
+		}
+	}}
 >
 	<!-- Header -->
 	<div class="day-head">
@@ -96,7 +107,7 @@
 						<TaskRow
 							{task}
 							colorIndex={colorMap.get(task) ?? null}
-							ondragstart={(_e, _t) => { dragFromIndex = globalIndex; }}
+							ondragstart={(_e, t) => { dragFromIndex = globalIndex; ondragTaskStart?.(t); }}
 							ondragend={() => { dragFromIndex = null; dragOverIndex = null; }}
 						/>
 					</div>

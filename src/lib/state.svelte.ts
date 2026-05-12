@@ -5,7 +5,7 @@
  */
 
 import { parseFile } from './md/parse.js';
-import { toggleTaskDone, toggleChildDone, reorderTasks } from './md/serialize.js';
+import { toggleTaskDone, toggleChildDone, reorderTasks, appendTask } from './md/serialize.js';
 import { readFile, writeFile, listDailyFiles, detectConflicts } from './fs/files.js';
 import type { Task, ChildTask } from './types.js';
 import type { FolderState } from './fs/folder.js';
@@ -22,7 +22,7 @@ interface AppState {
 	weekOffset: number;
 }
 
-export const state = $state<AppState>({
+export const appState = $state<AppState>({
 	folder:     { status: 'none' },
 	cache:      {},
 	loading:    false,
@@ -32,12 +32,12 @@ export const state = $state<AppState>({
 
 /** True when a folder is ready to read. */
 export function folderReady(): boolean {
-	return state.folder.status === 'ready';
+	return appState.folder.status === 'ready';
 }
 
 /** The active directory handle, or null. */
 function dir(): FileSystemDirectoryHandle | null {
-	return state.folder.status === 'ready' ? state.folder.handle : null;
+	return appState.folder.status === 'ready' ? appState.folder.handle : null;
 }
 
 /**
@@ -48,7 +48,7 @@ export async function refresh(): Promise<void> {
 	const d = dir();
 	if (!d) return;
 
-	state.loading = true;
+	appState.loading = true;
 	try {
 		const filenames = await listDailyFiles(d);
 		const entries   = await Promise.all(
@@ -57,10 +57,10 @@ export async function refresh(): Promise<void> {
 				return [name, text ? parseFile(text, name) : []] as [string, Task[]];
 			})
 		);
-		state.cache     = Object.fromEntries(entries);
-		state.conflicts = await detectConflicts(d);
+		appState.cache     = Object.fromEntries(entries);
+		appState.conflicts = await detectConflicts(d);
 	} finally {
-		state.loading = false;
+		appState.loading = false;
 	}
 }
 
@@ -71,14 +71,67 @@ export async function refresh(): Promise<void> {
  * @param filename - e.g. "2026-05-12.md"
  */
 export function tasksForFile(filename: string): Task[] {
-	return state.cache[filename] ?? [];
+	return appState.cache[filename] ?? [];
+}
+
+/**
+ * Move a task from one file to another (cross-day drag or roll-forward).
+ * Atomic: write target first, then remove from source. Rolls back target
+ * if source removal fails.
+ *
+ * @param task           - The task to move.
+ * @param targetFilename - Destination file, e.g. "2026-05-13.md".
+ */
+export async function moveTask(task: Task, targetFilename: string): Promise<void> {
+	const d = dir();
+	if (!d || task.file === targetFilename) return;
+
+	// ── 1. Append to target ───────────────────────────────────────────────────
+	const targetContent = (await readFile(d, targetFilename)) ?? '';
+	const taskLine = task.raw;
+	const childLines = task.children.map(c => c.raw);
+	const block = [taskLine, ...childLines].join('\n');
+	const targetUpdated = appendTask(targetContent, block, task.category);
+	await writeFile(d, targetFilename, targetUpdated);
+
+	// ── 2. Remove from source (rollback on failure) ───────────────────────────
+	try {
+		const sourceContent = await readFile(d, task.file);
+		if (sourceContent === null) throw new Error('source gone');
+		const sourceLines = sourceContent.split('\n');
+		sourceLines.splice(task.lineRange[0], task.lineRange[1] - task.lineRange[0] + 1);
+		// Remove any blank line left behind at the splice point.
+		if (sourceLines[task.lineRange[0]]?.trim() === '' &&
+		    (task.lineRange[0] === 0 || sourceLines[task.lineRange[0] - 1]?.trim() === '')) {
+			sourceLines.splice(task.lineRange[0], 1);
+		}
+		await writeFile(d, task.file, sourceLines.join('\n'));
+	} catch {
+		// Rollback: remove the line we just added to the target.
+		const reread = await readFile(d, targetFilename);
+		if (reread) {
+			const rb = reread.split('\n');
+			rb.splice(rb.length - childLines.length - 1, 1 + childLines.length);
+			await writeFile(d, targetFilename, rb.join('\n'));
+		}
+		throw new Error(`moveTask: source write failed, rolled back target`);
+	}
+
+	// ── 3. Update cache for both files ────────────────────────────────────────
+	const [newTarget, newSource] = await Promise.all([
+		readFile(d, targetFilename),
+		readFile(d, task.file),
+	]);
+	if (newTarget) appState.cache[targetFilename] = parseFile(newTarget, targetFilename);
+	if (newSource) appState.cache[task.file]      = parseFile(newSource, task.file);
+	else           delete appState.cache[task.file];
 }
 
 /**
  * Return backlog tasks (from Backlog.md), from cache.
  */
 export function backlogTasks(): Task[] {
-	return state.cache['Backlog.md'] ?? [];
+	return appState.cache['Backlog.md'] ?? [];
 }
 
 /**
@@ -92,7 +145,7 @@ export async function toggleTask(task: Task): Promise<void> {
 	if (current === null) return;
 	const updated = toggleTaskDone(current, task);
 	await writeFile(d, task.file, updated);
-	state.cache[task.file] = parseFile(updated, task.file);
+	appState.cache[task.file] = parseFile(updated, task.file);
 }
 
 /**
@@ -111,10 +164,10 @@ export async function reorderFileTasks(
 	if (!d || fromIndex === toIndex) return;
 	const current = await readFile(d, filename);
 	if (current === null) return;
-	const tasks   = state.cache[filename] ?? [];
+	const tasks   = appState.cache[filename] ?? [];
 	const updated = reorderTasks(current, tasks, fromIndex, toIndex);
 	await writeFile(d, filename, updated);
-	state.cache[filename] = parseFile(updated, filename);
+	appState.cache[filename] = parseFile(updated, filename);
 }
 
 /**
@@ -127,7 +180,7 @@ export async function toggleChild(task: Task, child: ChildTask): Promise<void> {
 	if (current === null) return;
 	const updated = toggleChildDone(current, child);
 	await writeFile(d, task.file, updated);
-	state.cache[task.file] = parseFile(updated, task.file);
+	appState.cache[task.file] = parseFile(updated, task.file);
 }
 
 /**
@@ -137,7 +190,7 @@ export async function toggleChild(task: Task, child: ChildTask): Promise<void> {
  * @param todayISO - Today's date as "YYYY-MM-DD".
  */
 export function overdueTasks(todayISO: string): Task[] {
-	return Object.entries(state.cache)
+	return Object.entries(appState.cache)
 		.filter(([name]) => {
 			const m = name.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
 			return m && m[1] < todayISO;
