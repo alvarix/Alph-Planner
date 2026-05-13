@@ -132,7 +132,7 @@
 				{/if}
 				{#each section.tasks as task, si}
 					{@const globalIndex = tasks.indexOf(task)}
-					{@const heightPx = Math.max(150, 150 + ((task.estimateMin ?? 30) - 30) / 15 * 25)}
+					{@const heightPx = Math.max(80, 80 + ((task.estimateMin ?? 30) - 30) / 15 * 25)}
 					<div
 						class="drop-target"
 						class:active={dragOverIndex === globalIndex}
@@ -193,7 +193,7 @@
 	border-right: 1px solid #e2e8f0; background: #fff;
 	overflow: hidden; transition: background .12s, box-shadow .12s;
 }
-.day-col.weekend { flex: 0.75; min-width: 83px; background: #f4f4f5; }
+.day-col.weekend { flex: 0.7; min-width: 77px; background: #f4f4f5; }
 .day-col.weekend .day-dn  { color: #a1a1aa; }
 .day-col.today  { background: #f0f9ff; }
 .day-col.drag-over {

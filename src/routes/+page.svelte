@@ -107,7 +107,7 @@
 </div>
 
 {#if doneLogOpen}
-	<DoneLog groups={doneTasksByDate(todayISO)} />
+	<DoneLog groups={doneTasksByDate(todayISO)} onclose={() => (doneLogOpen = false)} />
 {/if}
 
 <Toast />
