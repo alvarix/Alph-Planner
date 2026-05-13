@@ -6,6 +6,7 @@
 
 import { parseFile } from './md/parse.js';
 import { toggleTaskDone, toggleChildDone, reorderTasks, appendTask, addCategoryHeader, removeCategoryHeader } from './md/serialize.js';
+import { extractNotes, setNotes } from './md/notes.js';
 import { readFile, writeFile, listDailyFiles, detectConflicts } from './fs/files.js';
 import type { Task, ChildTask } from './types.js';
 import type { FolderState } from './fs/folder.js';
@@ -14,10 +15,16 @@ interface FileCache {
 	[filename: string]: Task[];
 }
 
+interface NotesEntry {
+	text:             string;
+	hadDividerOnLoad: boolean;
+}
+
 interface AppState {
 	folder:         FolderState;
 	cache:          FileCache;
 	fileHeaders:    Record<string, string[]>;
+	notesCache:     Record<string, NotesEntry>;
 	backlogHeaders: string[];
 	loading:        boolean;
 	conflicts:      string[];
@@ -32,6 +39,7 @@ export const appState = $state<AppState>({
 	folder:         { status: 'none' },
 	cache:          {},
 	fileHeaders:    {},
+	notesCache:     {},
 	backlogHeaders: [],
 	loading:        false,
 	conflicts:      [],
@@ -80,10 +88,17 @@ export async function refresh(): Promise<void> {
 		const headers: Record<string, string[]> = Object.fromEntries(
 			rawTexts.map(([name, text]) => [name, text ? extractH1s(text) : []])
 		);
+		const notesEntries: Record<string, NotesEntry> = Object.fromEntries(
+			rawTexts.map(([name, text]) => {
+				const { notes, hasDivider } = text ? extractNotes(text) : { notes: '', hasDivider: false };
+				return [name, { text: notes, hadDividerOnLoad: hasDivider }];
+			})
+		);
 		const backlogText         = await readFile(d, 'Backlog.md');
 		const backlogH1s          = backlogText ? extractH1s(backlogText) : [];
 		headers['Backlog.md']     = backlogH1s;
 		appState.fileHeaders      = headers;
+		appState.notesCache       = notesEntries;
 		appState.backlogHeaders   = backlogH1s;
 		appState.conflicts        = await detectConflicts(d);
 	} finally {
@@ -404,6 +419,34 @@ export async function deleteCategoryFromFile(filename: string, name: string): Pr
 	appState.cache[filename]       = parseFile(updated, filename);
 	appState.fileHeaders[filename] = extractH1s(updated);
 	if (filename === 'Backlog.md') appState.backlogHeaders = appState.fileHeaders[filename];
+}
+
+/**
+ * Return notes text for a daily file (empty string if none).
+ *
+ * @param filename - e.g. "2026-05-13.md"
+ */
+export function notesFor(filename: string): string {
+	return appState.notesCache[filename]?.text ?? '';
+}
+
+/**
+ * Save notes for a daily file, writing the `---` block back to disk.
+ *
+ * @param filename - e.g. "2026-05-13.md"
+ * @param text     - New notes text (empty = clear).
+ */
+export async function saveNotes(filename: string, text: string): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	const current = (await readFile(d, filename)) ?? '';
+	const entry   = appState.notesCache[filename] ?? { text: '', hadDividerOnLoad: false };
+	const updated = setNotes(current, text, entry.hadDividerOnLoad);
+	await writeFile(d, filename, updated);
+	// Update notesCache; hadDividerOnLoad stays fixed for the lifetime of this session.
+	appState.notesCache[filename] = { text: text.trim(), hadDividerOnLoad: entry.hadDividerOnLoad };
+	// Also keep the task cache in sync (notes live in the same file).
+	appState.cache[filename] = parseFile(updated, filename);
 }
 
 /**

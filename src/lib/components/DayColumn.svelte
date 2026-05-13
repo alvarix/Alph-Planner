@@ -2,8 +2,9 @@
 	import type { Task } from '$lib/types.js';
 	import type { WeekDay } from '$lib/dates.js';
 	import TaskRow from './TaskRow.svelte';
-	import { reorderFileTasks, moveTask, moveToCategoryInFile, addCategoryToFile, deleteCategoryFromFile } from '$lib/state.svelte.js';
+	import { appState, reorderFileTasks, moveTask, moveToCategoryInFile, addCategoryToFile, deleteCategoryFromFile, addTask, deleteTask, notesFor } from '$lib/state.svelte.js';
 	import NewTaskInput from './NewTaskInput.svelte';
+	import NotesPopover from './NotesPopover.svelte';
 
 	let {
 		day,
@@ -19,9 +20,11 @@
 		openSignal?:       number;
 	} = $props();
 
-	let dragOver      = $state(false);
+	let dragOver         = $state(false);
+	let sectionDragOver: string | null | undefined = $state(undefined);
 	let addingOpen    = $state(false);
 	let addingCat     = $state(false);
+	let notesOpen     = $state(false);
 	let newCatName    = $state('');
 	let catInputEl:   HTMLInputElement;
 	let catDelConfirm: string | null = $state(null);
@@ -45,6 +48,28 @@
 	$effect(() => {
 		if (openSignal > 0) addingOpen = true;
 	});
+
+	const filename = $derived(day.iso + '.md');
+	const dayFileHeaders = $derived(appState.fileHeaders[filename] ?? []);
+
+	/** Drop a task (internal or external) onto a specific category section. */
+	async function dropOnSection(category: string | null) {
+		dragOver = false; sectionDragOver = undefined;
+		if (dragFromIndex !== null) {
+			const dragged = tasks[dragFromIndex];
+			if (dragged) await moveToCategoryInFile(dragged, category);
+			dragFromIndex = null;
+		} else if (externalDragTask) {
+			if (externalDragTask.file === filename) {
+				await moveToCategoryInFile(externalDragTask, category);
+			} else {
+				const block = [externalDragTask.raw, ...externalDragTask.children.map(c => c.raw)].join('\n');
+				await addTask(filename, block, category);
+				await deleteTask(externalDragTask);
+			}
+		}
+	}
+
 	let dragFromIndex: number | null = null;
 	let dragOverIndex: number | null = $state(null);
 
@@ -66,7 +91,7 @@
 		return min % 60 === 0 ? `${min / 60}h` : `${(min / 60).toFixed(1)}h`;
 	}
 
-	/** Group tasks by category for rendering section dividers. */
+	/** Group tasks by category, overlaying empty H1 headers from the file. */
 	const sections = $derived.by(() => {
 		const result: { category: string | null; tasks: Task[] }[] = [];
 		for (const t of tasks) {
@@ -76,6 +101,10 @@
 			} else {
 				result.push({ category: t.category, tasks: [t] });
 			}
+		}
+		const seenCats = new Set(result.map(s => s.category));
+		for (const h of dayFileHeaders) {
+			if (!seenCats.has(h)) result.push({ category: h, tasks: [] });
 		}
 		return result;
 	});
@@ -110,12 +139,18 @@
 
 	<!-- Tasks -->
 	<div class="task-list">
-		{#if tasks.length === 0}
+		{#if tasks.length === 0 && dayFileHeaders.length === 0}
 			<div class="empty-day">no tasks</div>
 		{:else}
 			{#each sections as section}
 				{#if section.category}
-					<div class="section-head">
+					<div
+						class="section-head"
+						class:drag-over-section={sectionDragOver === section.category}
+						ondragover={(e) => { e.preventDefault(); e.stopPropagation(); sectionDragOver = section.category; }}
+						ondragleave={() => { sectionDragOver = undefined; }}
+						ondrop={async (e) => { e.preventDefault(); e.stopPropagation(); await dropOnSection(section.category); }}
+					>
 						<span class="cat-name">{section.category}</span>
 						{#if catDelConfirm === section.category}
 							<span class="cat-del-confirm">
@@ -167,7 +202,7 @@
 		{/if}
 	</div>
 
-	<!-- Add task / category footer -->
+	<!-- Add task / category / notes footer -->
 	<div class="col-footer">
 		{#if addingOpen}
 			<NewTaskInput
@@ -186,9 +221,22 @@
 				<div class="add-hint">Enter to add &middot; Esc cancel</div>
 			</div>
 		{:else}
-			<div class="footer-btns">
+			<div class="footer-btns" style="position: relative;">
+				{#if notesOpen}
+					<NotesPopover
+						{filename}
+						initialText={notesFor(filename)}
+						onclose={() => (notesOpen = false)}
+					/>
+				{/if}
 				<button class="btn-add" onclick={() => (addingOpen = true)}>+ task</button>
 				<button class="btn-add-cat" onclick={() => (addingCat = true)} title="Add category"># cat</button>
+				<button
+					class="btn-notes"
+					class:has-notes={notesFor(filename) !== ''}
+					onclick={() => (notesOpen = !notesOpen)}
+					title="Notes"
+				>&#x270D;</button>
 			</div>
 		{/if}
 	</div>
@@ -253,6 +301,7 @@
 }
 .section-head:hover .cat-del-btn { opacity: 1; }
 .cat-del-btn:hover { color: #ef4444; }
+.section-head.drag-over-section { background: #dbeafe; }
 .cat-del-confirm { display: flex; gap: 3px; align-items: center; }
 .cat-del-yes, .cat-del-no {
 	font-size: 10px; border-radius: 3px; border: 1px solid;
@@ -282,6 +331,13 @@
 	cursor: pointer; color: #cbd5e1;
 }
 .btn-add-cat:hover { background: #f8fafc; color: #64748b; }
+.btn-notes {
+	padding: 7px 8px; font-size: 13px;
+	background: none; border: none; border-left: 1px solid #e2e8f0;
+	cursor: pointer; color: #cbd5e1; line-height: 1;
+}
+.btn-notes:hover { background: #f8fafc; color: #64748b; }
+.btn-notes.has-notes { color: #0ea5e9; }
 .add-cat-wrap { padding: 6px 8px; border-top: 1px solid #e2e8f0; }
 .add-cat-input {
 	width: 100%; border: 1px solid #94a3b8; border-radius: 5px;
