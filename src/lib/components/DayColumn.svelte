@@ -85,6 +85,7 @@
 	class="day-col"
 	class:today={day.today}
 	class:past={day.past}
+	class:weekend={day.weekend}
 	class:drag-over={dragOver}
 	role="list"
 	ondragover={(e) => { e.preventDefault(); dragOver = true; }}
@@ -131,6 +132,7 @@
 				{/if}
 				{#each section.tasks as task, si}
 					{@const globalIndex = tasks.indexOf(task)}
+					{@const heightPx = Math.max(150, 150 + ((task.estimateMin ?? 30) - 30) / 15 * 25)}
 					<div
 						class="drop-target"
 						class:active={dragOverIndex === globalIndex}
@@ -148,6 +150,7 @@
 						<TaskRow
 							{task}
 							colorIndex={colorMap.get(task) ?? null}
+							minHeight={heightPx}
 							ondragstart={(_e, t) => { dragFromIndex = globalIndex; ondragTaskStart?.(t); }}
 							ondragend={() => { dragFromIndex = null; dragOverIndex = null; }}
 						/>
@@ -190,6 +193,8 @@
 	border-right: 1px solid #e2e8f0; background: #fff;
 	overflow: hidden; transition: background .12s, box-shadow .12s;
 }
+.day-col.weekend { flex: 0.75; min-width: 83px; background: #f4f4f5; }
+.day-col.weekend .day-dn  { color: #a1a1aa; }
 .day-col.today  { background: #f0f9ff; }
 .day-col.drag-over {
 	background: #eff6ff;

@@ -14,11 +14,13 @@
 	let {
 		task,
 		colorIndex = null,
+		minHeight  = null,
 		ondragstart,
 		ondragend,
 	}: {
 		task: Task;
 		colorIndex?: number | null;
+		minHeight?:  number | null;
 		ondragstart?: (e: DragEvent, task: Task) => void;
 		ondragend?:   (e: DragEvent) => void;
 	} = $props();
@@ -63,7 +65,10 @@
 	class="task-item"
 	class:done={task.done}
 	class:has-color={color}
-	style={color ? `border-left: 3px solid ${color.border}; padding-left: 5px;` : ''}
+	style={[
+		color      ? `border-left: 3px solid ${color.border}; padding-left: 5px;` : '',
+		minHeight  ? `min-height: ${minHeight}px;` : '',
+	].join('')}
 	role="listitem"
 	draggable="true"
 	ondragstart={(e) => ondragstart?.(e, task)}
