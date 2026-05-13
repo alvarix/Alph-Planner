@@ -83,6 +83,8 @@ Requires a Chromium browser (Chrome, Edge, Arc) for the File System Access API. 
 The app runs as an installed PWA from the local dev server. After pulling or editing code:
 
 ```sh
+# close port 5177
+sudo kill -9 $(sudo lsof -t -i:5177) 2>/dev/null
 npm run dev -- --port 5177   # keep the port stable so the installed app re-uses the same origin
 ```
 

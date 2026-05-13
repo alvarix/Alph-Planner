@@ -5,7 +5,7 @@
  */
 
 import { parseFile } from './md/parse.js';
-import { toggleTaskDone, toggleChildDone, reorderTasks, appendTask } from './md/serialize.js';
+import { toggleTaskDone, toggleChildDone, reorderTasks, appendTask, addCategoryHeader, removeCategoryHeader } from './md/serialize.js';
 import { readFile, writeFile, listDailyFiles, detectConflicts } from './fs/files.js';
 import type { Task, ChildTask } from './types.js';
 import type { FolderState } from './fs/folder.js';
@@ -317,6 +317,37 @@ export function doneTasksByDate(
 		}))
 		.filter(g => g.tasks.length > 0)
 		.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/**
+ * Append a new H1 category header to a file and refresh its cache entry.
+ *
+ * @param filename - Target file, e.g. "Backlog.md" or "2026-05-13.md".
+ * @param name     - Category name, e.g. "Work".
+ */
+export async function addCategoryToFile(filename: string, name: string): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	const current = (await readFile(d, filename)) ?? NEW_DAILY_TEMPLATE;
+	const updated = addCategoryHeader(current, name);
+	await writeFile(d, filename, updated);
+	appState.cache[filename] = parseFile(updated, filename);
+}
+
+/**
+ * Remove an H1 category header from a file (tasks under it remain).
+ *
+ * @param filename - Target file.
+ * @param name     - Category name to remove.
+ */
+export async function deleteCategoryFromFile(filename: string, name: string): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	const current = await readFile(d, filename);
+	if (current === null) return;
+	const updated = removeCategoryHeader(current, name);
+	await writeFile(d, filename, updated);
+	appState.cache[filename] = parseFile(updated, filename);
 }
 
 /**

@@ -164,3 +164,38 @@ export function appendTask(content: string, taskLine: string, category: string |
 	lines.splice(insertAt, 0, taskLine);
 	return joinLines(lines);
 }
+
+/**
+ * Append a new H1 category header at the end of the file.
+ * Adds a blank separator line before the heading if the file is non-empty.
+ *
+ * @param content - Raw file text.
+ * @param name    - Category name, e.g. "Work".
+ * @returns New file text.
+ */
+export function addCategoryHeader(content: string, name: string): string {
+	const lines = splitLines(content);
+	let end = lines.length;
+	while (end > 0 && lines[end - 1].trim() === '') end--;
+	const insert = end > 0 ? ['', `# ${name}`] : [`# ${name}`];
+	lines.splice(end, 0, ...insert);
+	return joinLines(lines);
+}
+
+/**
+ * Remove an H1 category header line from the file.
+ * Tasks that were under the header remain — they just lose their section label.
+ *
+ * @param content - Raw file text.
+ * @param name    - Category name to remove, e.g. "Work".
+ * @returns New file text.
+ */
+export function removeCategoryHeader(content: string, name: string): string {
+	const h1Pat = /^#\s+(.+)/;
+	return joinLines(
+		splitLines(content).filter(l => {
+			const m = l.match(h1Pat);
+			return !(m && m[1].trim() === name);
+		})
+	);
+}

@@ -91,6 +91,7 @@
 		overdue={overdueTasks(todayISO)}
 		todayFilename={todayISO + '.md'}
 		ondragstart={(t) => (draggingTask = t)}
+		externalDragTask={draggingTask}
 	/>
 	<div id="columns">
 		{#each weekDays as day}
