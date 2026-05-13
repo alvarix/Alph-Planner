@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.2.0] - 2026-05-13
+
+### Added
+- BacklogRail: tasks now grouped under their H1 category headers, matching the
+  structure of `Backlog.md`; overdue items appear under a dedicated "Overdue" header
+- BacklogRail: **#** button adds a new category (H1 section) to `Backlog.md`
+- BacklogRail: category headers show a **×** delete button on hover with
+  **del / no** confirmation; removes the `# Heading` line, tasks remain
+- BacklogRail: star button (★) per task — appears on hover, amber when starred
+- BacklogRail: accepts drag-and-drop from day columns; dropping a task on the
+  rail moves it to `Backlog.md`
+- DayColumn: **# cat** footer button adds a new category to the current day file
+- DayColumn: category section headers show a **×** delete button on hover with
+  inline confirmation
+- DayColumn: task height scaled by estimate — 80 px base (≤ 0.5 h), +25 px per
+  additional 0.25 h (e.g. 1 h → 130 px, 2 h → 230 px)
+- DayColumn: weekend columns (Sat/Sun) rendered at 70 % width with a grey
+  background to de-emphasise non-work days
+- DoneLog: converted from a fixed bottom strip to a slide-up drawer
+  (`position: fixed`, 300 px tall, `fly` transition); includes its own **×**
+  close button
+
+### Changed
+- `serialize.ts`: added `addCategoryHeader` and `removeCategoryHeader` helpers
+- `state.svelte.ts`: added `addCategoryToFile` and `deleteCategoryFromFile`
+  actions backed by the new serialize helpers
+
 ## [1.1.0] - 2026-05-12
 
 ### Added
