@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { appState, moveTask, addTask, toggleStar, addCategoryToFile, deleteCategoryFromFile } from '$lib/state.svelte.js';
+	import { appState, moveTask, addTask, toggleStar, addCategoryToFile, deleteCategoryFromFile, moveToCategoryInFile, deleteTask } from '$lib/state.svelte.js';
+	import TaskRow from './TaskRow.svelte';
 
 	let {
 		backlog,
@@ -39,9 +40,8 @@
 		return result;
 	});
 
-	const categories = $derived(
-		[...new Set(backlog.map(t => t.category).filter((c): c is string => !!c))]
-	);
+	// Use file headers so empty categories still appear in the add-task picker.
+	const categories = $derived(appState.backlogHeaders);
 
 	let adding     = $state(false);
 	let addValue   = $state('');
@@ -52,18 +52,25 @@
 	let newCatName = $state('');
 	let catInputEl: HTMLInputElement;
 
-	let dragOver        = $state(false);
+	let dragOver         = $state(false);
+	let sectionDragOver: string | null | undefined = $state(undefined);
 	let catDelConfirm: string | null = $state(null);
+
+	/** Drop an external task onto a specific category within Backlog.md. */
+	async function dropOnSection(task: Task, category: string | null) {
+		if (task.file === 'Backlog.md') {
+			await moveToCategoryInFile(task, category);
+		} else {
+			const block = [task.raw, ...task.children.map(c => c.raw)].join('\n');
+			await addTask('Backlog.md', block, category);
+			await deleteTask(task);
+		}
+	}
 
 	async function rollAll() {
 		for (const task of allItems) {
 			await moveTask(task, todayFilename);
 		}
-	}
-
-	function formatDate(iso: string): string {
-		const d = new Date(iso + 'T12:00:00');
-		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
 
 	function buildLine(raw: string): string | null {
@@ -107,44 +114,6 @@
 	$effect(() => { if (addingCat) catInputEl?.focus(); });
 </script>
 
-{#snippet taskItem(task: Task)}
-	<div
-		class="backlog-item"
-		role="listitem"
-		draggable="true"
-		ondragstart={(e) => {
-			e.dataTransfer?.setData('text/plain', task.title);
-			ondragstart?.(task);
-		}}
-	>
-		<span class="drag-handle">&#8942;&#8942;</span>
-		<div class="bk-body">
-			<span class="bk-title" class:starred={task.starred}>{task.title}</span>
-			{#if task.estimateMin}
-				<span class="bk-dur">
-					{task.estimateMin % 60 === 0 ? `${task.estimateMin / 60}h` : `${task.estimateMin}m`}
-				</span>
-			{/if}
-			{#if task.date}
-				<div><span class="date-tag">{formatDate(task.date)}</span></div>
-			{/if}
-		</div>
-		<button
-			class="star-btn"
-			class:starred={task.starred}
-			onclick={() => toggleStar(task)}
-			title={task.starred ? 'unstar' : 'star'}
-			aria-label={task.starred ? 'unstar task' : 'star task'}
-		>&#9733;</button>
-	</div>
-	{#if task.children.length > 0}
-		<div class="bk-children">
-			{#each task.children as child}
-				<div class="bk-child" class:done={child.done}>{child.title}</div>
-			{/each}
-		</div>
-	{/if}
-{/snippet}
 
 <aside
 	id="backlog-rail"
@@ -208,13 +177,39 @@
 		{#if overdue.length > 0}
 			<div class="section-head overdue-head">Overdue</div>
 			{#each overdue as task}
-				{@render taskItem(task)}
+				<TaskRow
+					{task}
+					ondragstart={(e, t) => { e.dataTransfer?.setData('text/plain', t.title); ondragstart?.(t); }}
+				/>
 			{/each}
 		{/if}
 
+		<!-- No-category drop zone: a thin strip at the top for dropping tasks back to uncategorised -->
+		<div
+			class="null-drop"
+			class:drag-over-section={sectionDragOver === null}
+			ondragover={(e) => { e.preventDefault(); e.stopPropagation(); sectionDragOver = null; }}
+			ondragleave={() => { sectionDragOver = undefined; }}
+			ondrop={async (e) => {
+				e.preventDefault(); e.stopPropagation();
+				sectionDragOver = undefined; dragOver = false;
+				if (externalDragTask) await dropOnSection(externalDragTask, null);
+			}}
+		></div>
+
 		{#each backlogSections as section}
 			{#if section.category}
-				<div class="section-head">
+				<div
+					class="section-head"
+					class:drag-over-section={sectionDragOver === section.category}
+					ondragover={(e) => { e.preventDefault(); e.stopPropagation(); sectionDragOver = section.category; }}
+					ondragleave={() => { sectionDragOver = undefined; }}
+					ondrop={async (e) => {
+						e.preventDefault(); e.stopPropagation();
+						sectionDragOver = undefined; dragOver = false;
+						if (externalDragTask) await dropOnSection(externalDragTask, section.category);
+					}}
+				>
 					<span class="cat-name">{section.category}</span>
 					{#if catDelConfirm === section.category}
 						<span class="del-confirm">
@@ -230,7 +225,10 @@
 				</div>
 			{/if}
 			{#each section.tasks as task}
-				{@render taskItem(task)}
+				<TaskRow
+					{task}
+					ondragstart={(e, t) => { e.dataTransfer?.setData('text/plain', t.title); ondragstart?.(t); }}
+				/>
 			{/each}
 		{/each}
 
@@ -312,6 +310,10 @@
 }
 .section-head:hover .cat-del-btn { opacity: 1; }
 .cat-del-btn:hover { color: #dc2626; }
+.section-head.drag-over-section { background: #fca5a5; }
+
+.null-drop { height: 4px; background: transparent; transition: height .1s, background .1s; }
+.null-drop.drag-over-section { height: 14px; background: #fecaca; }
 
 .del-confirm { display: flex; gap: 3px; align-items: center; }
 .del-yes, .del-no {
@@ -323,44 +325,6 @@
 .del-no  { background: #fff5f5; border-color: #fecaca; color: #7f1d1d; }
 .del-no:hover  { background: #fee2e2; }
 
-.backlog-item {
-	padding: 7px 8px; border-bottom: 1px solid #fecaca;
-	cursor: grab; display: flex; align-items: flex-start;
-	gap: 5px; transition: background .1s;
-}
-.backlog-item:hover { background: rgba(254,202,202,.2); }
-
-.drag-handle { color: #fca5a5; font-size: 11px; flex-shrink: 0; padding-top: 1px; }
-.bk-body { flex: 1; min-width: 0; }
-.bk-title { font-size: 12px; font-weight: 500; line-height: 1.3; }
-.bk-title.starred { font-weight: 700; }
-.bk-dur { font-size: 10px; color: #b91c1c; opacity: .7; margin-left: 4px; }
-
-.star-btn {
-	font-size: 12px; background: none; border: none; cursor: pointer;
-	color: #fecaca; flex-shrink: 0; padding: 0 1px; line-height: 1;
-	padding-top: 2px; transition: color .1s;
-	opacity: 0;
-}
-.backlog-item:hover .star-btn { opacity: 1; }
-.star-btn.starred { color: #f59e0b; opacity: 1; }
-.star-btn:hover { color: #f59e0b; }
-
-.bk-children {
-	padding: 0 8px 4px 26px; border-bottom: 1px solid #fecaca;
-	background: rgba(254,226,226,.25);
-}
-.bk-child {
-	font-size: 11px; color: #7f1d1d; padding: 2px 0;
-	border-left: 2px solid #fca5a5; padding-left: 6px; margin: 1px 0;
-}
-.bk-child.done { text-decoration: line-through; opacity: .5; }
-
-.date-tag {
-	display: inline-block; font-size: 10px; font-weight: 600;
-	font-family: monospace; background: #fee2e2; color: #dc2626;
-	padding: 1px 5px; border-radius: 3px; margin-top: 3px;
-}
 
 .empty {
 	padding: 16px 12px; font-size: 12px; color: #fca5a5; text-align: center;

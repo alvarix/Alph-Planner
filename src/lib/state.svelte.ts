@@ -17,6 +17,7 @@ interface FileCache {
 interface AppState {
 	folder:         FolderState;
 	cache:          FileCache;
+	fileHeaders:    Record<string, string[]>;
 	backlogHeaders: string[];
 	loading:        boolean;
 	conflicts:      string[];
@@ -30,6 +31,7 @@ const NEW_DAILY_TEMPLATE = '![[Backlog]]\n\n';
 export const appState = $state<AppState>({
 	folder:         { status: 'none' },
 	cache:          {},
+	fileHeaders:    {},
 	backlogHeaders: [],
 	loading:        false,
 	conflicts:      [],
@@ -38,7 +40,7 @@ export const appState = $state<AppState>({
 });
 
 /** Extract all # H1 section names from raw file text. */
-function extractH1s(content: string): string[] {
+export function extractH1s(content: string): string[] {
 	return content.split('\n')
 		.map(l => l.match(/^#\s+(.+)/)?.[1]?.trim())
 		.filter((h): h is string => !!h);
@@ -69,16 +71,21 @@ export async function refresh(): Promise<void> {
 	appState.loading = true;
 	try {
 		const filenames = await listDailyFiles(d);
-		const entries   = await Promise.all(
-			filenames.map(async (name) => {
-				const text = await readFile(d, name);
-				return [name, text ? parseFile(text, name) : []] as [string, Task[]];
-			})
+		const rawTexts: [string, string | null][] = await Promise.all(
+			filenames.map(async (name) => [name, await readFile(d, name)] as [string, string | null])
 		);
-		appState.cache          = Object.fromEntries(entries);
-		const backlogText       = await readFile(d, 'Backlog.md');
-		appState.backlogHeaders = backlogText ? extractH1s(backlogText) : [];
-		appState.conflicts      = await detectConflicts(d);
+		appState.cache = Object.fromEntries(
+			rawTexts.map(([name, text]) => [name, text ? parseFile(text, name) : []])
+		);
+		const headers: Record<string, string[]> = Object.fromEntries(
+			rawTexts.map(([name, text]) => [name, text ? extractH1s(text) : []])
+		);
+		const backlogText         = await readFile(d, 'Backlog.md');
+		const backlogH1s          = backlogText ? extractH1s(backlogText) : [];
+		headers['Backlog.md']     = backlogH1s;
+		appState.fileHeaders      = headers;
+		appState.backlogHeaders   = backlogH1s;
+		appState.conflicts        = await detectConflicts(d);
 	} finally {
 		appState.loading = false;
 	}
@@ -376,8 +383,9 @@ export async function addCategoryToFile(filename: string, name: string): Promise
 	const current = (await readFile(d, filename)) ?? NEW_DAILY_TEMPLATE;
 	const updated = addCategoryHeader(current, name);
 	await writeFile(d, filename, updated);
-	appState.cache[filename] = parseFile(updated, filename);
-	if (filename === 'Backlog.md') appState.backlogHeaders = extractH1s(updated);
+	appState.cache[filename]       = parseFile(updated, filename);
+	appState.fileHeaders[filename] = extractH1s(updated);
+	if (filename === 'Backlog.md') appState.backlogHeaders = appState.fileHeaders[filename];
 }
 
 /**
@@ -393,8 +401,9 @@ export async function deleteCategoryFromFile(filename: string, name: string): Pr
 	if (current === null) return;
 	const updated = removeCategoryHeader(current, name);
 	await writeFile(d, filename, updated);
-	appState.cache[filename] = parseFile(updated, filename);
-	if (filename === 'Backlog.md') appState.backlogHeaders = extractH1s(updated);
+	appState.cache[filename]       = parseFile(updated, filename);
+	appState.fileHeaders[filename] = extractH1s(updated);
+	if (filename === 'Backlog.md') appState.backlogHeaders = appState.fileHeaders[filename];
 }
 
 /**

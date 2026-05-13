@@ -138,10 +138,19 @@ export function appendTask(content: string, taskLine: string, category: string |
 	const lines = splitLines(content);
 
 	if (!category) {
-		// No category — append at end of file (before any trailing blank lines).
-		let insertAt = lines.length;
-		while (insertAt > 0 && lines[insertAt - 1].trim() === '') insertAt--;
-		lines.splice(insertAt, 0, taskLine);
+		const firstH1 = lines.findIndex(l => /^#\s+/.test(l));
+		if (firstH1 === -1) {
+			// No H1 exists — insert at end of file, before trailing blanks.
+			let insertAt = lines.length;
+			while (insertAt > 0 && lines[insertAt - 1].trim() === '') insertAt--;
+			lines.splice(insertAt, 0, taskLine);
+		} else {
+			// Insert just before the first H1, walking back past any blank lines
+			// so the task groups with other uncategorised items, not whitespace.
+			let insertAt = firstH1;
+			while (insertAt > 0 && lines[insertAt - 1].trim() === '') insertAt--;
+			lines.splice(insertAt, 0, taskLine);
+		}
 		return joinLines(lines);
 	}
 

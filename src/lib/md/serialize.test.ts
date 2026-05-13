@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseFile } from './parse.js';
-import { toggleTaskDone, toggleChildDone, reorderTasks, appendTask } from './serialize.js';
+import { toggleTaskDone, toggleChildDone, reorderTasks, appendTask, addCategoryHeader } from './serialize.js';
+import { extractH1s } from '../state.svelte.js';
 
 function lines(...args: string[]) { return args.join('\n'); }
 
@@ -140,13 +141,51 @@ describe('reorderTasks', () => {
 	});
 });
 
+// ── extractH1s ────────────────────────────────────────────────────────────────
+
+describe('extractH1s', () => {
+	it('returns header names added by addCategoryHeader', () => {
+		const src     = '- [ ] existing task';
+		const updated = addCategoryHeader(src, 'Work');
+		expect(extractH1s(updated)).toContain('Work');
+	});
+
+	it('returns all headers in order', () => {
+		const src = lines('# Alpha', '- [ ] a', '# Beta', '- [ ] b');
+		expect(extractH1s(src)).toEqual(['Alpha', 'Beta']);
+	});
+
+	it('returns empty array when no H1s present', () => {
+		expect(extractH1s('- [ ] no headers here')).toEqual([]);
+	});
+
+	it('does not include H2 or deeper headings', () => {
+		expect(extractH1s('## Section\n### Sub')).toEqual([]);
+	});
+});
+
 // ── appendTask ────────────────────────────────────────────────────────────────
 
 describe('appendTask', () => {
-	it('appends to end of file when no category', () => {
+	it('appends to end of file when no category and no H1', () => {
 		const src    = '- [ ] existing';
 		const result = appendTask(src, '- [ ] new', null).split('\n');
 		expect(result.at(-1)).toBe('- [ ] new');
+	});
+
+	it('inserts before first H1 when no category', () => {
+		const src    = lines('# Work', '- [ ] a');
+		const result = appendTask(src, '- [ ] new', null);
+		const parsed = parseFile(result, '2026-05-13.md');
+		const added  = parsed.find(t => t.title === 'new');
+		expect(added?.category).toBeNull();
+	});
+
+	it('null-cat task lands above H1, not below it', () => {
+		const src    = lines('# Work', '- [ ] a');
+		const result = appendTask(src, '- [ ] new', null).split('\n');
+		expect(result[0]).toBe('- [ ] new');
+		expect(result[1]).toBe('# Work');
 	});
 
 	it('appends under the matching H1 section', () => {
