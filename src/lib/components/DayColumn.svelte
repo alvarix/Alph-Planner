@@ -2,7 +2,7 @@
 	import type { Task } from '$lib/types.js';
 	import type { WeekDay } from '$lib/dates.js';
 	import TaskRow from './TaskRow.svelte';
-	import { reorderFileTasks, moveTask, addCategoryToFile, deleteCategoryFromFile } from '$lib/state.svelte.js';
+	import { reorderFileTasks, moveTask, moveToCategoryInFile, addCategoryToFile, deleteCategoryFromFile } from '$lib/state.svelte.js';
 	import NewTaskInput from './NewTaskInput.svelte';
 
 	let {
@@ -142,7 +142,14 @@
 							e.preventDefault(); e.stopPropagation();
 							dragOver = false; dragOverIndex = null;
 							if (dragFromIndex !== null && dragFromIndex !== globalIndex) {
-								reorderFileTasks(day.iso + '.md', dragFromIndex, globalIndex);
+								const dragged = tasks[dragFromIndex];
+								if (dragged && dragged.category !== section.category) {
+									// Cross-category: move to new section, append at end of it
+									moveToCategoryInFile(dragged, section.category);
+								} else {
+									// Same-category: positional reorder
+									reorderFileTasks(day.iso + '.md', dragFromIndex, globalIndex);
+								}
 								dragFromIndex = null;
 							}
 						}}

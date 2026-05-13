@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { moveTask, addTask, toggleStar, addCategoryToFile, deleteCategoryFromFile } from '$lib/state.svelte.js';
+	import { appState, moveTask, addTask, toggleStar, addCategoryToFile, deleteCategoryFromFile } from '$lib/state.svelte.js';
 
 	let {
 		backlog,
@@ -16,9 +16,11 @@
 		externalDragTask?: Task | null;
 	} = $props();
 
-	const allItems = $derived([...backlog, ...overdue]);
+	const allItems    = $derived([...backlog, ...overdue]);
+	const fileHeaders = $derived(appState.backlogHeaders);
 
-	/** Group backlog tasks by their category, preserving file order. */
+	/** Group backlog tasks by their category, preserving file order.
+	 *  Also includes empty sections for H1 headers that have no tasks yet. */
 	const backlogSections = $derived.by(() => {
 		const result: { category: string | null; tasks: Task[] }[] = [];
 		for (const t of backlog) {
@@ -28,6 +30,11 @@
 			} else {
 				result.push({ category: t.category, tasks: [t] });
 			}
+		}
+		// Append sections for H1 headers in the file that have no tasks yet
+		const seenCats = new Set(result.map(s => s.category));
+		for (const h of fileHeaders) {
+			if (!seenCats.has(h)) result.push({ category: h, tasks: [] });
 		}
 		return result;
 	});

@@ -15,25 +15,34 @@ interface FileCache {
 }
 
 interface AppState {
-	folder:     FolderState;
-	cache:      FileCache;
-	loading:    boolean;
-	conflicts:  string[];
-	weekOffset: number;
-	lastError:  string | null;
+	folder:         FolderState;
+	cache:          FileCache;
+	backlogHeaders: string[];
+	loading:        boolean;
+	conflicts:      string[];
+	weekOffset:     number;
+	lastError:      string | null;
 }
 
 /** Template written when the app creates a new daily file from scratch. */
 const NEW_DAILY_TEMPLATE = '![[Backlog]]\n\n';
 
 export const appState = $state<AppState>({
-	folder:     { status: 'none' },
-	cache:      {},
-	loading:    false,
-	conflicts:  [],
-	weekOffset: 0,
-	lastError:  null,
+	folder:         { status: 'none' },
+	cache:          {},
+	backlogHeaders: [],
+	loading:        false,
+	conflicts:      [],
+	weekOffset:     0,
+	lastError:      null,
 });
+
+/** Extract all # H1 section names from raw file text. */
+function extractH1s(content: string): string[] {
+	return content.split('\n')
+		.map(l => l.match(/^#\s+(.+)/)?.[1]?.trim())
+		.filter((h): h is string => !!h);
+}
 
 function fail(msg: string) {
 	appState.lastError = msg;
@@ -66,8 +75,10 @@ export async function refresh(): Promise<void> {
 				return [name, text ? parseFile(text, name) : []] as [string, Task[]];
 			})
 		);
-		appState.cache     = Object.fromEntries(entries);
-		appState.conflicts = await detectConflicts(d);
+		appState.cache          = Object.fromEntries(entries);
+		const backlogText       = await readFile(d, 'Backlog.md');
+		appState.backlogHeaders = backlogText ? extractH1s(backlogText) : [];
+		appState.conflicts      = await detectConflicts(d);
 	} finally {
 		appState.loading = false;
 	}
@@ -239,6 +250,13 @@ export function backlogTasks(): Task[] {
 }
 
 /**
+ * Return all H1 category header names from Backlog.md, including empty ones.
+ */
+export function backlogCategoryHeaders(): string[] {
+	return appState.backlogHeaders;
+}
+
+/**
  * Toggle a top-level task's done state and write back to disk.
  * Re-parses only the affected file after writing.
  */
@@ -320,6 +338,33 @@ export function doneTasksByDate(
 }
 
 /**
+ * Move a task to a different category section within the same file.
+ * Removes the task block from its current position and appends it under
+ * the target category heading. Does not affect any other tasks.
+ *
+ * @param task           - The task to move.
+ * @param targetCategory - Target H1 section name, or null for no-category.
+ */
+export async function moveToCategoryInFile(task: Task, targetCategory: string | null): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	const current = await readFile(d, task.file);
+	if (current === null) return;
+
+	// Remove the task block (parent + children) from the file.
+	const lines = current.split('\n');
+	lines.splice(task.lineRange[0], task.lineRange[1] - task.lineRange[0] + 1);
+	const stripped = lines.join('\n');
+
+	// Append under the new category heading.
+	const block = [task.raw, ...task.children.map(c => c.raw)].join('\n');
+	const updated = appendTask(stripped, block, targetCategory);
+
+	await writeFile(d, task.file, updated);
+	appState.cache[task.file] = parseFile(updated, task.file);
+}
+
+/**
  * Append a new H1 category header to a file and refresh its cache entry.
  *
  * @param filename - Target file, e.g. "Backlog.md" or "2026-05-13.md".
@@ -332,6 +377,7 @@ export async function addCategoryToFile(filename: string, name: string): Promise
 	const updated = addCategoryHeader(current, name);
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
+	if (filename === 'Backlog.md') appState.backlogHeaders = extractH1s(updated);
 }
 
 /**
@@ -348,6 +394,7 @@ export async function deleteCategoryFromFile(filename: string, name: string): Pr
 	const updated = removeCategoryHeader(current, name);
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
+	if (filename === 'Backlog.md') appState.backlogHeaders = extractH1s(updated);
 }
 
 /**
