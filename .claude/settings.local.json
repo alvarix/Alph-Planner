@@ -19,7 +19,9 @@
       "Bash(pm2 delete *)",
       "Bash(pm2 start *)",
       "Bash(pm2 save *)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5177)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5177)",
+      "Bash(pnpm build *)",
+      "Bash(pnpm add *)"
     ]
   }
 }

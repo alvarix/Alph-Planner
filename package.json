@@ -30,11 +30,14 @@
 		"vitest": "^4.1.6"
 	},
 	"pnpm": {
-		"onlyBuiltDependencies": ["esbuild"]
+		"onlyBuiltDependencies": [
+			"esbuild"
+		]
 	},
 	"dependencies": {
 		"date-fns": "^4.1.0",
 		"svelte-dnd-action": "^0.9.69",
+		"workbox-window": "^7.4.1",
 		"zod": "^4.4.3"
 	}
 }

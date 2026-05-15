@@ -86,60 +86,37 @@ The app requires a server process to be running — there is no static file you 
 
 This is a SvelteKit app served by Vite. The browser's File System Access API and IndexedDB still work offline once the page has loaded, but the initial page load (and any hard reload) must reach the local server. The PWA service worker caches assets after the first load, so the app can survive brief network blips, but a full server restart or machine reboot will break it until the server is running again.
 
-### Option A — keep the dev server running (simplest, hot-reload)
-
-Use pm2 to manage the process so it survives terminal closes and reboots:
+### Setup (first time)
 
 ```sh
 pnpm add -g pm2
-pm2 start "pnpm exec vite dev --port 5177" --name alph-planner
-pm2 save                   # persist the process list
-pm2 startup                # print a command — run that command to survive reboots
+pnpm build
+pm2 start "pnpm exec vite preview --port 5177" --name alph-planner
+pm2 save
+pm2 startup    # prints a command — run it to survive reboots
 ```
 
-The app is available at `http://localhost:5177`. pm2 will restart it automatically if it crashes.
+The app is available at `http://localhost:5177`. Open it in Chrome and install via the address bar icon.
 
-Useful pm2 commands:
+### After a code change
+
+```sh
+pnpm build && pm2 restart alph-planner
+```
+
+The service worker updates automatically on the next page load. If the app shows stale content: DevTools → Application → Service Workers → **Update** → reload.
+
+### Useful pm2 commands
 
 ```sh
 pm2 status                 # see if the process is running
 pm2 logs alph-planner      # tail the server log
-pm2 restart alph-planner   # restart after code changes
+pm2 restart alph-planner   # restart after a build
 pm2 stop alph-planner      # stop without removing
 pm2 delete alph-planner    # remove from pm2 entirely
 ```
 
-**Note:** The dev server does not activate the PWA service worker. Hot-reload works, but offline support and "install to desktop" are dev-only stubs.
-
-### Option B — build and serve the production bundle (full PWA)
-
-This activates the service worker, enables real offline support, and is closer to what a deployed version would look like. Rebuild and restart whenever you update the code.
-
-```sh
-pnpm build
-pm2 start "pnpm exec vite preview --port 5177" --name alph-planner
-pm2 save
-pm2 startup
-```
-
-After a code change:
-
-```sh
-pnpm build
-pm2 restart alph-planner
-```
-
-The first time you load the app after a fresh build the service worker installs and caches all assets. Subsequent loads are served from cache and work without network.
-
-### Updating the installed PWA after a code change
-
-The installed app is tied to the origin (`localhost:5177`). Keep the port stable so the browser reuses the same PWA installation.
-
-1. Make your code changes.
-2. If using Option A, Vite hot-reloads most changes — no restart needed.
-3. If using Option B, run `pnpm build && pm2 restart alph-planner`.
-4. Open Chrome at `chrome://apps` or click the installed Alph-Planner icon.
-5. If the app shows stale content: DevTools → Application → Service Workers → **Update** → reload.
+**Note:** `pnpm dev` does not activate the service worker, so the install prompt will not appear in dev mode.
 
 ## Data
 
