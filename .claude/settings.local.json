@@ -6,7 +6,20 @@
       "Bash(npm run *)",
       "Bash(curl -s http://localhost:5174)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(pnpm --version)",
+      "Bash(rm -f /Users/alvarsirlin/Sites/apps/Alph-Planner/package-lock.json && echo \"deleted package-lock.json\")",
+      "Bash(pnpm install *)",
+      "Bash(pnpm approve-builds *)",
+      "Bash(pnpm dev *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(kill %1)",
+      "Bash(pm2 list *)",
+      "Bash(pm2 logs *)",
+      "Bash(pm2 delete *)",
+      "Bash(pm2 start *)",
+      "Bash(pm2 save *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5177)"
     ]
   }
 }

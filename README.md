@@ -59,11 +59,11 @@ Use the **+** button in the backlog header to add a task directly to `Backlog.md
 ## Local dev
 
 ```sh
-npm install
-npm run dev            # http://localhost:5173
-npm run test:unit      # Vitest unit tests (parser + serializer)
-npm test               # Playwright smoke tests
-npm run check          # TypeScript + Svelte type check
+pnpm install
+pnpm dev               # http://localhost:5173
+pnpm test:unit         # Vitest unit tests (parser + serializer)
+pnpm test              # Playwright smoke tests
+pnpm check             # TypeScript + Svelte type check
 ```
 
 ## Stack
@@ -91,8 +91,8 @@ This is a SvelteKit app served by Vite. The browser's File System Access API and
 Use pm2 to manage the process so it survives terminal closes and reboots:
 
 ```sh
-npm install -g pm2
-pm2 start "npm run dev -- --port 5177" --name alph-planner
+pnpm add -g pm2
+pm2 start "pnpm exec vite dev --port 5177" --name alph-planner
 pm2 save                   # persist the process list
 pm2 startup                # print a command — run that command to survive reboots
 ```
@@ -116,8 +116,8 @@ pm2 delete alph-planner    # remove from pm2 entirely
 This activates the service worker, enables real offline support, and is closer to what a deployed version would look like. Rebuild and restart whenever you update the code.
 
 ```sh
-npm run build
-pm2 start "npm run preview -- --port 5177" --name alph-planner
+pnpm build
+pm2 start "pnpm exec vite preview --port 5177" --name alph-planner
 pm2 save
 pm2 startup
 ```
@@ -125,7 +125,7 @@ pm2 startup
 After a code change:
 
 ```sh
-npm run build
+pnpm build
 pm2 restart alph-planner
 ```
 
@@ -137,7 +137,7 @@ The installed app is tied to the origin (`localhost:5177`). Keep the port stable
 
 1. Make your code changes.
 2. If using Option A, Vite hot-reloads most changes — no restart needed.
-3. If using Option B, run `npm run build && pm2 restart alph-planner`.
+3. If using Option B, run `pnpm build && pm2 restart alph-planner`.
 4. Open Chrome at `chrome://apps` or click the installed Alph-Planner icon.
 5. If the app shows stale content: DevTools → Application → Service Workers → **Update** → reload.
 
