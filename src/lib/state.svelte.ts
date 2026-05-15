@@ -317,6 +317,24 @@ export async function reorderFileTasks(
 }
 
 /**
+ * Append a new subtask line after the last child (or parent if no children).
+ *
+ * @param task  - Parent task to add the subtask under.
+ * @param title - Plain text title for the new subtask.
+ */
+export async function addSubtask(task: Task, title: string): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	const current = await readFile(d, task.file);
+	if (current === null) return;
+	const lines = current.split('\n');
+	lines.splice(task.lineRange[1] + 1, 0, `  - [ ] ${title}`);
+	const updated = lines.join('\n');
+	await writeFile(d, task.file, updated);
+	appState.cache[task.file] = parseFile(updated, task.file);
+}
+
+/**
  * Toggle a subtask's done state and write back to disk.
  */
 export async function toggleChild(task: Task, child: ChildTask): Promise<void> {
