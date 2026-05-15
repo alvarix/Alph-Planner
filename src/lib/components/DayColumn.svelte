@@ -137,8 +137,17 @@
 		{/if}
 	</div>
 
+	<!-- Notes panel (full height, replaces task list) -->
+	{#if notesOpen}
+		<NotesPopover
+			{filename}
+			initialText={notesFor(filename)}
+			onclose={() => (notesOpen = false)}
+		/>
+	{/if}
+
 	<!-- Tasks -->
-	<div class="task-list">
+	<div class="task-list" class:hidden={notesOpen}>
 		{#if tasks.length === 0 && dayFileHeaders.length === 0}
 			<div class="empty-day">no tasks</div>
 		{:else}
@@ -221,14 +230,7 @@
 				<div class="add-hint">Enter to add &middot; Esc cancel</div>
 			</div>
 		{:else}
-			<div class="footer-btns" style="position: relative;">
-				{#if notesOpen}
-					<NotesPopover
-						{filename}
-						initialText={notesFor(filename)}
-						onclose={() => (notesOpen = false)}
-					/>
-				{/if}
+			<div class="footer-btns">
 				<button class="btn-add" onclick={() => (addingOpen = true)}>+ task</button>
 				<button class="btn-add-cat" onclick={() => (addingCat = true)} title="Add category"># cat</button>
 				<button
@@ -277,6 +279,7 @@
 .day-total { font-size: 10px; color: #94a3b8; }
 
 .task-list { flex: 1; overflow-y: auto; }
+.task-list.hidden { display: none; }
 
 .drop-target { position: relative; }
 .drop-target.active::before {

@@ -14,9 +14,7 @@
 	let value    = $state(initialText);
 	let textareaEl: HTMLTextAreaElement;
 
-	$effect(() => {
-		textareaEl?.focus();
-	});
+	$effect(() => { textareaEl?.focus(); });
 
 	async function commit() {
 		await saveNotes(filename, value);
@@ -29,48 +27,51 @@
 	}
 </script>
 
-<div class="notes-backdrop" role="none" onclick={commit}></div>
-
-<div class="notes-panel" role="dialog" aria-label="Daily notes">
-	<div class="notes-header">Notes</div>
+<div class="notes-panel" role="region" aria-label="Daily notes">
+	<div class="notes-header">
+		<span>Notes</span>
+		<button class="notes-close" onclick={() => { value = initialText; onclose?.(); }} aria-label="Close notes">&#x2715;</button>
+	</div>
 	<textarea
 		bind:this={textareaEl}
 		bind:value
 		class="notes-area"
 		placeholder="Free-form notes, links, ideas…"
-		rows="6"
 		onkeydown={handleKey}
 	></textarea>
 	<div class="notes-footer">
-		<span class="notes-hint">Cmd+Enter or click outside to save &middot; Esc cancel</span>
+		<span class="notes-hint">Cmd+Enter to save &middot; Esc cancel</span>
 		<button class="notes-save" onclick={commit}>Save</button>
 	</div>
 </div>
 
 <style>
-.notes-backdrop {
-	position: fixed; inset: 0; z-index: 99;
-}
 .notes-panel {
-	position: absolute; bottom: calc(100% + 4px); left: 0; right: 0;
-	background: #fff; border: 1px solid #e2e8f0; border-radius: 6px;
-	box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 100;
-	display: flex; flex-direction: column;
+	display: flex; flex-direction: column; flex: 1; overflow: hidden;
+	background: #fffef0;
 }
 .notes-header {
+	display: flex; align-items: center;
 	padding: 6px 10px 4px; font-size: 10px; font-weight: 700;
 	text-transform: uppercase; letter-spacing: .5px; color: #94a3b8;
-	border-bottom: 1px solid #f1f5f9;
+	border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
 }
+.notes-header span { flex: 1; }
+.notes-close {
+	background: none; border: none; cursor: pointer;
+	color: #cbd5e1; font-size: 11px; padding: 0 2px; line-height: 1;
+	transition: color .1s;
+}
+.notes-close:hover { color: #64748b; }
 .notes-area {
-	width: 100%; resize: vertical; border: none; outline: none;
+	flex: 1; resize: none; border: none; outline: none;
 	padding: 8px 10px; font-size: 12px; line-height: 1.5;
-	font-family: inherit; color: #1e293b; min-height: 80px;
-	box-sizing: border-box;
+	font-family: inherit; color: #1e293b;
+	box-sizing: border-box; background: transparent;
 }
 .notes-footer {
 	display: flex; align-items: center; gap: 8px;
-	padding: 4px 8px; border-top: 1px solid #f1f5f9;
+	padding: 4px 8px; border-top: 1px solid #f1f5f9; flex-shrink: 0;
 }
 .notes-hint { font-size: 10px; color: #cbd5e1; flex: 1; }
 .notes-save {
