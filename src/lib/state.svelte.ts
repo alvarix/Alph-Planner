@@ -7,7 +7,8 @@
 import { parseFile } from './md/parse.js';
 import { toggleTaskDone, toggleChildDone, reorderTasks, appendTask, addCategoryHeader, removeCategoryHeader } from './md/serialize.js';
 import { extractNotes, setNotes } from './md/notes.js';
-import { readFile, writeFile, listDailyFiles, detectConflicts } from './fs/files.js';
+import { readFile, writeFile, listDailyFiles, detectConflicts, readDefaultsFile } from './fs/files.js';
+import { parseDefaults, applyDefaults } from './md/defaults.js';
 import type { Task, ChildTask } from './types.js';
 import type { FolderState } from './fs/folder.js';
 
@@ -21,30 +22,33 @@ interface NotesEntry {
 }
 
 interface AppState {
-	folder:         FolderState;
-	cache:          FileCache;
-	fileHeaders:    Record<string, string[]>;
-	notesCache:     Record<string, NotesEntry>;
-	backlogHeaders: string[];
-	loading:        boolean;
-	conflicts:      string[];
-	weekOffset:     number;
-	lastError:      string | null;
+	folder:          FolderState;
+	cache:           FileCache;
+	fileHeaders:     Record<string, string[]>;
+	notesCache:      Record<string, NotesEntry>;
+	backlogHeaders:  string[];
+	loading:         boolean;
+	conflicts:       string[];
+	weekOffset:      number;
+	lastError:       string | null;
+	/** Period keys already inserted this session — prevents multi-file insertion. */
+	defaultsApplied: Set<string>;
 }
 
 /** Template written when the app creates a new daily file from scratch. */
 const NEW_DAILY_TEMPLATE = '![[Backlog]]\n\n';
 
 export const appState = $state<AppState>({
-	folder:         { status: 'none' },
-	cache:          {},
-	fileHeaders:    {},
-	notesCache:     {},
-	backlogHeaders: [],
-	loading:        false,
-	conflicts:      [],
-	weekOffset:     0,
-	lastError:      null,
+	folder:          { status: 'none' },
+	cache:           {},
+	fileHeaders:     {},
+	notesCache:      {},
+	backlogHeaders:  [],
+	loading:         false,
+	conflicts:       [],
+	weekOffset:      0,
+	lastError:       null,
+	defaultsApplied: new Set(),
 });
 
 /** Extract all # H1 section names from raw file text. */
@@ -82,6 +86,24 @@ export async function refresh(): Promise<void> {
 		const rawTexts: [string, string | null][] = await Promise.all(
 			filenames.map(async (name) => [name, await readFile(d, name)] as [string, string | null])
 		);
+
+		// Apply recurring default tasks to any day files that haven't received them yet.
+		const defaultsText = await readDefaultsFile(d);
+		if (defaultsText) {
+			const defaults = parseDefaults(defaultsText);
+			// All applyDefaults calls are synchronous; writes are sequential via await.
+			for (const entry of rawTexts) {
+				const [name, text] = entry;
+				const dateMatch = name.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
+				if (!dateMatch || !text) continue;
+				const updated = applyDefaults(text, defaults, dateMatch[1], appState.defaultsApplied);
+				if (updated !== text) {
+					await writeFile(d, name, updated);
+					entry[1] = updated;
+				}
+			}
+		}
+
 		appState.cache = Object.fromEntries(
 			rawTexts.map(([name, text]) => [name, text ? parseFile(text, name) : []])
 		);

@@ -57,6 +57,16 @@ export async function listDailyFiles(dir: FileSystemDirectoryHandle): Promise<st
 }
 
 /**
+ * Read Defaults.md from the selected daily folder (same directory as day files).
+ * Returns null if the file doesn't exist.
+ *
+ * @param dir - Directory handle (the folder the user opened in the app).
+ */
+export async function readDefaultsFile(dir: FileSystemDirectoryHandle): Promise<string | null> {
+	return readFile(dir, 'Defaults.md');
+}
+
+/**
  * Detect iCloud conflict copies — files like "2026-05-12 (alvar's MacBook).md".
  * Returns an array of conflict filenames found in the directory.
  *
