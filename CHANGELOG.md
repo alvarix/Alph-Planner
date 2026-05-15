@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.0] - 2026-05-15
+
+### Added
+- TaskRow: subtask titles and checkboxes now shown inline below the parent task (always visible, no expand toggle)
+- TaskRow: **+ subtask** button in hover strip adds a new child task inline (Enter commits, Esc cancels)
+- Notes: panel now fills the full column height when open, replacing the task list area
+
+### Changed
+- TaskRow: star, delete, and add-subtask controls moved to a bottom hover-reveal strip; star icon remains visible at all times for starred tasks
+- NotesPopover: redesigned from a floating absolute popover to a full-height inline panel with a close button; backdrop removed
+- `state.svelte.ts`: added `addSubtask` action — inserts an indented `- [ ]` line after the last child and re-parses
+
 ## [1.2.0] - 2026-05-13
 
 ### Added
