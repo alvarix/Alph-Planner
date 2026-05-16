@@ -1,11 +1,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #f4f3f1;
+  --bg: #f2f2f2;
   --surface: #fff;
-  --border: #dddad5;
-  --text: #1c1c1b;
-  --muted: #8a8680;
+  --border: #e0e0e0;
+  --text: #111;
+  --muted: #888;
   --crimson: #7A3030;
   --yellow: #B8932A;
   font-family: system-ui, -apple-system, sans-serif;

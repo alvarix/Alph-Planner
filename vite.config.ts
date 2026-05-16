@@ -12,8 +12,8 @@ export default defineConfig({
 				name: 'Alph-Planner',
 				short_name: 'Alph',
 				description: 'Markdown-first weekly planner. Your daily notes are the source of truth.',
-				theme_color: '#0ea5e9',
-				background_color: '#f8fafc',
+				theme_color: '#111111',
+				background_color: '#111111',
 				display: 'standalone',
 				start_url: '/',
 				icons: [

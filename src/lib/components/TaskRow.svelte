@@ -4,11 +4,11 @@
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
-		{ border: '#a8a39d', bg: '#f2f1ef' },
-		{ border: '#bfbab4', bg: '#eeede9' },
-		{ border: '#9d9892', bg: '#f5f4f2' },
-		{ border: '#b3ada7', bg: '#efeeed' },
-		{ border: '#928d87', bg: '#f0efec' },
+		{ border: '#aaa', bg: '#f2f2f2' },
+		{ border: '#bbb', bg: '#ebebeb' },
+		{ border: '#999', bg: '#f5f5f5' },
+		{ border: '#b5b5b5', bg: '#eee' },
+		{ border: '#929292', bg: '#f0f0f0' },
 	];
 
 	let {
@@ -174,7 +174,7 @@
 <style>
 .task-item {
 	padding: 5px 6px 2px 4px;
-	border: 1px solid #dddad5;
+	border: 1px solid #e0e0e0;
 	border-radius: 4px;
 	background: #fff;
 	margin: 0 6px 10px;
@@ -182,7 +182,7 @@
 }
 .task-item:hover { background: rgba(0,0,0,.02); }
 .task-item.done { opacity: .55; }
-.task-item.done .task-title { text-decoration: line-through; color: #8a8680; }
+.task-item.done .task-title { text-decoration: line-through; color: #888; }
 
 .task-main {
 	display: flex; align-items: flex-start; gap: 6px;
@@ -194,10 +194,10 @@
 }
 
 .drag-handle {
-	color: #c0bab4; font-size: 12px; cursor: grab;
+	color: #bbb; font-size: 12px; cursor: grab;
 	flex-shrink: 0; padding-top: 2px; line-height: 1; transition: color .1s;
 }
-.task-item:hover .drag-handle { color: #8a8680; }
+.task-item:hover .drag-handle { color: #888; }
 
 .task-main input[type=checkbox] {
 	flex-shrink: 0; width: 14px; height: 14px; margin-top: 2px;
@@ -213,7 +213,7 @@
 	box-shadow: 0 0 0 2px #00000012;
 }
 
-.task-dur { font-size: 10px; color: #8a8680; flex-shrink: 0; }
+.task-dur { font-size: 10px; color: #888; flex-shrink: 0; }
 
 /* Subtask preview */
 .subtask-preview {
@@ -227,7 +227,7 @@
 	accent-color: #555; cursor: pointer; margin: 0;
 }
 .subtask-preview li span { font-size: 11px; color: #555; line-height: 1.3; }
-.subtask-preview li.done span { text-decoration: line-through; color: #8a8680; }
+.subtask-preview li.done span { text-decoration: line-through; color: #888; }
 
 /* Add-subtask inline input */
 .new-subtask-row { margin: 2px 0 2px 26px; }
@@ -257,22 +257,22 @@
 
 .star-btn {
 	font-size: 12px; background: none; border: none; cursor: pointer;
-	color: #c0bab4; flex-shrink: 0; padding: 0 1px; line-height: 1;
+	color: #bbb; flex-shrink: 0; padding: 0 1px; line-height: 1;
 }
 .star-btn.starred { color: #B8932A; }
 .star-btn:hover { color: #B8932A; }
 
 .add-sub-btn {
-	font-size: 10px; background: none; border: 1px solid #dddad5;
-	border-radius: 3px; cursor: pointer; color: #8a8680;
+	font-size: 10px; background: none; border: 1px solid #e0e0e0;
+	border-radius: 3px; cursor: pointer; color: #888;
 	padding: 0 4px; line-height: 1.6;
 	transition: color .1s, border-color .1s, opacity .1s;
 }
-.add-sub-btn:hover { color: #1c1c1b; border-color: #8a8680; }
+.add-sub-btn:hover { color: #111; border-color: #888; }
 
 .del-btn {
 	font-size: 10px; background: none; border: none; cursor: pointer;
-	color: #c0bab4; flex-shrink: 0; padding: 0 2px; line-height: 1;
+	color: #bbb; flex-shrink: 0; padding: 0 2px; line-height: 1;
 }
 .del-btn:hover { color: #333; }
 
@@ -281,8 +281,8 @@
 	font-size: 10px; border-radius: 3px; border: 1px solid;
 	padding: 1px 5px; cursor: pointer; line-height: 1.4; opacity: 1;
 }
-.del-yes { background: #f0efec; border-color: #c0bab4; color: #333; }
-.del-yes:hover { background: #e8e5e0; }
-.del-no  { background: #f4f3f1; border-color: #dddad5; color: #6a6560; }
-.del-no:hover  { background: #eeece8; }
+.del-yes { background: #f0f0f0; border-color: #bbb; color: #333; }
+.del-yes:hover { background: #e5e5e5; }
+.del-no  { background: #f2f2f2; border-color: #e0e0e0; color: #666; }
+.del-no:hover  { background: #ebebeb; }
 </style>
