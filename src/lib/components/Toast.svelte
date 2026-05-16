@@ -19,10 +19,10 @@
 .toast {
 	position: fixed; bottom: 20px; left: 50%;
 	transform: translateX(-50%);
-	background: #1e293b; color: #fff;
+	background: #1c1c1b; color: #fff;
 	padding: 8px 18px; border-radius: 6px;
 	font-size: 12px; font-weight: 500; z-index: 300;
 	pointer-events: none;
 }
-.toast.err { background: #dc2626; }
+.toast.err { background: #3a2828; }
 </style>

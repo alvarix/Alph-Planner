@@ -59,53 +59,53 @@
 	height: 300px;
 	display: flex; flex-direction: column;
 	background: #fff;
-	border-top: 2px solid #e2e8f0;
+	border-top: 2px solid #dddad5;
 	box-shadow: 0 -6px 24px rgba(0,0,0,.08);
 }
 
 .drawer-header {
 	display: flex; align-items: center; gap: 8px;
 	padding: 0 14px; height: 38px; flex-shrink: 0;
-	border-bottom: 1px solid #e2e8f0;
+	border-bottom: 1px solid #dddad5;
 }
 .drawer-title {
 	font-size: 12px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: .5px; color: #64748b;
+	letter-spacing: .5px; color: #6a6560;
 }
 .drawer-count {
-	font-size: 10px; background: #f1f5f9; color: #64748b;
+	font-size: 10px; background: #eeece8; color: #6a6560;
 	padding: 1px 7px; border-radius: 99px; font-weight: 700;
 }
 .drawer-close {
 	margin-left: auto;
 	background: none; border: none; cursor: pointer;
-	color: #94a3b8; font-size: 13px; padding: 4px 6px; line-height: 1;
+	color: #8a8680; font-size: 13px; padding: 4px 6px; line-height: 1;
 	border-radius: 4px;
 }
-.drawer-close:hover { background: #f1f5f9; color: #1e293b; }
+.drawer-close:hover { background: #eeece8; color: #1c1c1b; }
 
 .drawer-body { flex: 1; overflow-y: auto; }
 
 .done-empty {
-	padding: 16px; font-size: 12px; color: #94a3b8; font-style: italic;
+	padding: 16px; font-size: 12px; color: #8a8680; font-style: italic;
 }
 
-.done-group { border-bottom: 1px solid #e2e8f0; }
+.done-group { border-bottom: 1px solid #dddad5; }
 .done-group:last-child { border-bottom: none; }
 
 .done-date {
 	padding: 5px 14px 3px;
 	font-size: 10px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: .5px; color: #94a3b8; background: #f8fafc;
+	letter-spacing: .5px; color: #8a8680; background: #f4f3f1;
 	position: sticky; top: 0;
 }
 
 .done-row {
 	display: flex; align-items: baseline; gap: 6px;
-	padding: 4px 14px; border-top: 1px solid #f1f5f9;
+	padding: 4px 14px; border-top: 1px solid #eeecea;
 }
-.done-check { color: #4ade80; font-size: 11px; flex-shrink: 0; }
-.done-title { font-size: 12px; color: #94a3b8; text-decoration: line-through; flex: 1; }
+.done-check { color: #aaa; font-size: 11px; flex-shrink: 0; }
+.done-title { font-size: 12px; color: #8a8680; text-decoration: line-through; flex: 1; }
 .done-title.starred { font-weight: 700; }
-.done-dur { font-size: 10px; color: #cbd5e1; flex-shrink: 0; }
+.done-dur { font-size: 10px; color: #c0bab4; flex-shrink: 0; }
 </style>

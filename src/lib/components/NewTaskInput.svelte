@@ -58,11 +58,11 @@
 </div>
 
 <style>
-.add-wrap { padding: 6px 8px; border-top: 1px solid #e2e8f0; }
+.add-wrap { padding: 6px 8px; border-top: 1px solid #dddad5; }
 .add-input {
-	width: 100%; border: 1px solid #0ea5e9; border-radius: 5px;
+	width: 100%; border: 1px solid #8a8680; border-radius: 5px;
 	padding: 5px 8px; font-size: 12px; outline: none;
-	background: #fff; box-shadow: 0 0 0 2px #bae6fd30;
+	background: #fff; box-shadow: 0 0 0 2px #00000010;
 }
-.add-hint { font-size: 10px; color: #94a3b8; margin-top: 3px; }
+.add-hint { font-size: 10px; color: #8a8680; margin-top: 3px; }
 </style>

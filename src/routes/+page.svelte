@@ -116,33 +116,33 @@
 :global(*, *::before, *::after) { box-sizing: border-box; margin: 0; padding: 0; }
 :global(:root) {
 	font-family: system-ui, -apple-system, sans-serif;
-	font-size: 14px; color: #1e293b; background: #f8fafc;
+	font-size: 14px; color: #1c1c1b; background: #f4f3f1;
 }
 :global(body) { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 #topbar {
 	display: flex; align-items: center; gap: 8px;
 	padding: 0 14px; height: 46px; flex-shrink: 0;
-	background: #fff; border-bottom: 1px solid #e2e8f0;
+	background: #fff; border-bottom: 1px solid #dddad5;
 }
 h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
 .week-nav { display: flex; gap: 4px; }
 .btn-nav {
-	padding: 3px 9px; border: 1px solid #e2e8f0;
+	padding: 3px 9px; border: 1px solid #dddad5;
 	background: none; border-radius: 5px; font-size: 12px; cursor: pointer;
 }
-.btn-nav:hover { background: #f8fafc; }
-.btn-nav.active { background: #1e293b; color: #fff; border-color: #1e293b; }
+.btn-nav:hover { background: #f4f3f1; }
+.btn-nav.active { background: #1c1c1b; color: #fff; border-color: #1c1c1b; }
 #week-label { font-size: 13px; font-weight: 500; }
 .spacer { flex: 1; }
 .folder-badge {
-	font-size: 11px; color: #94a3b8; font-family: monospace;
-	background: #f8fafc; border: 1px solid #e2e8f0;
+	font-size: 11px; color: #8a8680; font-family: monospace;
+	background: #f4f3f1; border: 1px solid #dddad5;
 	padding: 2px 7px; border-radius: 5px;
 }
 .conflict-badge {
-	font-size: 11px; font-weight: 600; color: #dc2626;
-	background: #fee2e2; border: 1px solid #fecaca;
+	font-size: 11px; font-weight: 600; color: #444;
+	background: #e8e5e0; border: 1px solid #c8c3bc;
 	padding: 2px 8px; border-radius: 5px; cursor: default;
 }
 
@@ -150,5 +150,5 @@ h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; }
 #columns { flex: 1; display: flex; overflow-x: auto; }
 
 :global(::-webkit-scrollbar) { width: 4px; height: 4px; }
-:global(::-webkit-scrollbar-thumb) { background: #e2e8f0; border-radius: 2px; }
+:global(::-webkit-scrollbar-thumb) { background: #dddad5; border-radius: 2px; }
 </style>
