@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { slide } from 'svelte/transition';
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
 	import { restoreFolder } from '$lib/fs/folder.js';
 	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady } from '$lib/state.svelte.js';
@@ -21,6 +23,11 @@
 	let doneLogOpen               = $state(false);
 	// Incrementing triggers the today column to open its add input.
 	let todayAddSignal            = $state(0);
+
+	let hidePast = $state(localStorage.getItem('hidePast') === 'true');
+	const visibleDays = $derived(hidePast ? weekDays.filter(d => !d.past) : weekDays);
+
+	$effect(() => { localStorage.setItem('hidePast', String(hidePast)); });
 
 	function shiftWeek(dir: -1 | 0 | 1) {
 		if (dir === 0) appState.weekOffset = 0;
@@ -72,6 +79,11 @@
 	<div class="spacer"></div>
 	<button
 		class="btn-nav"
+		class:active={hidePast}
+		onclick={() => (hidePast = !hidePast)}
+	>Upcoming</button>
+	<button
+		class="btn-nav"
 		class:active={doneLogOpen}
 		onclick={() => (doneLogOpen = !doneLogOpen)}
 	>Done log</button>
@@ -94,14 +106,16 @@
 		externalDragTask={draggingTask}
 	/>
 	<div id="columns">
-		{#each weekDays as day}
-			<DayColumn
-				{day}
-				tasks={tasksForFile(day.iso + '.md')}
-				externalDragTask={draggingTask}
-				openSignal={day.today ? todayAddSignal : 0}
-				ondragTaskStart={(t) => (draggingTask = t)}
-			/>
+		{#each visibleDays as day (day.iso)}
+			<div class="col-wrapper" animate:flip={{ duration: 180 }} transition:slide={{ axis: 'x', duration: 180 }}>
+				<DayColumn
+					{day}
+					tasks={tasksForFile(day.iso + '.md')}
+					externalDragTask={draggingTask}
+					openSignal={day.today ? todayAddSignal : 0}
+					ondragTaskStart={(t) => (draggingTask = t)}
+				/>
+			</div>
 		{/each}
 	</div>
 </div>
@@ -116,40 +130,41 @@
 :global(*, *::before, *::after) { box-sizing: border-box; margin: 0; padding: 0; }
 :global(:root) {
 	font-family: system-ui, -apple-system, sans-serif;
-	font-size: 14px; color: #111; background: #f2f2f2;
+	font-size: 14px; color: var(--text); background: var(--bg);
 }
 :global(body) { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
 #topbar {
 	display: flex; align-items: center; gap: 8px;
 	padding: 0 14px; height: 46px; flex-shrink: 0;
-	background: #111; color: #fff;
+	background: var(--bar-bg); color: var(--bar-text);
 }
-h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: #fff; }
+h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--bar-text); }
 .week-nav { display: flex; gap: 4px; }
 .btn-nav {
-	padding: 3px 9px; border: 1px solid #333;
+	padding: 3px 9px; border: 1px solid var(--bar-border);
 	background: none; border-radius: 5px; font-size: 12px; cursor: pointer;
-	color: #bbb;
+	color: var(--text-faint);
 }
-.btn-nav:hover { background: #222; color: #fff; border-color: #444; }
-.btn-nav.active { background: #fff; color: #111; border-color: #fff; }
-#week-label { font-size: 13px; font-weight: 500; color: #999; }
+.btn-nav:hover { background: var(--bar-hover); color: var(--bar-text); border-color: var(--bar-border-strong); }
+.btn-nav.active { background: var(--bar-text); color: var(--bar-bg); border-color: var(--bar-text); }
+#week-label { font-size: 13px; font-weight: 500; color: var(--bar-text-muted); }
 .spacer { flex: 1; }
 .folder-badge {
-	font-size: 11px; color: #666; font-family: monospace;
-	background: #1e1e1e; border: 1px solid #333;
+	font-size: 11px; color: var(--bar-text-faint); font-family: monospace;
+	background: var(--bar-surface); border: 1px solid var(--bar-border);
 	padding: 2px 7px; border-radius: 5px;
 }
 .conflict-badge {
-	font-size: 11px; font-weight: 600; color: #ccc;
-	background: #2a2a2a; border: 1px solid #444;
+	font-size: 11px; font-weight: 600; color: var(--bar-text-dim);
+	background: var(--bar-muted); border: 1px solid var(--bar-border-strong);
 	padding: 2px 8px; border-radius: 5px; cursor: default;
 }
 
 #main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 #columns { flex: 1; display: flex; overflow-x: auto; }
+.col-wrapper { flex: 1; min-width: 110px; display: flex; overflow: hidden; }
 
 :global(::-webkit-scrollbar) { width: 4px; height: 4px; }
-:global(::-webkit-scrollbar-thumb) { background: #e0e0e0; border-radius: 2px; }
+:global(::-webkit-scrollbar-thumb) { background: var(--border); border-radius: 2px; }
 </style>

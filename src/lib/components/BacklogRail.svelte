@@ -248,51 +248,51 @@
 #backlog-rail {
 	width: 176px; flex-shrink: 0;
 	display: flex; flex-direction: column;
-	background: #f2f2f2; border-right: 1px solid #e0e0e0;
+	background: var(--bg); border-right: 1px solid var(--border);
 	overflow: hidden; transition: box-shadow .12s;
 }
 #backlog-rail.drag-over {
-	box-shadow: inset 0 0 0 2px #bbb;
-	background: #ebebeb;
+	box-shadow: inset 0 0 0 2px var(--border-mid);
+	background: var(--surface-muted);
 }
 .rail-head {
 	padding: 8px 12px; font-size: 11px; font-weight: 700;
-	text-transform: uppercase; letter-spacing: .5px; color: #111;
-	border-bottom: 1px solid #e0e0e0; flex-shrink: 0;
+	text-transform: uppercase; letter-spacing: .5px; color: var(--text);
+	border-bottom: 1px solid var(--border); flex-shrink: 0;
 	display: flex; align-items: center; gap: 4px;
 }
 .badge {
-	background: #e5e5e5; color: #555; font-size: 10px;
+	background: var(--surface-em); color: var(--text-mid); font-size: 10px;
 	padding: 1px 6px; border-radius: 99px; font-weight: 700;
 	margin-right: auto;
 }
 .icon-btn, .add-btn {
 	background: none; border: none; cursor: pointer;
-	color: #555; font-size: 14px; line-height: 1;
+	color: var(--text-mid); font-size: 14px; line-height: 1;
 	padding: 0 3px; flex-shrink: 0;
 }
 .icon-btn { font-size: 12px; font-weight: 700; }
-.icon-btn:hover, .add-btn:hover { color: #111; }
+.icon-btn:hover, .add-btn:hover { color: var(--text); }
 
 .add-form {
-	padding: 6px 8px; border-bottom: 1px solid #e0e0e0;
-	background: #f2f2f2;
+	padding: 6px 8px; border-bottom: 1px solid var(--border);
+	background: var(--bg);
 }
 .add-cat {
 	width: 100%; margin-bottom: 4px; font-size: 11px;
-	border: 1px solid #e0e0e0; border-radius: 4px;
-	padding: 3px 5px; background: #fff; color: #555;
+	border: 1px solid var(--border); border-radius: 4px;
+	padding: 3px 5px; background: var(--surface); color: var(--text-mid);
 }
 .add-input {
-	width: 100%; border: 1px solid #888; border-radius: 4px;
+	width: 100%; border: 1px solid var(--border-input); border-radius: 4px;
 	padding: 4px 7px; font-size: 12px; outline: none;
-	background: #fff; box-shadow: 0 0 0 2px #00000010;
+	background: var(--surface); box-shadow: 0 0 0 2px #00000010;
 }
-.add-hint { font-size: 10px; color: #888; margin-top: 3px; }
+.add-hint { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
 
 .rail-list {
 	flex: 1; overflow-y: auto;
-	background-color: #e8e8e8;
+	background-color: var(--surface-pattern);
 	background-image: radial-gradient(circle, rgba(0,0,0,0.07) 1px, transparent 1px);
 	background-size: 14px 14px;
 	padding-top: 4px;
@@ -301,50 +301,49 @@
 .section-head {
 	padding: 4px 8px 3px;
 	font-size: 10px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: .5px; color: #555;
-	border-bottom: 1px solid #e0e0e0;
-	background: #ebebeb;
+	letter-spacing: .5px; color: var(--text-mid);
+	border-bottom: 1px solid var(--border);
+	background: var(--surface-muted);
 	display: flex; align-items: center; gap: 4px;
 }
-.overdue-head { color: #7A3030; background: #ebebeb; }
+.overdue-head { color: var(--crimson); background: var(--surface-muted); }
 .cat-name { flex: 1; }
 .cat-del-btn {
 	background: none; border: none; cursor: pointer;
-	color: #bbb; font-size: 10px; padding: 0 2px;
+	color: var(--text-faint); font-size: 10px; padding: 0 2px;
 	opacity: 0; transition: opacity .1s;
 	line-height: 1;
 }
 .section-head:hover .cat-del-btn { opacity: 1; }
-.cat-del-btn:hover { color: #333; }
-.section-head.drag-over-section { background: #e0e0e0; }
+.cat-del-btn:hover { color: var(--text-dark); }
+.section-head.drag-over-section { background: var(--border); }
 
 .null-drop { height: 4px; background: transparent; transition: height .1s, background .1s; }
-.null-drop.drag-over-section { height: 14px; background: #e0e0e0; }
+.null-drop.drag-over-section { height: 14px; background: var(--border); }
 
 .del-confirm { display: flex; gap: 3px; align-items: center; }
 .del-yes, .del-no {
 	font-size: 10px; border-radius: 3px; border: 1px solid;
 	padding: 1px 5px; cursor: pointer; line-height: 1.4;
 }
-.del-yes { background: #f0f0f0; border-color: #bbb; color: #333; }
-.del-yes:hover { background: #e5e5e5; }
-.del-no  { background: #f2f2f2; border-color: #e0e0e0; color: #666; }
-.del-no:hover  { background: #ebebeb; }
-
+.del-yes { background: var(--bg); border-color: var(--border-mid); color: var(--text-dark); }
+.del-yes:hover { background: var(--surface-em); }
+.del-no  { background: var(--bg); border-color: var(--border); color: var(--text-subtle); }
+.del-no:hover  { background: var(--surface-muted); }
 
 .empty {
-	padding: 16px 12px; font-size: 12px; color: #bbb; text-align: center;
+	padding: 16px 12px; font-size: 12px; color: var(--text-faint); text-align: center;
 }
 
 .rail-footer {
-	padding: 8px 10px; border-top: 1px solid #e0e0e0; flex-shrink: 0;
+	padding: 8px 10px; border-top: 1px solid var(--border); flex-shrink: 0;
 }
 .btn-roll {
 	width: 100%; padding: 6px 10px; font-size: 11px; font-weight: 600;
-	background: #fff; border: 1px solid #e0e0e0;
-	border-radius: 5px; cursor: pointer; color: #555;
+	background: var(--surface); border: 1px solid var(--border);
+	border-radius: 5px; cursor: pointer; color: var(--text-mid);
 }
-.btn-roll:hover { background: #ebebeb; }
+.btn-roll:hover { background: var(--surface-muted); }
 
 :global(#backlog-rail .task-item) { padding-right: 38px; }
 :global(#backlog-rail .task-dur) {
@@ -352,8 +351,8 @@
 	top: 5px;
 	right: 8px;
 	font-size: 9px;
-	background: #e5e5e5;
-	color: #555;
+	background: var(--surface-em);
+	color: var(--text-mid);
 	padding: 1px 5px;
 	border-radius: 3px;
 	font-weight: 600;

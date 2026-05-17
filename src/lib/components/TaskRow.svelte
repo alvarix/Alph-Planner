@@ -174,15 +174,15 @@
 <style>
 .task-item {
 	padding: 5px 6px 2px 4px;
-	border: 1px solid #e0e0e0;
+	border: 1px solid var(--border);
 	border-radius: 4px;
-	background: #fff;
+	background: var(--surface);
 	margin: 0 6px 10px;
 	position: relative; cursor: default; transition: background .08s;
 }
 .task-item:hover { background: rgba(0,0,0,.02); }
 .task-item.done { opacity: .55; }
-.task-item.done .task-title { text-decoration: line-through; color: #888; }
+.task-item.done .task-title { text-decoration: line-through; color: var(--text-muted); }
 
 .task-main {
 	display: flex; align-items: flex-start; gap: 6px;
@@ -194,26 +194,26 @@
 }
 
 .drag-handle {
-	color: #bbb; font-size: 12px; cursor: grab;
+	color: var(--text-faint); font-size: 12px; cursor: grab;
 	flex-shrink: 0; padding-top: 2px; line-height: 1; transition: color .1s;
 }
-.task-item:hover .drag-handle { color: #888; }
+.task-item:hover .drag-handle { color: var(--text-muted); }
 
 .task-main input[type=checkbox] {
 	flex-shrink: 0; width: 14px; height: 14px; margin-top: 2px;
-	accent-color: #555; cursor: pointer;
+	accent-color: var(--text-mid); cursor: pointer;
 }
 
 .task-title { font-size: 12px; flex: 1; line-height: 1.4; cursor: default; }
 .task-title.starred { font-weight: 700; }
 
 .edit-input {
-	flex: 1; font-size: 12px; border: 1px solid #888;
+	flex: 1; font-size: 12px; border: 1px solid var(--border-input);
 	border-radius: 3px; padding: 1px 5px; outline: none;
 	box-shadow: 0 0 0 2px #00000012;
 }
 
-.task-dur { font-size: 10px; color: #888; flex-shrink: 0; }
+.task-dur { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
 
 /* Subtask preview */
 .subtask-preview {
@@ -224,15 +224,15 @@
 }
 .subtask-preview li input[type=checkbox] {
 	width: 11px; height: 11px; flex-shrink: 0;
-	accent-color: #555; cursor: pointer; margin: 0;
+	accent-color: var(--text-mid); cursor: pointer; margin: 0;
 }
-.subtask-preview li span { font-size: 11px; color: #555; line-height: 1.3; }
-.subtask-preview li.done span { text-decoration: line-through; color: #888; }
+.subtask-preview li span { font-size: 11px; color: var(--text-mid); line-height: 1.3; }
+.subtask-preview li.done span { text-decoration: line-through; color: var(--text-muted); }
 
 /* Add-subtask inline input */
 .new-subtask-row { margin: 2px 0 2px 26px; }
 .new-subtask-input {
-	font-size: 11px; border: 1px solid #888;
+	font-size: 11px; border: 1px solid var(--border-input);
 	border-radius: 3px; padding: 1px 5px; outline: none;
 	box-shadow: 0 0 0 2px #00000012;
 	width: 100%; box-sizing: border-box;
@@ -257,32 +257,32 @@
 
 .star-btn {
 	font-size: 12px; background: none; border: none; cursor: pointer;
-	color: #bbb; flex-shrink: 0; padding: 0 1px; line-height: 1;
+	color: var(--text-faint); flex-shrink: 0; padding: 0 1px; line-height: 1;
 }
-.star-btn.starred { color: #B8932A; }
-.star-btn:hover { color: #B8932A; }
+.star-btn.starred { color: var(--yellow); }
+.star-btn:hover { color: var(--yellow); }
 
 .add-sub-btn {
-	font-size: 10px; background: none; border: 1px solid #e0e0e0;
-	border-radius: 3px; cursor: pointer; color: #888;
+	font-size: 10px; background: none; border: 1px solid var(--border);
+	border-radius: 3px; cursor: pointer; color: var(--text-muted);
 	padding: 0 4px; line-height: 1.6;
 	transition: color .1s, border-color .1s, opacity .1s;
 }
-.add-sub-btn:hover { color: #111; border-color: #888; }
+.add-sub-btn:hover { color: var(--text); border-color: var(--border-input); }
 
 .del-btn {
 	font-size: 10px; background: none; border: none; cursor: pointer;
-	color: #bbb; flex-shrink: 0; padding: 0 2px; line-height: 1;
+	color: var(--text-faint); flex-shrink: 0; padding: 0 2px; line-height: 1;
 }
-.del-btn:hover { color: #333; }
+.del-btn:hover { color: var(--text-dark); }
 
 .del-confirm { display: flex; gap: 3px; align-items: center; flex-shrink: 0; }
 .del-yes, .del-no {
 	font-size: 10px; border-radius: 3px; border: 1px solid;
 	padding: 1px 5px; cursor: pointer; line-height: 1.4; opacity: 1;
 }
-.del-yes { background: #f0f0f0; border-color: #bbb; color: #333; }
-.del-yes:hover { background: #e5e5e5; }
-.del-no  { background: #f2f2f2; border-color: #e0e0e0; color: #666; }
-.del-no:hover  { background: #ebebeb; }
+.del-yes { background: var(--bg); border-color: var(--border-mid); color: var(--text-dark); }
+.del-yes:hover { background: var(--surface-em); }
+.del-no  { background: var(--bg); border-color: var(--border); color: var(--text-subtle); }
+.del-no:hover  { background: var(--surface-muted); }
 </style>

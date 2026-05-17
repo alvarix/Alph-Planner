@@ -247,40 +247,40 @@
 <style>
 .day-col {
 	flex: 1; min-width: 110px; display: flex; flex-direction: column;
-	border-right: 1px solid #e0e0e0; background: #fff;
+	border-right: 1px solid var(--border); background: var(--surface);
 	overflow: hidden; transition: background .12s, box-shadow .12s;
 }
-.day-col.weekend { flex: 0.7; min-width: 77px; background: #ebebeb; }
-.day-col.weekend .day-dn  { color: #999; }
-.day-col.today  { background: #f5f5f5; }
+.day-col.weekend { flex: 0.7; min-width: 77px; background: var(--surface-muted); }
+.day-col.weekend .day-dn  { color: var(--text-dimmed); }
+.day-col.today  { background: var(--surface-raised); }
 .day-col.drag-over {
-	background: #ebebeb;
-	box-shadow: inset 0 0 0 2px #bbb;
+	background: var(--surface-muted);
+	box-shadow: inset 0 0 0 2px var(--border-mid);
 }
 .day-col:last-child { border-right: none; }
 
 .day-head {
-	padding: 8px 10px; border-bottom: 1px solid #e0e0e0; flex-shrink: 0;
+	padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
-.day-col.today .day-head { border-bottom: 2px solid #7A3030; }
+.day-col.today .day-head { border-bottom: 2px solid var(--crimson); }
 
 .day-dn {
 	font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
-	color: #888; font-weight: 600;
+	color: var(--text-muted); font-weight: 600;
 }
-.day-col.today .day-dn { color: #7A3030; }
+.day-col.today .day-dn { color: var(--crimson); }
 
 .day-date-num { font-size: 20px; font-weight: 700; line-height: 1.2; margin: 2px 0 1px; }
 .day-col.today .day-date-num {
 	display: inline-flex; align-items: center; justify-content: center;
-	width: 30px; height: 30px; background: #7A3030; color: #fff;
+	width: 30px; height: 30px; background: var(--crimson); color: var(--surface);
 	border-radius: 50%; font-size: 14px;
 }
-.day-total { font-size: 10px; color: #888; }
+.day-total { font-size: 10px; color: var(--text-muted); }
 
 .task-list {
 	flex: 1; overflow-y: auto;
-	background-color: #e8e8e8;
+	background-color: var(--surface-pattern);
 	background-image: radial-gradient(circle, rgba(0,0,0,0.07) 1px, transparent 1px);
 	background-size: 14px 14px;
 	padding-top: 4px;
@@ -291,67 +291,67 @@
 .drop-target.active::before {
 	content: '';
 	position: absolute; top: 0; left: 6px; right: 6px; height: 2px;
-	background: #555; border-radius: 1px; z-index: 10;
+	background: var(--text-mid); border-radius: 1px; z-index: 10;
 }
 
 .section-head {
 	padding: 4px 8px 3px;
 	font-size: 10px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: .5px; color: #888;
-	border-bottom: 1px solid #e0e0e0;
-	background: #f2f2f2;
+	letter-spacing: .5px; color: var(--text-muted);
+	border-bottom: 1px solid var(--border);
+	background: var(--bg);
 	display: flex; align-items: center; gap: 4px;
 }
 .cat-name { flex: 1; }
 .cat-del-btn {
 	background: none; border: none; cursor: pointer;
-	color: #bbb; font-size: 10px; padding: 0 2px;
+	color: var(--text-faint); font-size: 10px; padding: 0 2px;
 	opacity: 0; transition: opacity .1s; line-height: 1;
 }
 .section-head:hover .cat-del-btn { opacity: 1; }
-.cat-del-btn:hover { color: #333; }
-.section-head.drag-over-section { background: #e0e0e0; }
+.cat-del-btn:hover { color: var(--text-dark); }
+.section-head.drag-over-section { background: var(--border); }
 .cat-del-confirm { display: flex; gap: 3px; align-items: center; }
 .cat-del-yes, .cat-del-no {
 	font-size: 10px; border-radius: 3px; border: 1px solid;
 	padding: 1px 5px; cursor: pointer; line-height: 1.4;
 }
-.cat-del-yes { background: #f0f0f0; border-color: #bbb; color: #333; }
-.cat-del-yes:hover { background: #e5e5e5; }
-.cat-del-no  { background: #f2f2f2; border-color: #e0e0e0; color: #666; }
-.cat-del-no:hover  { background: #ebebeb; }
+.cat-del-yes { background: var(--bg); border-color: var(--border-mid); color: var(--text-dark); }
+.cat-del-yes:hover { background: var(--surface-em); }
+.cat-del-no  { background: var(--bg); border-color: var(--border); color: var(--text-subtle); }
+.cat-del-no:hover  { background: var(--surface-muted); }
 
 .empty-day {
 	flex: 1; display: flex; align-items: center; justify-content: center;
-	color: #bbb; font-size: 12px; padding: 20px;
+	color: var(--text-faint); font-size: 12px; padding: 20px;
 }
 
-.col-footer { flex-shrink: 0; border-top: 1px solid #e0e0e0; }
+.col-footer { flex-shrink: 0; border-top: 1px solid var(--border); }
 .footer-btns { display: flex; }
 .btn-add {
 	flex: 1; padding: 7px 8px; font-size: 11px;
-	background: none; border: none; cursor: pointer; color: #888;
+	background: none; border: none; cursor: pointer; color: var(--text-muted);
 	text-align: left;
 }
-.btn-add:hover { background: #f2f2f2; color: #111; }
+.btn-add:hover { background: var(--bg); color: var(--text); }
 .btn-add-cat {
 	padding: 7px 8px; font-size: 11px;
-	background: none; border: none; border-left: 1px solid #e0e0e0;
-	cursor: pointer; color: #bbb;
+	background: none; border: none; border-left: 1px solid var(--border);
+	cursor: pointer; color: var(--text-faint);
 }
-.btn-add-cat:hover { background: #f2f2f2; color: #666; }
+.btn-add-cat:hover { background: var(--bg); color: var(--text-subtle); }
 .btn-notes {
 	padding: 7px 8px; font-size: 13px;
-	background: none; border: none; border-left: 1px solid #e0e0e0;
-	cursor: pointer; color: #bbb; line-height: 1;
+	background: none; border: none; border-left: 1px solid var(--border);
+	cursor: pointer; color: var(--text-faint); line-height: 1;
 }
-.btn-notes:hover { background: #f2f2f2; color: #666; }
-.btn-notes.has-notes { color: #555; }
-.add-cat-wrap { padding: 6px 8px; border-top: 1px solid #e0e0e0; }
+.btn-notes:hover { background: var(--bg); color: var(--text-subtle); }
+.btn-notes.has-notes { color: var(--text-mid); }
+.add-cat-wrap { padding: 6px 8px; border-top: 1px solid var(--border); }
 .add-cat-input {
-	width: 100%; border: 1px solid #888; border-radius: 5px;
+	width: 100%; border: 1px solid var(--border-input); border-radius: 5px;
 	padding: 5px 8px; font-size: 12px; outline: none;
-	background: #fff;
+	background: var(--surface);
 }
-.add-hint { font-size: 10px; color: #888; margin-top: 3px; }
+.add-hint { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
 </style>

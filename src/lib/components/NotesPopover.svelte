@@ -48,36 +48,36 @@
 <style>
 .notes-panel {
 	display: flex; flex-direction: column; flex: 1; overflow: hidden;
-	background: #fff;
+	background: var(--surface);
 }
 .notes-header {
 	display: flex; align-items: center;
 	padding: 6px 10px 4px; font-size: 10px; font-weight: 700;
-	text-transform: uppercase; letter-spacing: .5px; color: #888;
-	border-bottom: 1px solid #e0e0e0; flex-shrink: 0;
+	text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted);
+	border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
 .notes-header span { flex: 1; }
 .notes-close {
 	background: none; border: none; cursor: pointer;
-	color: #bbb; font-size: 11px; padding: 0 2px; line-height: 1;
+	color: var(--text-faint); font-size: 11px; padding: 0 2px; line-height: 1;
 	transition: color .1s;
 }
-.notes-close:hover { color: #666; }
+.notes-close:hover { color: var(--text-subtle); }
 .notes-area {
 	flex: 1; resize: none; border: none; outline: none;
 	padding: 8px 10px; font-size: 12px; line-height: 1.5;
-	font-family: inherit; color: #111;
+	font-family: inherit; color: var(--text);
 	box-sizing: border-box; background: transparent;
 }
 .notes-footer {
 	display: flex; align-items: center; gap: 8px;
-	padding: 4px 8px; border-top: 1px solid #e0e0e0; flex-shrink: 0;
+	padding: 4px 8px; border-top: 1px solid var(--border); flex-shrink: 0;
 }
-.notes-hint { font-size: 10px; color: #bbb; flex: 1; }
+.notes-hint { font-size: 10px; color: var(--text-faint); flex: 1; }
 .notes-save {
 	font-size: 11px; padding: 3px 10px; border-radius: 4px;
-	border: 1px solid #e0e0e0; background: #f2f2f2;
-	cursor: pointer; color: #555;
+	border: 1px solid var(--border); background: var(--bg);
+	cursor: pointer; color: var(--text-mid);
 }
-.notes-save:hover { background: #ebebeb; }
+.notes-save:hover { background: var(--surface-muted); }
 </style>

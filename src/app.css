@@ -1,13 +1,47 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #f2f2f2;
-  --surface: #fff;
-  --border: #e0e0e0;
-  --text: #111;
-  --muted: #888;
-  --crimson: #7A3030;
-  --yellow: #B8932A;
+  /* Surfaces — lightest to darkest */
+  --surface:         #fff;       /* cards, columns */
+  --surface-raised:  #f5f5f5;    /* today column */
+  --bg:              #f2f2f2;    /* page bg, section heads */
+  --surface-em:      #e5e5e5;    /* badges, del-yes hover */
+  --surface-muted:   #ebebeb;    /* weekend, drag-over, hover states */
+  --surface-pattern: #e8e8e8;    /* dot-grid behind task cards */
+
+  /* Borders */
+  --border:       #e0e0e0;  /* standard separator */
+  --border-mid:   #bbb;     /* stronger (group accents, del confirm) */
+  --border-input: #888;     /* input / focus ring */
+
+  /* Text — darkest to lightest */
+  --text:        #111;  /* primary */
+  --text-dark:   #333;  /* hover, destructive */
+  --text-mid:    #555;  /* mid-level labels */
+  --text-subtle: #666;  /* secondary labels */
+  --text-muted:  #888;  /* muted / placeholder */
+  --text-dimmed: #999;  /* subdued (weekend labels) */
+  --text-faint:  #bbb;  /* inactive icons, drag handles */
+
+  /* Dark bar — topbar + toast */
+  --bar-bg:            #111;
+  --bar-surface:       #1e1e1e;
+  --bar-hover:         #222;
+  --bar-muted:         #2a2a2a;
+  --bar-border:        #333;
+  --bar-border-strong: #444;
+  --bar-text:          #fff;
+  --bar-text-dim:      #ccc;
+  --bar-text-muted:    #999;
+  --bar-text-faint:    #666;
+
+  /* Accent pops — used sparingly */
+  --crimson: #7A3030;   /* today marker + overdue header */
+  --yellow:  #B8932A;   /* starred task icon */
+
+  /* Error */
+  --error-bg: #3a2828;
+
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 14px;
   color: var(--text);

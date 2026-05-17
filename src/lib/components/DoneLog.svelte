@@ -59,53 +59,53 @@
 	height: 300px;
 	display: flex; flex-direction: column;
 	background: #fff;
-	border-top: 2px solid #e0e0e0;
+	border-top: 2px solid var(--border);
 	box-shadow: 0 -6px 24px rgba(0,0,0,.08);
 }
 
 .drawer-header {
 	display: flex; align-items: center; gap: 8px;
 	padding: 0 14px; height: 38px; flex-shrink: 0;
-	border-bottom: 1px solid #e0e0e0;
+	border-bottom: 1px solid var(--border);
 }
 .drawer-title {
 	font-size: 12px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: .5px; color: #666;
+	letter-spacing: .5px; color: var(--text-subtle);
 }
 .drawer-count {
-	font-size: 10px; background: #ebebeb; color: #666;
+	font-size: 10px; background: var(--surface-muted); color: var(--text-subtle);
 	padding: 1px 7px; border-radius: 99px; font-weight: 700;
 }
 .drawer-close {
 	margin-left: auto;
 	background: none; border: none; cursor: pointer;
-	color: #888; font-size: 13px; padding: 4px 6px; line-height: 1;
+	color: var(--text-muted); font-size: 13px; padding: 4px 6px; line-height: 1;
 	border-radius: 4px;
 }
-.drawer-close:hover { background: #ebebeb; color: #111; }
+.drawer-close:hover { background: var(--surface-muted); color: var(--text); }
 
 .drawer-body { flex: 1; overflow-y: auto; }
 
 .done-empty {
-	padding: 16px; font-size: 12px; color: #888; font-style: italic;
+	padding: 16px; font-size: 12px; color: var(--text-muted); font-style: italic;
 }
 
-.done-group { border-bottom: 1px solid #e0e0e0; }
+.done-group { border-bottom: 1px solid var(--border); }
 .done-group:last-child { border-bottom: none; }
 
 .done-date {
 	padding: 5px 14px 3px;
 	font-size: 10px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: .5px; color: #888; background: #f2f2f2;
+	letter-spacing: .5px; color: var(--text-muted); background: var(--bg);
 	position: sticky; top: 0;
 }
 
 .done-row {
 	display: flex; align-items: baseline; gap: 6px;
-	padding: 4px 14px; border-top: 1px solid #ebebeb;
+	padding: 4px 14px; border-top: 1px solid var(--surface-muted);
 }
-.done-check { color: #aaa; font-size: 11px; flex-shrink: 0; }
-.done-title { font-size: 12px; color: #888; text-decoration: line-through; flex: 1; }
+.done-check { color: var(--text-faint); font-size: 11px; flex-shrink: 0; }
+.done-title { font-size: 12px; color: var(--text-muted); text-decoration: line-through; flex: 1; }
 .done-title.starred { font-weight: 700; }
-.done-dur { font-size: 10px; color: #bbb; flex-shrink: 0; }
+.done-dur { font-size: 10px; color: var(--text-faint); flex-shrink: 0; }
 </style>

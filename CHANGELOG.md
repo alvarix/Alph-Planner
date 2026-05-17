@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.0] - 2026-05-16
+
+### Changed
+- **Color system**: full B&W palette — warm tints removed, pure neutral grays throughout
+- **Topbar**: black (`#111`) with white text; PWA `theme_color` and `background_color` updated to match; iOS status bar set to `black`
+- **Task cards**: tasks now render as white cards with `border-radius` and `10px` gap between them, floating on a subtle dot-grid background in task list areas
+- **Backlog duration badge**: estimate (e.g. `1h`, `30m`) shown as an absolute-positioned pill in the top-right corner of each backlog task card
+- **CSS tokens**: all color values consolidated into 31 custom properties in `app.css` — `--surface`, `--bg`, `--border`, `--text-*`, `--bar-*`, `--crimson`, `--yellow`, `--error-bg`; no hardcoded hex in any component style block
+- **Accent pops**: muted crimson (`#7A3030`) on today marker and overdue header; dull yellow (`#B8932A`) on starred task icon only
+
 ## [1.3.0] - 2026-05-15
 
 ### Added
