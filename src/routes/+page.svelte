@@ -107,7 +107,7 @@
 	/>
 	<div id="columns">
 		{#each visibleDays as day (day.iso)}
-			<div class="col-wrapper" animate:flip={{ duration: 180 }} transition:slide={{ axis: 'x', duration: 180 }}>
+			<div class="col-wrapper" class:weekend={day.weekend} animate:flip={{ duration: 180 }} transition:slide={{ axis: 'x', duration: 180 }}>
 				<DayColumn
 					{day}
 					tasks={tasksForFile(day.iso + '.md')}
@@ -164,6 +164,7 @@ h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--bar-
 #main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
 #columns { flex: 1; display: flex; overflow-x: auto; }
 .col-wrapper { flex: 1; min-width: 110px; display: flex; overflow: hidden; }
+.col-wrapper.weekend { flex: 0.7; min-width: 77px; }
 
 :global(::-webkit-scrollbar) { width: 4px; height: 4px; }
 :global(::-webkit-scrollbar-thumb) { background: var(--border); border-radius: 2px; }

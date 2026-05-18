@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { appState, moveTask, addTask, toggleStar, addCategoryToFile, deleteCategoryFromFile, moveToCategoryInFile, deleteTask } from '$lib/state.svelte.js';
+	import { appState, moveTask, addTask, addCategoryToFile, moveToCategoryInFile, deleteTask } from '$lib/state.svelte.js';
+	import { isFolded, toggleFolded, unfoldAll, anyFolded } from '$lib/ui/foldState.js';
 	import TaskRow from './TaskRow.svelte';
+	import TaskSection from './TaskSection.svelte';
 
 	let {
 		backlog,
@@ -55,6 +57,17 @@
 	let dragOver         = $state(false);
 	let sectionDragOver: string | null | undefined = $state(undefined);
 	let catDelConfirm: string | null = $state(null);
+
+	let dragFromIndex    = $state<number | null>(null);
+	let dragOverIndex    = $state<number | null>(null);
+	let catDragFromIndex = $state<number | null>(null);
+	let catDragOverIndex = $state<number | null>(null);
+
+	let foldSignal = $state(0);
+	function isCatFolded(cat: string): boolean { foldSignal; return isFolded('Backlog.md', cat); }
+	function toggleCatFold(cat: string) { toggleFolded('Backlog.md', cat); foldSignal++; }
+	function unfoldAllCats() { unfoldAll('Backlog.md', fileHeaders); foldSignal++; }
+	const anyCatFolded = $derived.by(() => { foldSignal; return anyFolded('Backlog.md', fileHeaders); });
 
 	/** Drop an external task onto a specific category within Backlog.md. */
 	async function dropOnSection(task: Task, category: string | null) {
@@ -135,6 +148,9 @@
 		{#if allItems.length > 0}
 			<span class="badge">{allItems.length}</span>
 		{/if}
+		{#if anyCatFolded}
+			<button class="icon-btn" onclick={unfoldAllCats} title="Unfold all categories">&#x25BD;</button>
+		{/if}
 		<button class="icon-btn" onclick={() => { addingCat = !addingCat; adding = false; }} title="Add category">#</button>
 		<button class="add-btn"  onclick={() => { adding = !adding; addingCat = false; }} title="Add task">+</button>
 	</div>
@@ -198,38 +214,31 @@
 		></div>
 
 		{#each backlogSections as section}
-			{#if section.category}
-				<div
-					class="section-head"
-					class:drag-over-section={sectionDragOver === section.category}
-					ondragover={(e) => { e.preventDefault(); e.stopPropagation(); sectionDragOver = section.category; }}
-					ondragleave={() => { sectionDragOver = undefined; }}
-					ondrop={async (e) => {
-						e.preventDefault(); e.stopPropagation();
-						sectionDragOver = undefined; dragOver = false;
-						if (externalDragTask) await dropOnSection(externalDragTask, section.category);
-					}}
-				>
-					<span class="cat-name">{section.category}</span>
-					{#if catDelConfirm === section.category}
-						<span class="del-confirm">
-							<button class="del-yes" onclick={async () => {
-								await deleteCategoryFromFile('Backlog.md', section.category!);
-								catDelConfirm = null;
-							}}>del</button>
-							<button class="del-no" onclick={() => (catDelConfirm = null)}>no</button>
-						</span>
-					{:else}
-						<button class="cat-del-btn" onclick={() => (catDelConfirm = section.category)} title="Delete category">&#x2715;</button>
-					{/if}
-				</div>
-			{/if}
-			{#each section.tasks as task}
-				<TaskRow
-					{task}
-					ondragstart={(e, t) => { e.dataTransfer?.setData('text/plain', t.title); ondragstart?.(t); }}
-				/>
-			{/each}
+			<TaskSection
+				filename="Backlog.md"
+				{section}
+				allTasks={backlog}
+				{fileHeaders}
+				bind:dragFromIndex
+				bind:dragOverIndex
+				bind:catDragFromIndex
+				bind:catDragOverIndex
+				bind:sectionDragOver
+				bind:catDelConfirm
+				isCatFolded={isCatFolded}
+				onCatFoldToggle={toggleCatFold}
+				onSectionDrop={(cat) => {
+					sectionDragOver = undefined; dragOver = false;
+					if (dragFromIndex !== null) {
+						const dragged = backlog[dragFromIndex];
+						if (dragged) moveToCategoryInFile(dragged, cat);
+						dragFromIndex = null; dragOverIndex = null;
+					} else if (externalDragTask) {
+						dropOnSection(externalDragTask, cat);
+					}
+				}}
+				onTaskDragStart={(t) => { ondragstart?.(t); }}
+			/>
 		{/each}
 
 		{#if allItems.length === 0}
@@ -298,38 +307,9 @@
 	padding-top: 4px;
 }
 
-.section-head {
-	padding: 4px 8px 3px;
-	font-size: 10px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: .5px; color: var(--text-mid);
-	border-bottom: 1px solid var(--border);
-	background: var(--surface-muted);
-	display: flex; align-items: center; gap: 4px;
-}
-.overdue-head { color: var(--crimson); background: var(--surface-muted); }
-.cat-name { flex: 1; }
-.cat-del-btn {
-	background: none; border: none; cursor: pointer;
-	color: var(--text-faint); font-size: 10px; padding: 0 2px;
-	opacity: 0; transition: opacity .1s;
-	line-height: 1;
-}
-.section-head:hover .cat-del-btn { opacity: 1; }
-.cat-del-btn:hover { color: var(--text-dark); }
-.section-head.drag-over-section { background: var(--border); }
-
 .null-drop { height: 4px; background: transparent; transition: height .1s, background .1s; }
 .null-drop.drag-over-section { height: 14px; background: var(--border); }
-
-.del-confirm { display: flex; gap: 3px; align-items: center; }
-.del-yes, .del-no {
-	font-size: 10px; border-radius: 3px; border: 1px solid;
-	padding: 1px 5px; cursor: pointer; line-height: 1.4;
-}
-.del-yes { background: var(--bg); border-color: var(--border-mid); color: var(--text-dark); }
-.del-yes:hover { background: var(--surface-em); }
-.del-no  { background: var(--bg); border-color: var(--border); color: var(--text-subtle); }
-.del-no:hover  { background: var(--surface-muted); }
+.overdue-head { color: var(--crimson); }
 
 .empty {
 	padding: 16px 12px; font-size: 12px; color: var(--text-faint); text-align: center;

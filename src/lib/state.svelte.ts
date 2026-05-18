@@ -5,7 +5,7 @@
  */
 
 import { parseFile } from './md/parse.js';
-import { toggleTaskDone, toggleChildDone, reorderTasks, appendTask, addCategoryHeader, removeCategoryHeader } from './md/serialize.js';
+import { toggleTaskDone, toggleChildDone, reorderTasks, reorderCategories, appendTask, addCategoryHeader, removeCategoryHeader } from './md/serialize.js';
 import { extractNotes, setNotes } from './md/notes.js';
 import { readFile, writeFile, listDailyFiles, detectConflicts, readDefaultsFile } from './fs/files.js';
 import { parseDefaults, applyDefaults } from './md/defaults.js';
@@ -336,6 +336,33 @@ export async function reorderFileTasks(
 	const updated = reorderTasks(current, tasks, fromIndex, toIndex);
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
+}
+
+/**
+ * Reorder H1 category sections within a file and write back to disk.
+ *
+ * @param filename  - File to mutate.
+ * @param fromIndex - Current category index (among H1 sections in file order).
+ * @param toIndex   - Target category index after the move.
+ */
+export async function reorderFileCategories(
+	filename: string,
+	fromIndex: number,
+	toIndex: number
+): Promise<void> {
+	const d = dir();
+	if (!d || fromIndex === toIndex) return;
+	const current = await readFile(d, filename);
+	if (current === null) return;
+	const updated = reorderCategories(current, fromIndex, toIndex);
+	await writeFile(d, filename, updated);
+	appState.cache[filename] = parseFile(updated, filename);
+	// Refresh headers derived from the file.
+	if (filename === 'Backlog.md') {
+		appState.backlogHeaders = extractH1s(updated);
+	} else {
+		appState.fileHeaders[filename] = extractH1s(updated);
+	}
 }
 
 /**

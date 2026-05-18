@@ -192,6 +192,61 @@ export function addCategoryHeader(content: string, name: string): string {
 }
 
 /**
+ * Reorder H1 category sections within a file.
+ * Everything after the first `---` divider (notes) is preserved at the end.
+ * Empty categories and their blank lines move with their header.
+ *
+ * @param content   - Raw file text.
+ * @param fromIndex - Index of the category to move (0-based, among H1 sections).
+ * @param toIndex   - Target index after the move.
+ * @returns New file text.
+ */
+export function reorderCategories(
+	content: string,
+	fromIndex: number,
+	toIndex: number
+): string {
+	if (fromIndex === toIndex) return content;
+
+	const lines = splitLines(content);
+
+	// Preserve notes (everything from first `---` line onward).
+	const divIdx = lines.findIndex(l => /^---\s*$/.test(l));
+	const mainLines = divIdx === -1 ? lines : lines.slice(0, divIdx);
+	const tailLines = divIdx === -1 ? [] : lines.slice(divIdx);
+
+	// Partition into pre-H1 content and H1 sections.
+	type Section = { header: string; body: string[] };
+	const sections: Section[] = [];
+	const pre: string[] = [];
+	let cur: Section | null = null;
+
+	for (const line of mainLines) {
+		if (/^#\s+/.test(line)) {
+			if (cur) sections.push(cur);
+			cur = { header: line, body: [] };
+		} else if (cur) {
+			cur.body.push(line);
+		} else {
+			pre.push(line);
+		}
+	}
+	if (cur) sections.push(cur);
+
+	// Reorder.
+	const [moved] = sections.splice(fromIndex, 1);
+	sections.splice(toIndex, 0, moved);
+
+	// Reassemble.
+	const result = [...pre];
+	for (const s of sections) {
+		result.push(s.header, ...s.body);
+	}
+
+	return joinLines([...result, ...tailLines]);
+}
+
+/**
  * Remove an H1 category header line from the file.
  * Tasks that were under the header remain — they just lose their section label.
  *

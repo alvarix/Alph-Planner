@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
 	import type { WeekDay } from '$lib/dates.js';
-	import TaskRow from './TaskRow.svelte';
-	import { appState, reorderFileTasks, moveTask, moveToCategoryInFile, addCategoryToFile, deleteCategoryFromFile, addTask, deleteTask, notesFor } from '$lib/state.svelte.js';
+	import TaskSection from './TaskSection.svelte';
+	import { appState, moveTask, moveToCategoryInFile, addCategoryToFile, addTask, deleteTask, notesFor } from '$lib/state.svelte.js';
+	import { isFolded, toggleFolded } from '$lib/ui/foldState.js';
 	import NewTaskInput from './NewTaskInput.svelte';
 	import NotesPopover from './NotesPopover.svelte';
 
@@ -70,8 +71,14 @@
 		}
 	}
 
-	let dragFromIndex: number | null = null;
-	let dragOverIndex: number | null = $state(null);
+	let dragFromIndex    = $state<number | null>(null);
+	let dragOverIndex    = $state<number | null>(null);
+	let catDragFromIndex = $state<number | null>(null);
+	let catDragOverIndex = $state<number | null>(null);
+
+	let foldSignal = $state(0);
+	function isCatFolded(cat: string): boolean { foldSignal; return isFolded(filename, cat); }
+	function toggleCatFold(cat: string) { toggleFolded(filename, cat); foldSignal++; }
 
 	/** Assign a stable color index per task-with-children within this column. */
 	const colorMap = $derived.by(() => {
@@ -83,11 +90,11 @@
 	});
 
 	const totalMin = $derived(
-		tasks.reduce((s, t) => s + (t.estimateMin ?? 0), 0)
+		tasks.reduce((s, t) => s + (t.estimateMin ?? 30), 0)
 	);
 
 	function formatTotal(min: number): string {
-		if (min === 0) return '';
+		if (min === 0) return '0h';
 		return min % 60 === 0 ? `${min / 60}h` : `${(min / 60).toFixed(1)}h`;
 	}
 
@@ -132,9 +139,7 @@
 	<div class="day-head">
 		<div class="day-dn">{day.label}</div>
 		<div class="day-date-num">{day.date}</div>
-		{#if totalMin > 0}
-			<div class="day-total">{formatTotal(totalMin)}</div>
-		{/if}
+		<div class="day-total">{formatTotal(totalMin)}</div>
 	</div>
 
 	<!-- Notes panel (full height, replaces task list) -->
@@ -152,61 +157,24 @@
 			<div class="empty-day">no tasks</div>
 		{:else}
 			{#each sections as section}
-				{#if section.category}
-					<div
-						class="section-head"
-						class:drag-over-section={sectionDragOver === section.category}
-						ondragover={(e) => { e.preventDefault(); e.stopPropagation(); sectionDragOver = section.category; }}
-						ondragleave={() => { sectionDragOver = undefined; }}
-						ondrop={async (e) => { e.preventDefault(); e.stopPropagation(); await dropOnSection(section.category); }}
-					>
-						<span class="cat-name">{section.category}</span>
-						{#if catDelConfirm === section.category}
-							<span class="cat-del-confirm">
-								<button class="cat-del-yes" onclick={async () => {
-									await deleteCategoryFromFile(day.iso + '.md', section.category!);
-									catDelConfirm = null;
-								}}>del</button>
-								<button class="cat-del-no" onclick={() => (catDelConfirm = null)}>no</button>
-							</span>
-						{:else}
-							<button class="cat-del-btn" onclick={() => (catDelConfirm = section.category)} title="Delete category">&#x2715;</button>
-						{/if}
-					</div>
-				{/if}
-				{#each section.tasks as task, si}
-					{@const globalIndex = tasks.indexOf(task)}
-					{@const heightPx = Math.max(80, 80 + ((task.estimateMin ?? 30) - 30) / 15 * 25)}
-					<div
-						class="drop-target"
-						class:active={dragOverIndex === globalIndex}
-						role="none"
-						ondragover={(e) => { e.preventDefault(); e.stopPropagation(); dragOverIndex = globalIndex; }}
-						ondrop={(e) => {
-							e.preventDefault(); e.stopPropagation();
-							dragOver = false; dragOverIndex = null;
-							if (dragFromIndex !== null && dragFromIndex !== globalIndex) {
-								const dragged = tasks[dragFromIndex];
-								if (dragged && dragged.category !== section.category) {
-									// Cross-category: move to new section, append at end of it
-									moveToCategoryInFile(dragged, section.category);
-								} else {
-									// Same-category: positional reorder
-									reorderFileTasks(day.iso + '.md', dragFromIndex, globalIndex);
-								}
-								dragFromIndex = null;
-							}
-						}}
-					>
-						<TaskRow
-							{task}
-							colorIndex={colorMap.get(task) ?? null}
-							minHeight={heightPx}
-							ondragstart={(_e, t) => { dragFromIndex = globalIndex; ondragTaskStart?.(t); }}
-							ondragend={() => { dragFromIndex = null; dragOverIndex = null; }}
-						/>
-					</div>
-				{/each}
+				<TaskSection
+					{filename}
+					{section}
+					allTasks={tasks}
+					fileHeaders={dayFileHeaders}
+					bind:dragFromIndex
+					bind:dragOverIndex
+					bind:catDragFromIndex
+					bind:catDragOverIndex
+					bind:sectionDragOver
+					bind:catDelConfirm
+					isCatFolded={isCatFolded}
+					onCatFoldToggle={toggleCatFold}
+					onSectionDrop={dropOnSection}
+					onTaskDragStart={ondragTaskStart}
+					colorIndexOf={(t) => colorMap.get(t) ?? null}
+					minHeightFor={(t) => Math.max(80, 80 + ((t.estimateMin ?? 30) - 30) / 15 * 25)}
+				/>
 			{/each}
 		{/if}
 	</div>
@@ -246,11 +214,11 @@
 
 <style>
 .day-col {
-	flex: 1; min-width: 110px; display: flex; flex-direction: column;
+	flex: 1; min-width: 0; display: flex; flex-direction: column;
 	border-right: 1px solid var(--border); background: var(--surface);
 	overflow: hidden; transition: background .12s, box-shadow .12s;
 }
-.day-col.weekend { flex: 0.7; min-width: 77px; background: var(--surface-muted); }
+.day-col.weekend { background: var(--surface-muted); }
 .day-col.weekend .day-dn  { color: var(--text-dimmed); }
 .day-col.today  { background: var(--surface-raised); }
 .day-col.drag-over {
@@ -287,39 +255,6 @@
 }
 .task-list.hidden { display: none; }
 
-.drop-target { position: relative; }
-.drop-target.active::before {
-	content: '';
-	position: absolute; top: 0; left: 6px; right: 6px; height: 2px;
-	background: var(--text-mid); border-radius: 1px; z-index: 10;
-}
-
-.section-head {
-	padding: 4px 8px 3px;
-	font-size: 10px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: .5px; color: var(--text-muted);
-	border-bottom: 1px solid var(--border);
-	background: var(--bg);
-	display: flex; align-items: center; gap: 4px;
-}
-.cat-name { flex: 1; }
-.cat-del-btn {
-	background: none; border: none; cursor: pointer;
-	color: var(--text-faint); font-size: 10px; padding: 0 2px;
-	opacity: 0; transition: opacity .1s; line-height: 1;
-}
-.section-head:hover .cat-del-btn { opacity: 1; }
-.cat-del-btn:hover { color: var(--text-dark); }
-.section-head.drag-over-section { background: var(--border); }
-.cat-del-confirm { display: flex; gap: 3px; align-items: center; }
-.cat-del-yes, .cat-del-no {
-	font-size: 10px; border-radius: 3px; border: 1px solid;
-	padding: 1px 5px; cursor: pointer; line-height: 1.4;
-}
-.cat-del-yes { background: var(--bg); border-color: var(--border-mid); color: var(--text-dark); }
-.cat-del-yes:hover { background: var(--surface-em); }
-.cat-del-no  { background: var(--bg); border-color: var(--border); color: var(--text-subtle); }
-.cat-del-no:hover  { background: var(--surface-muted); }
 
 .empty-day {
 	flex: 1; display: flex; align-items: center; justify-content: center;
