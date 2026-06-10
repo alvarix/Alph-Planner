@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.5.0] - 2026-06-08
+
+### Added
+- **Sync button**: explicit "Sync" button in the topbar re-reads all files from disk on demand (disabled while a refresh is in-flight)
+- **Change folder button**: always-visible "Change folder" button in the topbar opens the native folder picker — works for first-time setup and for reconnecting after permission loss
+- **Reconnect folder badge**: crimson "Reconnect folder" button appears in the topbar whenever the folder is in `needs-permission` state, giving a direct action without relying solely on the full-screen overlay
+- **`FsError` typed error class**: `lib/fs/files.ts` now throws a typed `FsError` with `reason: 'not-found' | 'permission' | 'io'`; callers can distinguish a missing file from a revoked permission instead of treating both as `null`
+
+### Fixed
+- **Folder disconnection on reload**: `handleFocus` now re-checks FSAA permission via `restoreFolder()` on every window focus; previously, stale `'ready'` state caused silent failures after permission was revoked mid-session
+- **Refresh fails on locked file**: the `applyDefaults` write inside `refresh()` is now non-fatal — a file temporarily locked by iCloud sync is skipped with a `console.warn` and retried on next focus; previously it aborted the entire refresh with an error toast
+- **Permission loss not surfaced**: `refresh()` now catches `FsError('permission')` and automatically sets `appState.folder` to `needs-permission`, triggering the picker overlay without user intervention
+- **Silent errors in I/O layer**: `readFile`, `writeFile`, `listDailyFiles`, and `detectConflicts` previously swallowed all errors silently; all now log `console.error` or `console.warn` with structured context (`filename`, `reason`, raw error)
+- **Build fails on Node 26**: pinned `adapter-vercel` runtime to `nodejs22.x` to prevent auto-detection failure when building with Node >= 26
+
+### Changed
+- `handleFocus` made async; guarded by `isRefreshing` flag to prevent concurrent refresh calls on rapid tab-switching
+- `listDailyFiles` and `detectConflicts` wrapped in try/catch; permission errors are re-thrown as typed `FsError`, conflict detection failures are non-fatal
+
 ## [1.4.0] - 2026-05-16
 
 ### Changed

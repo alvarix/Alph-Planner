@@ -118,6 +118,22 @@ pm2 delete alph-planner    # remove from pm2 entirely
 
 **Note:** `pnpm dev` does not activate the service worker, so the install prompt will not appear in dev mode.
 
+## Folder connection and recovery
+
+The browser's File System Access API requires permission to read and write your folder. Permission is granted once via the native folder picker and stored in IndexedDB, but Chrome may revoke it after a page reload or overnight.
+
+When that happens the app detects it automatically on the next window focus and shows the picker overlay. Three topbar controls are always available:
+
+| Control | When to use |
+|---|---|
+| **Sync** | Re-read all files from disk without leaving the tab (also fires on every window focus) |
+| **Change folder** | Reselect or reconnect your folder — same as the initial setup flow |
+| **Reconnect folder** | Appears in crimson when permission has lapsed — one click to re-grant |
+
+If the app shows empty columns or a missing Backlog after a reload, click **Change folder** and re-select the same folder. No data is lost — all content lives in your `.md` files.
+
+**iCloud users**: files being actively synced by iCloud are temporarily locked. The app skips applying recurring defaults to locked files and retries on the next focus — you will not lose data or see stale tasks as a result.
+
 ## Data
 
 Source of truth is your local Markdown files. The app holds an in-memory cache rebuilt from disk on every window focus and after every write. Deleting the app or clearing browser data does not affect your files.
