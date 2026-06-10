@@ -3,7 +3,7 @@
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
-	import { restoreFolder } from '$lib/fs/folder.js';
+	import { restoreFolder, pickFolder } from '$lib/fs/folder.js';
 	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady } from '$lib/state.svelte.js';
 	import type { Task } from '$lib/types.js';
 	import FolderPicker from '$lib/components/FolderPicker.svelte';
@@ -23,6 +23,8 @@
 	let doneLogOpen               = $state(false);
 	// Incrementing triggers the today column to open its add input.
 	let todayAddSignal            = $state(0);
+	// Guard against concurrent refresh calls (focus fires repeatedly on tab-switch).
+	let isRefreshing               = $state(false);
 
 	let hidePast = $state(localStorage.getItem('hidePast') === 'true');
 	const visibleDays = $derived(hidePast ? weekDays.filter(d => !d.past) : weekDays);
@@ -48,8 +50,42 @@
 		if (restored.status === 'ready') await refresh();
 	});
 
-	function handleFocus() {
-		if (folderReady()) refresh();
+	/**
+	 * Re-check FSAA permission on every window focus.
+	 * queryPermission() does not require a user gesture, so this is safe.
+	 * The isRefreshing guard prevents concurrent calls on rapid tab-switching.
+	 */
+	async function handleFocus() {
+		if (isRefreshing) return;
+		isRefreshing = true;
+		try {
+			const state = await restoreFolder();
+			appState.folder = state;
+			if (state.status === 'ready') await refresh();
+		} finally {
+			isRefreshing = false;
+		}
+	}
+
+	/** Explicitly re-read all files from disk. Safe to call from a button. */
+	async function manualRefresh() {
+		if (isRefreshing) return;
+		isRefreshing = true;
+		try {
+			await refresh();
+		} finally {
+			isRefreshing = false;
+		}
+	}
+
+	/**
+	 * Open the native folder picker so the user can reselect or reconnect
+	 * their daily folder. Always available — works as first-time setup too.
+	 */
+	async function changeFolder() {
+		const result = await pickFolder();
+		appState.folder = result;
+		if (result.status === 'ready') await refresh();
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -87,6 +123,20 @@
 		class:active={doneLogOpen}
 		onclick={() => (doneLogOpen = !doneLogOpen)}
 	>Done log</button>
+	<button
+		class="btn-nav"
+		disabled={isRefreshing}
+		onclick={manualRefresh}
+		title="Re-read all files from disk"
+	>Sync</button>
+	<button
+		class="btn-nav"
+		onclick={changeFolder}
+		title="Pick a different folder or reconnect after permission loss"
+	>Change folder</button>
+	{#if appState.folder.status === 'needs-permission'}
+		<button class="btn-nav warn" onclick={changeFolder}>Reconnect folder</button>
+	{/if}
 	{#if appState.folder.status === 'ready'}
 		<span class="folder-badge">{appState.folder.name}/</span>
 	{/if}
@@ -148,6 +198,9 @@ h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--bar-
 }
 .btn-nav:hover { background: var(--bar-hover); color: var(--bar-text); border-color: var(--bar-border-strong); }
 .btn-nav.active { background: var(--bar-text); color: var(--bar-bg); border-color: var(--bar-text); }
+.btn-nav.warn { color: var(--crimson); border-color: var(--crimson); font-weight: 600; }
+.btn-nav.warn:hover { background: var(--crimson); color: #fff; }
+.btn-nav:disabled { opacity: 0.45; cursor: not-allowed; }
 #week-label { font-size: 13px; font-weight: 500; color: var(--bar-text-muted); }
 .spacer { flex: 1; }
 .folder-badge {

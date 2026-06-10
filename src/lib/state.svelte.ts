@@ -7,7 +7,7 @@
 import { parseFile } from './md/parse.js';
 import { toggleTaskDone, toggleChildDone, reorderTasks, reorderCategories, appendTask, addCategoryHeader, removeCategoryHeader } from './md/serialize.js';
 import { extractNotes, setNotes } from './md/notes.js';
-import { readFile, writeFile, listDailyFiles, detectConflicts, readDefaultsFile } from './fs/files.js';
+import { readFile, writeFile, listDailyFiles, detectConflicts, readDefaultsFile, FsError } from './fs/files.js';
 import { parseDefaults, applyDefaults } from './md/defaults.js';
 import type { Task, ChildTask } from './types.js';
 import type { FolderState } from './fs/folder.js';
@@ -83,6 +83,7 @@ export async function refresh(): Promise<void> {
 	appState.loading = true;
 	try {
 		const filenames = await listDailyFiles(d);
+
 		const rawTexts: [string, string | null][] = await Promise.all(
 			filenames.map(async (name) => [name, await readFile(d, name)] as [string, string | null])
 		);
@@ -98,8 +99,14 @@ export async function refresh(): Promise<void> {
 				if (!dateMatch || !text) continue;
 				const updated = applyDefaults(text, defaults, dateMatch[1], appState.defaultsApplied);
 				if (updated !== text) {
-					await writeFile(d, name, updated);
-					entry[1] = updated;
+					try {
+						await writeFile(d, name, updated);
+						entry[1] = updated;
+					} catch (err) {
+						// Non-fatal: file may be temporarily locked (e.g. iCloud sync).
+						// Skip this file's defaults insertion; it will be retried on next refresh.
+						console.warn('[refresh:applyDefaults] skipping locked file', { name, err });
+					}
 				}
 			}
 		}
@@ -123,6 +130,20 @@ export async function refresh(): Promise<void> {
 		appState.notesCache       = notesEntries;
 		appState.backlogHeaders   = backlogH1s;
 		appState.conflicts        = await detectConflicts(d);
+	} catch (err: any) {
+		console.error('[refresh]', err);
+		if (err instanceof FsError && err.reason === 'permission') {
+			// Permission was revoked mid-session — surface the picker overlay.
+			if (appState.folder.status === 'ready') {
+				appState.folder = {
+					status: 'needs-permission',
+					handle: appState.folder.handle,
+					name:   appState.folder.name,
+				};
+			}
+		} else {
+			fail(`Refresh failed: ${err?.message ?? 'unknown error'}`);
+		}
 	} finally {
 		appState.loading = false;
 	}
@@ -170,7 +191,8 @@ export async function moveTask(task: Task, targetFilename: string): Promise<void
 			sourceLines.splice(task.lineRange[0], 1);
 		}
 		await writeFile(d, task.file, sourceLines.join('\n'));
-	} catch {
+	} catch (err) {
+		console.error('[moveTask] source removal failed, rolling back', { task: task.title, targetFilename, err });
 		// Rollback: remove the line we just added to the target.
 		const reread = await readFile(d, targetFilename);
 		if (reread) {
@@ -226,7 +248,7 @@ export async function deleteTask(task: Task): Promise<void> {
 		const updated = lines.join('\n');
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
-	} catch { fail('Could not delete task — check file permissions.'); }
+	} catch (err) { console.error('[deleteTask]', err); fail('Could not delete task — check file permissions.'); }
 }
 
 /**
@@ -313,7 +335,7 @@ export async function toggleTask(task: Task): Promise<void> {
 		const updated = toggleTaskDone(current, task);
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
-	} catch { fail('Could not save checkbox — check file permissions.'); }
+	} catch (err) { console.error('[toggleTask]', err); fail('Could not save checkbox — check file permissions.'); }
 }
 
 /**
@@ -395,7 +417,7 @@ export async function toggleChild(task: Task, child: ChildTask): Promise<void> {
 		const updated = toggleChildDone(current, child);
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
-	} catch { fail('Could not save subtask — check file permissions.'); }
+	} catch (err) { console.error('[toggleChild]', err); fail('Could not save subtask — check file permissions.'); }
 }
 
 /**
