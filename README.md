@@ -134,6 +134,25 @@ If the app shows empty columns or a missing Backlog after a reload, click **Chan
 
 **iCloud users**: files being actively synced by iCloud are temporarily locked. The app skips applying recurring defaults to locked files and retries on the next focus — you will not lose data or see stale tasks as a result.
 
+## Troubleshooting
+
+### App loads with no data after a deploy
+
+**Symptom:** columns are empty, "Refresh failed" toast appears with a file-modification error, re-picking the folder does not fix it.
+
+**Cause:** the PWA service worker is serving a stale cached bundle that predates a deployed fix. A normal reload does not always swap the SW-cached assets — you are running old code against a new deploy.
+
+**Fix (30 seconds):**
+1. DevTools → Application → **Service Workers → Unregister**.
+2. DevTools → Application → **Storage → Clear site data**.
+3. Hard reload (Cmd+Shift+R) and re-pick your folder.
+
+This clears only cached app assets — your `.md` files are untouched.
+
+### Edits not saving
+
+If task check/uncheck or text edits do not appear in your `.md` files after a save attempt, the folder may have lost write permission. Click **Reconnect folder** in the topbar. If that does not help, hard reload and re-pick the folder — this discards a stale file handle that may have accumulated OS-level locks across deploys.
+
 ## Data
 
 Source of truth is your local Markdown files. The app holds an in-memory cache rebuilt from disk on every window focus and after every write. Deleting the app or clearing browser data does not affect your files.
