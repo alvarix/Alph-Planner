@@ -12,12 +12,12 @@
 export class FsError extends Error {
 	constructor(
 		/** Reason category for programmatic branching. */
-		public readonly reason: 'not-found' | 'permission' | 'io',
+		public readonly reason: "not-found" | "permission" | "locked" | "io",
 		message: string,
-		options?: ErrorOptions
+		options?: ErrorOptions,
 	) {
 		super(message, options);
-		this.name = 'FsError';
+		this.name = "FsError";
 	}
 }
 
@@ -27,13 +27,28 @@ export class FsError extends Error {
  */
 function classifyError(err: unknown): FsError {
 	const e = err as any;
-	if (e?.name === 'NotAllowedError' || e?.name === 'SecurityError') {
-		return new FsError('permission', 'File system permission denied', { cause: e });
+	if (e?.name === "NotAllowedError" || e?.name === "SecurityError") {
+		return new FsError("permission", "File system permission denied", {
+			cause: e,
+		});
 	}
-	if (e?.name === 'NotFoundError') {
-		return new FsError('not-found', 'File not found', { cause: e });
+	if (e?.name === "NotFoundError") {
+		return new FsError("not-found", "File not found", { cause: e });
 	}
-	return new FsError('io', e?.message ?? 'Unknown file system error', { cause: e });
+	// NoModificationAllowedError: Chrome throws this when iCloud has locked a file
+	// or when the filesystem entry cannot be written (e.g. stale PWA handle).
+	// InvalidStateError: Chromium may throw this on a stale writable stream.
+	if (
+		e?.name === "NoModificationAllowedError" ||
+		e?.name === "InvalidStateError"
+	) {
+		return new FsError("locked", "File temporarily locked or inaccessible", {
+			cause: e,
+		});
+	}
+	return new FsError("io", e?.message ?? "Unknown file system error", {
+		cause: e,
+	});
 }
 
 /**
@@ -47,16 +62,16 @@ function classifyError(err: unknown): FsError {
  */
 export async function readFile(
 	dir: FileSystemDirectoryHandle,
-	filename: string
+	filename: string,
 ): Promise<string | null> {
 	try {
-		const fh   = await dir.getFileHandle(filename);
+		const fh = await dir.getFileHandle(filename);
 		const file = await fh.getFile();
 		return await file.text();
 	} catch (err: any) {
 		const fsErr = classifyError(err);
-		if (fsErr.reason === 'not-found') return null;
-		console.error('[readFile]', { filename, reason: fsErr.reason, err });
+		if (fsErr.reason === "not-found") return null;
+		console.error("[readFile]", { filename, reason: fsErr.reason, err });
 		throw fsErr;
 	}
 }
@@ -69,19 +84,35 @@ export async function readFile(
  * @param filename - Bare filename.
  * @param content  - Full file text to write.
  */
+/** Max retries and delay (ms) for transient locked-file errors (e.g. iCloud sync). */
+const WRITE_MAX_RETRIES = 2;
+const WRITE_RETRY_DELAY_MS = 800;
+
 export async function writeFile(
 	dir: FileSystemDirectoryHandle,
 	filename: string,
-	content: string
+	content: string,
+	_attempt = 0,
 ): Promise<void> {
 	try {
-		const fh     = await dir.getFileHandle(filename, { create: true });
+		const fh = await dir.getFileHandle(filename, { create: true });
 		const stream = await fh.createWritable();
 		await stream.write(content);
 		await stream.close();
 	} catch (err: any) {
-		console.error('[writeFile]', { filename, reason: classifyError(err).reason, err });
-		throw classifyError(err);
+		const fsErr = classifyError(err);
+		// Retry transient locks (iCloud sync) before giving up.
+		if (fsErr.reason === "locked" && _attempt < WRITE_MAX_RETRIES) {
+			await new Promise((r) => setTimeout(r, WRITE_RETRY_DELAY_MS));
+			return writeFile(dir, filename, content, _attempt + 1);
+		}
+		console.error("[writeFile]", {
+			filename,
+			reason: fsErr.reason,
+			attempt: _attempt,
+			err,
+		});
+		throw fsErr;
 	}
 }
 
@@ -92,16 +123,21 @@ export async function writeFile(
  *
  * @param dir - Directory handle.
  */
-export async function listDailyFiles(dir: FileSystemDirectoryHandle): Promise<string[]> {
+export async function listDailyFiles(
+	dir: FileSystemDirectoryHandle,
+): Promise<string[]> {
 	const names: string[] = [];
 	try {
 		for await (const [name] of dir.entries()) {
-			if (/^\d{4}-\d{2}-\d{2}\.md$/.test(name) || name === 'Backlog.md') {
+			if (/^\d{4}-\d{2}-\d{2}\.md$/.test(name) || name === "Backlog.md") {
 				names.push(name);
 			}
 		}
 	} catch (err: any) {
-		console.error('[listDailyFiles]', { reason: classifyError(err).reason, err });
+		console.error("[listDailyFiles]", {
+			reason: classifyError(err).reason,
+			err,
+		});
 		throw classifyError(err);
 	}
 	return names.sort();
@@ -113,8 +149,10 @@ export async function listDailyFiles(dir: FileSystemDirectoryHandle): Promise<st
  *
  * @param dir - Directory handle (the folder the user opened in the app).
  */
-export async function readDefaultsFile(dir: FileSystemDirectoryHandle): Promise<string | null> {
-	return readFile(dir, 'Defaults.md');
+export async function readDefaultsFile(
+	dir: FileSystemDirectoryHandle,
+): Promise<string | null> {
+	return readFile(dir, "Defaults.md");
 }
 
 /**
@@ -123,14 +161,19 @@ export async function readDefaultsFile(dir: FileSystemDirectoryHandle): Promise<
  *
  * @param dir - Directory handle.
  */
-export async function detectConflicts(dir: FileSystemDirectoryHandle): Promise<string[]> {
+export async function detectConflicts(
+	dir: FileSystemDirectoryHandle,
+): Promise<string[]> {
 	const conflicts: string[] = [];
 	try {
 		for await (const [name] of dir.entries()) {
 			if (/\(.*\)\.md$/.test(name)) conflicts.push(name);
 		}
 	} catch (err: any) {
-		console.warn('[detectConflicts]', { reason: classifyError(err).reason, err });
+		console.warn("[detectConflicts]", {
+			reason: classifyError(err).reason,
+			err,
+		});
 		// Non-fatal: return empty rather than crashing refresh.
 	}
 	return conflicts;
