@@ -3,7 +3,7 @@
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
-	import { restoreFolder, pickFolder } from '$lib/fs/folder.js';
+	import { restoreFolder, pickFolder, forgetFolder } from '$lib/fs/folder.js';
 	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady } from '$lib/state.svelte.js';
 	import type { Task } from '$lib/types.js';
 	import FolderPicker from '$lib/components/FolderPicker.svelte';
@@ -81,18 +81,51 @@
 
 	/**
 	 * Open the native folder picker so the user can reselect or reconnect
-	 * their daily folder. Always available — works as first-time setup too.
+	 * their daily folder. Probes the handle before showing the grid — if the
+	 * probe fails (iCloud Drive / stale PWA), keeps the button visible and
+	 * shows an actionable error toast instead of flashing a blank grid.
 	 */
 	async function changeFolder() {
 		const result = await pickFolder();
-		appState.folder = result;
-		if (result.status === 'ready') {
-			await refresh();
-			// If refresh failed back to needs-permission, the folder is inaccessible
-			// even with a fresh handle — likely an iCloud Drive / Chrome issue.
-			if (appState.folder.status === 'needs-permission') {
-				appState.lastError = 'Could not access folder after reconnecting. Your files may be on iCloud Drive — try a local folder, or restart Chrome.';
-			}
+		if (result.status !== 'ready') {
+			appState.folder = result;
+			return;
+		}
+		const handle = result.handle;
+
+		// Probe: create + delete a temp file to verify the handle is actually
+		// usable. Chrome may throw NoModificationAllowedError here when the
+		// folder lives on iCloud Drive or when the PWA handle is stale.
+		let probeOk = false;
+		const probeName = `_alph_probe_${Date.now()}.tmp`;
+		try {
+			await handle.getFileHandle(probeName, { create: true });
+			await handle.removeEntry(probeName);
+			probeOk = true;
+		} catch {
+			// Clean up the probe file in case it was created but deletion failed.
+			try { await handle.removeEntry(probeName); } catch {}
+		}
+
+		if (!probeOk) {
+			// Handle is broken — clear the stored handle so on next load the
+			// app starts fresh instead of restoring a known-bad handle.
+			await forgetFolder();
+			appState.folder = {
+				status: 'needs-permission',
+				handle,
+				name:   result.name,
+			};
+			appState.lastError = 'Could not access folder. If your files are on iCloud Drive, Chrome does not support it — move them to a local folder.';
+			return;
+		}
+
+		// Handle is good — transition and refresh.
+		appState.folder = { status: 'ready', handle, name: result.name };
+		await refresh();
+		const folderStatus: string | undefined = appState.folder.status;
+		if (folderStatus === 'needs-permission') {
+			appState.lastError = 'Could not access folder after reconnecting. Your files may be on iCloud Drive — try a local folder, or restart Chrome.';
 		}
 	}
 

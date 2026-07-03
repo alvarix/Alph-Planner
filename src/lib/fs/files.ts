@@ -124,8 +124,8 @@ export async function writeFile(
  * @param dir - Directory handle.
  */
 /** Max retries for directory iteration (iCloud eviction stalls). */
-const DIR_MAX_RETRIES    = 3;
-const DIR_RETRY_DELAY_MS = 600;
+const DIR_MAX_RETRIES    = 1;
+const DIR_RETRY_DELAY_MS = 500;
 
 export async function listDailyFiles(
 	dir: FileSystemDirectoryHandle,
