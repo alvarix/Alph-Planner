@@ -54,9 +54,10 @@
 	 * Re-check FSAA permission on every window focus.
 	 * queryPermission() does not require a user gesture, so this is safe.
 	 * The isRefreshing guard prevents concurrent calls on rapid tab-switching.
+	 * Does NOT overwrite a needs-permission state — the user must reconnect explicitly.
 	 */
 	async function handleFocus() {
-		if (isRefreshing) return;
+		if (isRefreshing || appState.folder.status === 'needs-permission') return;
 		isRefreshing = true;
 		try {
 			const state = await restoreFolder();
@@ -85,7 +86,14 @@
 	async function changeFolder() {
 		const result = await pickFolder();
 		appState.folder = result;
-		if (result.status === 'ready') await refresh();
+		if (result.status === 'ready') {
+			await refresh();
+			// If refresh failed back to needs-permission, the folder is inaccessible
+			// even with a fresh handle — likely an iCloud Drive / Chrome issue.
+			if (appState.folder.status === 'needs-permission') {
+				appState.lastError = 'Could not access folder after reconnecting. Your files may be on iCloud Drive — try a local folder, or restart Chrome.';
+			}
+		}
 	}
 
 	function handleKeydown(e: KeyboardEvent) {

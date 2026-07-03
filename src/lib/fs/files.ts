@@ -123,8 +123,13 @@ export async function writeFile(
  *
  * @param dir - Directory handle.
  */
+/** Max retries for directory iteration (iCloud eviction stalls). */
+const DIR_MAX_RETRIES    = 3;
+const DIR_RETRY_DELAY_MS = 600;
+
 export async function listDailyFiles(
 	dir: FileSystemDirectoryHandle,
+	_attempt = 0,
 ): Promise<string[]> {
 	const names: string[] = [];
 	try {
@@ -134,11 +139,17 @@ export async function listDailyFiles(
 			}
 		}
 	} catch (err: any) {
+		const fsErr = classifyError(err);
+		if (fsErr.reason === "locked" && _attempt < DIR_MAX_RETRIES) {
+			await new Promise((r) => setTimeout(r, DIR_RETRY_DELAY_MS));
+			return listDailyFiles(dir, _attempt + 1);
+		}
 		console.error("[listDailyFiles]", {
-			reason: classifyError(err).reason,
+			reason: fsErr.reason,
+			attempt: _attempt,
 			err,
 		});
-		throw classifyError(err);
+		throw fsErr;
 	}
 	return names.sort();
 }
@@ -163,6 +174,7 @@ export async function readDefaultsFile(
  */
 export async function detectConflicts(
 	dir: FileSystemDirectoryHandle,
+	_attempt = 0,
 ): Promise<string[]> {
 	const conflicts: string[] = [];
 	try {
@@ -170,8 +182,14 @@ export async function detectConflicts(
 			if (/\(.*\)\.md$/.test(name)) conflicts.push(name);
 		}
 	} catch (err: any) {
+		const fsErr = classifyError(err);
+		if (fsErr.reason === "locked" && _attempt < DIR_MAX_RETRIES) {
+			await new Promise((r) => setTimeout(r, DIR_RETRY_DELAY_MS));
+			return detectConflicts(dir, _attempt + 1);
+		}
 		console.warn("[detectConflicts]", {
-			reason: classifyError(err).reason,
+			reason: fsErr.reason,
+			attempt: _attempt,
 			err,
 		});
 		// Non-fatal: return empty rather than crashing refresh.
