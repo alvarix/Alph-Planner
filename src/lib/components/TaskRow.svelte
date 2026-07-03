@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, addSubtask } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask } from '$lib/state.svelte.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -29,6 +29,12 @@
 	let editing         = $state(false);
 	let editValue       = $state('');
 	let editInputEl:    HTMLInputElement;
+	let editingDur      = $state(false);
+	let editDurValue    = $state('');
+	let editDurEl:      HTMLInputElement;
+	let editingChildIdx = $state<number | null>(null);
+	let editChildValue  = $state('');
+	let editChildEl:    HTMLInputElement;
 	let addingSubtask   = $state(false);
 	let newSubtaskValue = $state('');
 	let newSubtaskEl:   HTMLInputElement;
@@ -63,6 +69,8 @@
 	}
 
 	$effect(() => { if (editing) editInputEl?.focus(); });
+	$effect(() => { if (editingDur) editDurEl?.focus(); });
+	$effect(() => { if (editingChildIdx !== null) editChildEl?.focus(); });
 	$effect(() => { if (addingSubtask) newSubtaskEl?.focus(); });
 
 	const color = $derived(
@@ -71,6 +79,50 @@
 
 	function formatDur(min: number): string {
 		return min % 60 === 0 ? `${min / 60}h` : min >= 60 ? `${(min / 60).toFixed(1)}h` : `${min}m`;
+	}
+
+	function startDurEdit() {
+		editDurValue = task.estimateMin !== null ? String(task.estimateMin) : '';
+		editingDur   = true;
+	}
+
+	async function commitDurEdit() {
+		editingDur = false;
+		const raw = editDurValue.trim();
+		if (!raw) {
+			if (task.estimateMin !== null) await editTaskDuration(task, null);
+			return;
+		}
+		let minutes: number | null = null;
+		const mh = raw.match(/^(\d*\.?\d+)\s*h$/i);
+		const mm = raw.match(/^(\d+)\s*m$/i);
+		if (mh) minutes = Math.round(parseFloat(mh[1]) * 60);
+		else if (mm) minutes = parseInt(mm[1], 10);
+		else if (/^\d+$/.test(raw)) minutes = parseInt(raw, 10);
+		else return;
+		if (minutes !== task.estimateMin) await editTaskDuration(task, minutes);
+	}
+
+	function handleDurKey(e: KeyboardEvent) {
+		if (e.key === 'Enter') { e.preventDefault(); commitDurEdit(); }
+		if (e.key === 'Escape') { editingDur = false; }
+	}
+
+	function startChildEdit(idx: number) {
+		editChildValue  = task.children[idx].title;
+		editingChildIdx = idx;
+	}
+
+	async function commitChildEdit() {
+		const idx = editingChildIdx;
+		editingChildIdx = null;
+		if (idx === null || editChildValue.trim() === '' || editChildValue.trim() === task.children[idx].title) return;
+		await editChildTitle(task, task.children[idx], editChildValue.trim());
+	}
+
+	function handleChildEditKey(e: KeyboardEvent) {
+		if (e.key === 'Enter') { e.preventDefault(); commitChildEdit(); }
+		if (e.key === 'Escape') { editingChildIdx = null; }
 	}
 </script>
 
@@ -108,8 +160,27 @@
 					title="Double-click to edit"
 				>{task.title}</span>
 			{/if}
-			{#if task.estimateMin}
-				<span class="task-dur">{formatDur(task.estimateMin)}</span>
+			{#if editingDur}
+				<input
+					bind:this={editDurEl}
+					bind:value={editDurValue}
+					class="edit-dur-input"
+					onkeydown={handleDurKey}
+					onblur={commitDurEdit}
+				/>
+			{:else if task.estimateMin}
+				<span
+					class="task-dur"
+					ondblclick={startDurEdit}
+					title="Double-click to edit duration"
+				>{formatDur(task.estimateMin)}</span>
+			{/if}
+			{#if !task.estimateMin && !editingDur}
+				<span
+					class="task-dur-empty"
+					ondblclick={startDurEdit}
+					title="Double-click to set duration"
+				></span>
 			{/if}
 		</div>
 	</div>
@@ -117,10 +188,23 @@
 	<!-- Subtask preview: always visible when children exist -->
 	{#if task.children.length > 0}
 		<ul class="subtask-preview">
-			{#each task.children as child}
+			{#each task.children as child, idx}
 				<li class:done={child.done}>
 					<input type="checkbox" checked={child.done} onchange={() => toggleChild(task, child)} />
-					<span>{child.title}</span>
+					{#if editingChildIdx === idx}
+						<input
+							bind:this={editChildEl}
+							bind:value={editChildValue}
+							class="edit-child-input"
+							onkeydown={handleChildEditKey}
+							onblur={commitChildEdit}
+						/>
+					{:else}
+						<span
+							ondblclick={() => startChildEdit(idx)}
+							title="Double-click to edit"
+						>{child.title}</span>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -213,7 +297,24 @@
 	box-shadow: 0 0 0 2px #00000012;
 }
 
-.task-dur { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
+.task-dur { font-size: 10px; color: var(--text-muted); flex-shrink: 0; cursor: pointer; }
+.task-dur:hover { color: var(--text); }
+.task-dur-empty {
+	display: inline-block; width: 24px; height: 14px; flex-shrink: 0;
+	cursor: pointer; opacity: 0;
+}
+.task-item:hover .task-dur-empty { opacity: .3; }
+.task-dur-empty:hover { opacity: .6 !important; }
+.edit-dur-input {
+	font-size: 10px; border: 1px solid var(--border-input);
+	border-radius: 3px; padding: 1px 4px; outline: none;
+	box-shadow: 0 0 0 2px #00000012; width: 32px; flex-shrink: 0;
+}
+.edit-child-input {
+	flex: 1; font-size: 11px; border: 1px solid var(--border-input);
+	border-radius: 3px; padding: 1px 5px; outline: none;
+	box-shadow: 0 0 0 2px #00000012;
+}
 
 /* Subtask preview */
 .subtask-preview {

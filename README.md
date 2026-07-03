@@ -48,6 +48,8 @@ Use the **+** button in the backlog header to add a task directly to `Backlog.md
 | Check / uncheck | Checkbox |
 | Star / unstar | ★ button (shows on hover) |
 | Edit title | Double-click the title |
+| Edit duration | Double-click the time badge (e.g. `1h`) — accepts `2h`, `30m`, bare minutes like `90`, or empty to clear |
+| Edit subtask | Double-click the subtask title |
 | Delete | ✕ button (shows on hover) → confirm with **del** |
 
 ## Keyboard shortcuts
