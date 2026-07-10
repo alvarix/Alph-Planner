@@ -23,4 +23,6 @@ export interface Task {
 	children: ChildTask[];
 	/** Original parent line verbatim — used for round-trip write-back. */
 	raw: string;
+	/** True when this task was auto-inserted from Defaults.md. */
+	fromDefaults?: boolean;
 }

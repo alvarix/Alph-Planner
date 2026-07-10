@@ -9,6 +9,7 @@
 		section,
 		allTasks,
 		fileHeaders,
+		todayFilename = null,
 		dragFromIndex    = $bindable<number | null>(null),
 		dragOverIndex    = $bindable<number | null>(null),
 		catDragFromIndex = $bindable<number | null>(null),
@@ -26,6 +27,7 @@
 		section:           { category: string | null; tasks: Task[] };
 		allTasks:          Task[];
 		fileHeaders:       string[];
+		todayFilename?:    string | null;
 		dragFromIndex?:    number | null;
 		dragOverIndex?:    number | null;
 		catDragFromIndex?: number | null;
@@ -143,6 +145,7 @@
 			{task}
 			colorIndex={colorIndexOf ? colorIndexOf(task) : null}
 			minHeight={height ?? null}
+			{todayFilename}
 			ondragstart={(e, t) => {
 				dragFromIndex = globalIndex;
 				e.dataTransfer?.setData('text/plain', t.title);

@@ -141,6 +141,28 @@ export async function refresh(): Promise<void> {
 		appState.cache = Object.fromEntries(
 			rawTexts.map(([name, text]) => [name, text ? parseFile(text, name) : []]),
 		);
+
+		// ── Mark default-inserted tasks so they can be excluded from overdue ──
+		if (defaultsText) {
+			const defaults = parseDefaults(defaultsText);
+			const defaultsTemplateLines = new Set<string>();
+			for (const cadence of ["weekly", "monthlyStart", "monthlyEnd"] as const) {
+				for (const lines of Object.values(defaults[cadence])) {
+					for (const line of lines) {
+						defaultsTemplateLines.add(line.trim());
+					}
+				}
+			}
+			if (defaultsTemplateLines.size > 0) {
+				for (const tasks of Object.values(appState.cache)) {
+					for (const task of tasks) {
+						if (defaultsTemplateLines.has(task.raw.trim())) {
+							task.fromDefaults = true;
+						}
+					}
+				}
+			}
+		}
 		const headers: Record<string, string[]> = Object.fromEntries(
 			rawTexts.map(([name, text]) => [name, text ? extractH1s(text) : []]),
 		);
@@ -691,8 +713,67 @@ export async function saveNotes(filename: string, text: string): Promise<void> {
 }
 
 /**
+ * Complete a backlog task: toggle it to done, remove it from Backlog.md,
+ * and append it as a checked item to today's daily file.
+ * Writes target first, then removes from source.
+ *
+ * @param task          - The backlog task to complete.
+ * @param todayFilename - Today's daily file, e.g. "2026-07-10.md".
+ */
+export async function completeBacklogTask(
+	task: Task,
+	todayFilename: string,
+): Promise<void> {
+	const d = dir();
+	if (!d || task.file !== "Backlog.md") return;
+
+	try {
+		const backlogContent = await readFile(d, "Backlog.md");
+		if (!backlogContent) return;
+
+		const lines = backlogContent.split("\n");
+
+		// Toggle the parent line to [x] in the local copy.
+		lines[task.lineRange[0]] = lines[task.lineRange[0]].replace(
+			/\[\s\]/,
+			"[x]",
+		);
+
+		// Build the checked block (parent + children).
+		const childLines = task.children.map((c) => c.raw);
+		const checkedBlock = [lines[task.lineRange[0]], ...childLines].join("\n");
+
+		// 1. Append checked block to today's file.
+		const todayContent =
+			(await readFile(d, todayFilename)) ?? NEW_DAILY_TEMPLATE;
+		const todayUpdated = appendTask(todayContent, checkedBlock, task.category);
+		await writeFile(d, todayFilename, todayUpdated);
+
+		// 2. Remove the task block from Backlog.md.
+		lines.splice(task.lineRange[0], task.lineRange[1] - task.lineRange[0] + 1);
+		await writeFile(d, "Backlog.md", lines.join("\n"));
+
+		// 3. Refresh both caches.
+		const [newToday, newBacklog] = await Promise.all([
+			readFile(d, todayFilename),
+			readFile(d, "Backlog.md"),
+		]);
+		if (newToday)
+			appState.cache[todayFilename] = parseFile(newToday, todayFilename);
+		if (newBacklog)
+			appState.cache["Backlog.md"] = parseFile(newBacklog, "Backlog.md");
+	} catch (err) {
+		console.error("[completeBacklogTask]", err);
+		fail(
+			"Could not complete backlog task — try the Sync button or reconnect the folder.",
+		);
+	}
+}
+
+/**
  * Return all unchecked tasks from past-dated files (overdue items).
- * These also appear in the backlog rail with a red date tag.
+ * Default-inserted tasks are excluded — they belong to their scheduled
+ * period, not the past.
  *
  * @param todayISO - Today's date as "YYYY-MM-DD".
  */
@@ -702,5 +783,5 @@ export function overdueTasks(todayISO: string): Task[] {
 			const m = name.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
 			return m && m[1] < todayISO;
 		})
-		.flatMap(([, tasks]) => tasks.filter((t) => !t.done));
+		.flatMap(([, tasks]) => tasks.filter((t) => !t.done && !t.fromDefaults));
 }

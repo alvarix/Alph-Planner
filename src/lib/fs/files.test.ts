@@ -45,15 +45,18 @@ function mockDir(
 	if (opts.getFileHandle) {
 		dir.getFileHandle = vi.fn(opts.getFileHandle) as any;
 	} else {
-		dir.getFileHandle = vi.fn(() => ({
-			getFile: () => ({ text: async () => "content" }),
-			createWritable:
-				opts.createWritable ??
-				(() => {
-					const stream = { write: vi.fn(), close: vi.fn() };
-					return stream;
-				}),
-		}) as any);
+		dir.getFileHandle = vi.fn(
+			() =>
+				({
+					getFile: () => ({ text: async () => "content" }),
+					createWritable:
+						opts.createWritable ??
+						(() => {
+							const stream = { write: vi.fn(), close: vi.fn() };
+							return stream;
+						}),
+				}) as any,
+		);
 	}
 
 	if (opts.removeEntry) {
@@ -75,13 +78,10 @@ async function* entriesFrom(names: string[]): AsyncIterable<[string]> {
  * This makes retry delays resolve immediately without fake timers.
  */
 function stubSyncTimeout() {
-	vi.stubGlobal(
-		"setTimeout",
-		(fn: () => void) => {
-			fn();
-			return 1 as any;
-		},
-	);
+	vi.stubGlobal("setTimeout", (fn: () => void) => {
+		fn();
+		return 1 as any;
+	});
 }
 
 // ── FsError ────────────────────────────────────────────────────────────

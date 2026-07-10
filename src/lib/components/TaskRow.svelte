@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeBacklogTask } from '$lib/state.svelte.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -15,12 +15,14 @@
 		task,
 		colorIndex = null,
 		minHeight  = null,
+		todayFilename = null,
 		ondragstart,
 		ondragend,
 	}: {
 		task: Task;
 		colorIndex?: number | null;
 		minHeight?:  number | null;
+		todayFilename?: string | null;
 		ondragstart?: (e: DragEvent, task: Task) => void;
 		ondragend?:   (e: DragEvent) => void;
 	} = $props();
@@ -142,7 +144,13 @@
 	<!-- Main row: handle + checkbox + title + duration -->
 	<div class="task-main">
 		<span class="drag-handle">&#8942;&#8942;</span>
-		<input type="checkbox" checked={task.done} onchange={() => toggleTask(task)} />
+		<input type="checkbox" checked={task.done} onchange={() => {
+			if (task.file === 'Backlog.md' && !task.done && todayFilename) {
+				completeBacklogTask(task, todayFilename);
+			} else {
+				toggleTask(task);
+			}
+		}} />
 		<div class="task-body">
 			{#if editing}
 				<input

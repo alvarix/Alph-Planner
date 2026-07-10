@@ -195,6 +195,7 @@
 			{#each overdue as task}
 				<TaskRow
 					{task}
+					{todayFilename}
 					ondragstart={(e, t) => { e.dataTransfer?.setData('text/plain', t.title); ondragstart?.(t); }}
 				/>
 			{/each}
@@ -219,6 +220,7 @@
 				{section}
 				allTasks={backlog}
 				{fileHeaders}
+				{todayFilename}
 				bind:dragFromIndex
 				bind:dragOverIndex
 				bind:catDragFromIndex
