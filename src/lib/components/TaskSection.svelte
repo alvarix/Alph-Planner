@@ -119,7 +119,7 @@
 
 {#if !section.category || !isCatFolded(section.category)}
 <div transition:slide={{ duration: 150 }}>
-{#each section.tasks as task}
+{#each section.tasks as task (task.file + ':' + task.lineRange[0])}
 	{@const globalIndex = allTasks.indexOf(task)}
 	{@const height = minHeightFor ? minHeightFor(task) : undefined}
 	<div

@@ -38,6 +38,10 @@
 		addingCat  = false;
 	}
 
+	function handleTaskListDblClick(e: MouseEvent) {
+		if (e.target === e.currentTarget) addingOpen = true;
+	}
+
 	function handleCatKey(e: KeyboardEvent) {
 		if (e.key === 'Enter') { e.preventDefault(); submitCat(); }
 		if (e.key === 'Escape') { addingCat = false; newCatName = ''; }
@@ -152,11 +156,11 @@
 	{/if}
 
 	<!-- Tasks -->
-	<div class="task-list" class:hidden={notesOpen}>
+	<div class="task-list" class:hidden={notesOpen} ondblclick={handleTaskListDblClick}>
 		{#if tasks.length === 0 && dayFileHeaders.length === 0}
 			<div class="empty-day">no tasks</div>
 		{:else}
-			{#each sections as section}
+			{#each sections as section (section.category ?? '__none__')}
 				<TaskSection
 					{filename}
 					{section}

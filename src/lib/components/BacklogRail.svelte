@@ -192,7 +192,7 @@
 	<div class="rail-list">
 		{#if overdue.length > 0}
 			<div class="section-head overdue-head">Overdue</div>
-			{#each overdue as task}
+			{#each overdue as task (task.file + ':' + task.lineRange[0])}
 				<TaskRow
 					{task}
 					{todayFilename}
@@ -214,7 +214,7 @@
 			}}
 		></div>
 
-		{#each backlogSections as section}
+		{#each backlogSections as section (section.category ?? '__none__')}
 			<TaskSection
 				filename="Backlog.md"
 				{section}

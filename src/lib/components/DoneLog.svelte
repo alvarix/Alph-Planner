@@ -35,10 +35,10 @@
 		{#if groups.length === 0}
 			<div class="done-empty">No completed tasks in the last 30 days.</div>
 		{:else}
-			{#each groups as group}
+			{#each groups as group (group.date)}
 				<div class="done-group">
 					<div class="done-date">{formatDate(group.date)}</div>
-					{#each group.tasks as task}
+					{#each group.tasks as task (task.file + ':' + task.lineRange[0])}
 						<div class="done-row">
 							<span class="done-check">&#10003;</span>
 							<span class="done-title" class:starred={task.starred}>{task.title}</span>
