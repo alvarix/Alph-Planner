@@ -305,6 +305,35 @@ export async function addTask(
 }
 
 /**
+ * Add a task to a file, creating the category H1 header if it doesn't exist.
+ * Used by the colon-shortcut input: `PP: drawing` ensures `# PP` exists before
+ * appending the task line under it.
+ *
+ * @param filename - Target file, e.g. "2026-05-12.md".
+ * @param category - Category name, e.g. "PP".
+ * @param taskLine - Built markdown line, e.g. "- [ ] **drawing** 1h".
+ */
+export async function addTaskWithCategory(
+	filename: string,
+	category: string,
+	taskLine: string,
+): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	let current = (await readFile(d, filename)) ?? NEW_DAILY_TEMPLATE;
+	if (!extractH1s(current).includes(category)) {
+		current = addCategoryHeader(current, category);
+	}
+	const updated = appendTask(current, taskLine, category);
+	await writeFile(d, filename, updated);
+	appState.cache[filename] = parseFile(updated, filename);
+	appState.fileHeaders[filename] = extractH1s(updated);
+	if (filename === "Backlog.md") {
+		appState.backlogHeaders = appState.fileHeaders[filename];
+	}
+}
+
+/**
  * Delete a task (parent + all children) from its file.
  */
 export async function deleteTask(task: Task): Promise<void> {

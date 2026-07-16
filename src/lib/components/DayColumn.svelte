@@ -13,12 +13,14 @@
 		ondragTaskStart,
 		externalDragTask = null,
 		openSignal       = 0,
+		colonEnabled     = true,
 	}: {
 		day:               WeekDay;
 		tasks:             Task[];
 		ondragTaskStart?:  (task: Task) => void;
 		externalDragTask?: Task | null;
 		openSignal?:       number;
+		colonEnabled?:      boolean;
 	} = $props();
 
 	let dragOver         = $state(false);
@@ -144,6 +146,19 @@
 		<div class="day-dn">{day.label}</div>
 		<div class="day-date-num">{day.date}</div>
 		<div class="day-total">{formatTotal(totalMin)}</div>
+		<button
+			class="btn-obsidian"
+			title="Open in Obsidian"
+			onclick={() => {
+				const vault = appState.folder.status === 'ready' ? appState.folder.name : '';
+				if (vault) window.open(`obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(filename)}`, '_blank');
+			}}
+		>
+			<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+				<polyline points="14 2 14 8 20 8"/>
+			</svg>
+		</button>
 	</div>
 
 	<!-- Notes panel (full height, replaces task list) -->
@@ -188,6 +203,7 @@
 		{#if addingOpen}
 			<NewTaskInput
 				filename={day.iso + '.md'}
+				{colonEnabled}
 				onclose={() => (addingOpen = false)}
 			/>
 		{:else if addingCat}
@@ -233,7 +249,15 @@
 
 .day-head {
 	padding: 8px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+	position: relative;
 }
+.btn-obsidian {
+	position: absolute; top: 6px; right: 6px;
+	padding: 3px; border: none; border-radius: 4px;
+	background: none; cursor: pointer; color: var(--text-faint);
+	line-height: 1; display: flex; align-items: center;
+}
+.btn-obsidian:hover { color: var(--text-muted); background: var(--bg); }
 .day-col.today .day-head { border-bottom: 2px solid var(--crimson); }
 
 .day-dn {

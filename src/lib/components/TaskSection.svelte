@@ -3,6 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import TaskRow from './TaskRow.svelte';
 	import { reorderFileTasks, reorderFileCategories, moveToCategoryInFile, deleteCategoryFromFile } from '$lib/state.svelte.js';
+	import { catBg, catText } from '$lib/ui/categoryColors.svelte.js';
 
 	let {
 		filename,
@@ -67,6 +68,7 @@
 		class="section-head"
 		draggable="true"
 		class:drag-over-section={sectionDragOver === section.category}
+		style={section.category ? `--cat-bg: ${catBg(section.category, fileHeaders)}; --cat-text: ${catText(section.category, fileHeaders)}` : ''}
 		ondragstart={(e) => {
 			catDragFromIndex = fileIdx;
 			e.dataTransfer?.setData('application/cat', section.category!);
@@ -167,9 +169,9 @@
 .section-head {
 	padding: 4px 8px 3px;
 	font-size: 10px; font-weight: 700; text-transform: uppercase;
-	letter-spacing: .5px; color: var(--text-muted);
+	letter-spacing: .5px; color: var(--cat-text, var(--text-muted));
 	border-bottom: 1px solid var(--border);
-	background: var(--bg);
+	background: var(--cat-bg, var(--bg));
 	display: flex; align-items: center; gap: 4px;
 	cursor: grab;
 }

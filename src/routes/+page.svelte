@@ -27,9 +27,11 @@
 	let isRefreshing               = $state(false);
 
 	let hidePast = $state(localStorage.getItem('hidePast') === 'true');
+	let colonCatEnabled = $state(localStorage.getItem('colonCatEnabled') !== 'false');
 	const visibleDays = $derived(hidePast ? weekDays.filter(d => !d.past) : weekDays);
 
 	$effect(() => { localStorage.setItem('hidePast', String(hidePast)); });
+	$effect(() => { localStorage.setItem('colonCatEnabled', String(colonCatEnabled)); });
 
 	function shiftWeek(dir: -1 | 0 | 1) {
 		if (dir === 0) appState.weekOffset = 0;
@@ -161,6 +163,12 @@
 	>Upcoming</button>
 	<button
 		class="btn-nav"
+		class:active={colonCatEnabled}
+		onclick={() => (colonCatEnabled = !colonCatEnabled)}
+		title="Colon shortcut: type PP: task to add under # PP"
+	>Colon</button>
+	<button
+		class="btn-nav"
 		class:active={doneLogOpen}
 		onclick={() => (doneLogOpen = !doneLogOpen)}
 	>Done log</button>
@@ -205,6 +213,7 @@
 					externalDragTask={draggingTask}
 					openSignal={day.today ? todayAddSignal : 0}
 					ondragTaskStart={(t) => (draggingTask = t)}
+					colonEnabled={colonCatEnabled}
 				/>
 			</div>
 		{/each}
