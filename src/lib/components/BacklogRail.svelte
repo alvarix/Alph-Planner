@@ -257,7 +257,7 @@
 
 <style>
 #backlog-rail {
-	width: 176px; flex-shrink: 0;
+	width: 225px; flex-shrink: 0;
 	display: flex; flex-direction: column;
 	background: var(--bg); border-right: 1px solid var(--border);
 	overflow: hidden; transition: box-shadow .12s;
@@ -327,7 +327,6 @@
 }
 .btn-roll:hover { background: var(--surface-muted); }
 
-:global(#backlog-rail .task-item) { padding-right: 38px; }
 :global(#backlog-rail .task-dur) {
 	position: absolute;
 	top: 5px;
