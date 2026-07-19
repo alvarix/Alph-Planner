@@ -22,7 +22,7 @@ Open the same folder in Obsidian and edits appear in the app on the next focus. 
 ```
 
 | Element | Meaning |
-|---|---|
+| --- | --- |
 | `# Category` | Optional H1 section header — tasks below inherit the category |
 | `- [ ] title` | Unchecked task |
 | `- [x] title` | Done task |
@@ -44,7 +44,7 @@ Use the **+** button in the backlog header to add a task directly to `Backlog.md
 ## Task actions
 
 | Action | How |
-|---|---|
+| --- | --- |
 | Check / uncheck | Checkbox |
 | Star / unstar | ★ button (shows on hover) |
 | Edit title | Double-click the title |
@@ -127,7 +127,7 @@ The browser's File System Access API requires permission to read and write your 
 When that happens the app detects it automatically on the next window focus and shows the picker overlay. Three topbar controls are always available:
 
 | Control | When to use |
-|---|---|
+| --- | --- |
 | **Sync** | Re-read all files from disk without leaving the tab (also fires on every window focus) |
 | **Change folder** | Reselect or reconnect your folder — same as the initial setup flow |
 | **Reconnect folder** | Appears in crimson when permission has lapsed — one click to re-grant |
@@ -145,11 +145,50 @@ If the app shows empty columns or a missing Backlog after a reload, click **Chan
 **Cause:** the PWA service worker is serving a stale cached bundle that predates a deployed fix. A normal reload does not always swap the SW-cached assets — you are running old code against a new deploy.
 
 **Fix (30 seconds):**
+
 1. DevTools → Application → **Service Workers → Unregister**.
 2. DevTools → Application → **Storage → Clear site data**.
 3. Hard reload (Cmd+Shift+R) and re-pick your folder.
 
 This clears only cached app assets — your `.md` files are untouched.
+
+### Folder picker keeps re-prompting (cannot select folder)
+
+**Symptom:** you pick a folder, the overlay re-appears, and clicking "Re-grant access" or "Choose folder" just loops. Console shows `NoModificationAllowedError`.
+
+**Common causes and fixes, ordered from fastest to most involved:**
+
+#### Fix 1: Click "Forget folder & start fresh" (in-app)
+
+The FolderPicker now has a red "Forget folder & start fresh" button when it detects a persistent error. This clears the stored handle from IndexedDB and lets you pick a folder from scratch.
+
+#### Fix 2: Clear the stored handle manually
+
+1. Open DevTools (F12)
+2. Application → IndexedDB → `alph-planner-fs` → `handles` → right-click → **Clear**
+3. Reload (Cmd+R) and re-pick your folder
+
+#### Fix 3: Clear all site data
+
+1. DevTools → Application → **Storage → Clear site data**
+2. Reload (Cmd+R) and re-pick your folder
+
+#### Fix 4: Unregister the service worker
+
+1. DevTools → Application → **Service Workers → Unregister**
+2. Clear site data (Fix 3 above)
+3. Hard reload (Cmd+Shift+R)
+
+#### Fix 5: Move files off iCloud Drive
+
+Chrome's File System Access API does not support writing to iCloud Drive folders. If your `.md` files live in an iCloud-synced directory (e.g., `~/Library/Mobile Documents/...`), you must move them to a local folder:
+
+```sh
+mkdir -p ~/Documents/alph-planner-data
+cp ~/Library/Mobile\ Documents/com~apple~CloudDocs/alph-planner/*.md ~/Documents/alph-planner-data/
+```
+
+Then pick `~/Documents/alph-planner-data` in the app. See `docs/bugs/01--folder-reprompt-loop.md` for the full diagnosis.
 
 ### Edits not saving
 

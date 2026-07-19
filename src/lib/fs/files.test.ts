@@ -13,6 +13,7 @@ import {
 	writeFile,
 	listDailyFiles,
 	detectConflicts,
+	classifyFolderError,
 } from "./files.js";
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -434,5 +435,93 @@ describe("readFile", () => {
 			name: "FsError",
 			reason: "locked",
 		});
+	});
+
+	it("retries on NoModificationAllowedError and succeeds", async () => {
+		let calls = 0;
+		const dir = mockDir({
+			getFileHandle: () => {
+				calls++;
+				if (calls < 2) throw domErr("NoModificationAllowedError");
+				return {
+					getFile: () => ({ text: async () => "content" }),
+				} as any;
+			},
+		});
+
+		stubSyncTimeout();
+		await expect(readFile(dir, "test.md")).resolves.toBe("content");
+		vi.unstubAllGlobals();
+
+		expect(calls).toBe(2);
+	});
+
+	it("throws locked after exhausting read retries", async () => {
+		const dir = mockDir({
+			getFileHandle: () => {
+				throw domErr("NoModificationAllowedError");
+			},
+		});
+
+		stubSyncTimeout();
+		await expect(readFile(dir, "test.md")).rejects.toMatchObject({
+			name: "FsError",
+			reason: "locked",
+		});
+		vi.unstubAllGlobals();
+	});
+
+	it("does NOT retry on non-locked errors", async () => {
+		let calls = 0;
+		const dir = mockDir({
+			getFileHandle: () => {
+				calls++;
+				throw domErr("NotAllowedError");
+			},
+		});
+		await expect(readFile(dir, "test.md")).rejects.toMatchObject({
+			reason: "permission",
+		});
+		expect(calls).toBe(1);
+	});
+});
+
+// ── classifyFolderError ────────────────────────────────────────────────
+
+describe("classifyFolderError", () => {
+	it("maps NotAllowedError → permission-denied", () => {
+		expect(classifyFolderError(domErr("NotAllowedError"))).toBe(
+			"permission-denied",
+		);
+	});
+
+	it("maps SecurityError → permission-denied", () => {
+		expect(classifyFolderError(domErr("SecurityError"))).toBe(
+			"permission-denied",
+		);
+	});
+
+	it("maps NoModificationAllowedError → icloud-locked", () => {
+		expect(classifyFolderError(domErr("NoModificationAllowedError"))).toBe(
+			"icloud-locked",
+		);
+	});
+
+	it("maps InvalidStateError → icloud-locked", () => {
+		expect(classifyFolderError(domErr("InvalidStateError"))).toBe(
+			"icloud-locked",
+		);
+	});
+
+	it("maps NotFoundError → unknown (not a folder-level concern)", () => {
+		expect(classifyFolderError(domErr("NotFoundError"))).toBe("unknown");
+	});
+
+	it("maps generic errors → unknown", () => {
+		expect(classifyFolderError(new Error("boom"))).toBe("unknown");
+	});
+
+	it("maps non-Error throws → unknown", () => {
+		expect(classifyFolderError("string throw")).toBe("unknown");
 	});
 });

@@ -21,9 +21,11 @@ import {
 	listDailyFiles,
 	detectConflicts,
 	readDefaultsFile,
+	classifyFolderError,
 	FsError,
 } from "./fs/files.js";
 import { parseDefaults, applyDefaults } from "./md/defaults.js";
+import { clearHandle } from "./fs/handle-store.js";
 import type { Task, ChildTask } from "./types.js";
 import type { FolderState } from "./fs/folder.js";
 
@@ -48,6 +50,10 @@ interface AppState {
 	lastError: string | null;
 	/** Period keys already inserted this session — prevents multi-file insertion. */
 	defaultsApplied: Set<string>;
+	/** Consecutive refresh failures. Reset on successful refresh. */
+	refreshFailCount: number;
+	/** Reason for the last failed refresh (null when last refresh succeeded). */
+	lastRefreshError: import("./fs/folder.js").FolderErrorReason | null;
 }
 
 /** Template written when the app creates a new daily file from scratch. */
@@ -64,6 +70,8 @@ export const appState = $state<AppState>({
 	weekOffset: 0,
 	lastError: null,
 	defaultsApplied: new Set(),
+	refreshFailCount: 0,
+	lastRefreshError: null,
 });
 
 /** Extract all # H1 section names from raw file text. */
@@ -181,21 +189,46 @@ export async function refresh(): Promise<void> {
 		appState.notesCache = notesEntries;
 		appState.backlogHeaders = backlogH1s;
 		appState.conflicts = await detectConflicts(d);
+		// Reset fail counter on successful refresh.
+		appState.refreshFailCount = 0;
+		appState.lastRefreshError = null;
 	} catch (err: any) {
 		console.error("[refresh]", err);
-		if (
-			err instanceof FsError &&
-			(err.reason === "permission" || err.reason === "locked")
-		) {
-			// Permission revoked or handle stale/locked — surface the Reconnect button.
-			// 'locked' fires when iCloud marks a file read-only or a PWA handle goes stale.
+		const reason = classifyFolderError(err);
+		appState.refreshFailCount++;
+		appState.lastRefreshError = reason;
+
+		if (err instanceof FsError && err.reason === "permission") {
+			// Permission genuinely revoked — transition to needs-permission.
 			if (appState.folder.status === "ready") {
 				appState.folder = {
 					status: "needs-permission",
 					handle: appState.folder.handle,
 					name: appState.folder.name,
+					errorReason: reason,
 				};
 			}
+			fail(
+				"Folder permission was revoked. Click Reconnect to re-grant access.",
+			);
+		} else if (appState.folder.status === "ready") {
+			// Non-permission errors (locked, io, etc.): keep the folder as 'ready'
+			// but show an error toast. Do NOT transition to needs-permission —
+			// that creates the infinite re-prompt loop on iCloud Drive folders.
+			// After 3 consecutive failures, offer recovery actions.
+			if (appState.refreshFailCount >= 3) {
+				appState.folder = {
+					status: "needs-permission",
+					handle: appState.folder.handle,
+					name: appState.folder.name,
+					errorReason: reason,
+				};
+			}
+			const hint =
+				reason === "icloud-locked"
+					? " If your files are on iCloud Drive, Chrome cannot write to them — move them to a local folder."
+					: "";
+			fail(`Could not read folder: ${err?.message ?? "unknown error"}.${hint}`);
 		} else {
 			fail(`Refresh failed: ${err?.message ?? "unknown error"}`);
 		}
@@ -813,4 +846,24 @@ export function overdueTasks(todayISO: string): Task[] {
 			return m && m[1] < todayISO;
 		})
 		.flatMap(([, tasks]) => tasks.filter((t) => !t.done && !t.fromDefaults));
+}
+
+/**
+ * Fully reset the folder connection: clear the stored handle from IndexedDB,
+ * wipe the in-memory cache and all refresh error state, and return to the
+ * initial 'none' folder state. Use when the folder handle is irrecoverably
+ * broken (stale PWA handle, iCloud Drive incompatibility).
+ */
+export async function forgetAndResetFolder(): Promise<void> {
+	await clearHandle();
+	appState.folder = { status: "none" };
+	appState.cache = {};
+	appState.fileHeaders = {};
+	appState.notesCache = {};
+	appState.backlogHeaders = [];
+	appState.conflicts = [];
+	appState.refreshFailCount = 0;
+	appState.lastRefreshError = null;
+	appState.lastError = null;
+	appState.defaultsApplied = new Set();
 }

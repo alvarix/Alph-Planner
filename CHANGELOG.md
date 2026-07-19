@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.2] - 2026-07-19
+
+### Fixed
+
+- **Folder re-prompt loop**: the app no longer enters an infinite loop when Chrome throws `NoModificationAllowedError` (iCloud lock, stale PWA handle). The refresh cycle now keeps the folder in `ready` state for non-permission errors, showing an error toast with recovery hints instead of transitioning to `needs-permission` and re-triggering the folder picker. The state machine only asks for reconnection after 3 consecutive failures.
+- **`readFile` missing retry**: `readFile()` now retries transient `locked` errors twice (800 ms apart), matching the existing `writeFile` retry behavior. Previously, a single transient lock during read would abort the entire refresh.
+- **No recovery path for broken handles**: the FolderPicker now shows context-specific recovery guidance based on the error cause (iCloud Drive incompatibility, stale handle, permission denial) and offers three actions: Re-grant access, Retry, and Forget folder & start fresh.
+
+### Added
+
+- `FolderErrorReason` type in `folder.ts` — classifies folder connection failures into `permission-denied`, `icloud-locked`, `stale-handle`, `transient-lock`, or `unknown` for targeted recovery UI
+- `classifyFolderError()` in `files.ts` — maps raw FSAA errors to `FolderErrorReason`
+- `forgetAndResetFolder()` in `state.svelte.ts` — clears the IndexedDB handle and resets all in-memory state, exposed as a "Forget folder" button in the picker
+- `refreshFailCount` and `lastRefreshError` on `AppState` — provide backpressure against rapid failure cycling
+- 10 new unit tests: 3 for `readFile` retry, 7 for `classifyFolderError`
+- Bug documentation: `docs/bugs/01--folder-reprompt-loop.md` with root cause analysis, detection checklist, and 5 manual fix procedures
+- README troubleshooting expanded with ordered fix steps for the re-prompt loop
+
 ## [1.6.1] - 2026-07-02
 
 ### Fixed

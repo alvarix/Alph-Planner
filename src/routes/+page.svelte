@@ -4,7 +4,7 @@
 	import { slide } from 'svelte/transition';
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
 	import { restoreFolder, pickFolder, forgetFolder } from '$lib/fs/folder.js';
-	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady } from '$lib/state.svelte.js';
+	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady, forgetAndResetFolder } from '$lib/state.svelte.js';
 	import type { Task } from '$lib/types.js';
 	import FolderPicker from '$lib/components/FolderPicker.svelte';
 	import DayColumn from '$lib/components/DayColumn.svelte';

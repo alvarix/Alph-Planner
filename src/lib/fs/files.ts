@@ -60,9 +60,14 @@ function classifyError(err: unknown): FsError {
  * @param dir      - Directory handle.
  * @param filename - Bare filename, e.g. "2026-05-12.md".
  */
+/** Max retries and delay (ms) for transient locked-file errors on read. */
+const READ_MAX_RETRIES = 2;
+const READ_RETRY_DELAY_MS = 800;
+
 export async function readFile(
 	dir: FileSystemDirectoryHandle,
 	filename: string,
+	_attempt = 0,
 ): Promise<string | null> {
 	try {
 		const fh = await dir.getFileHandle(filename);
@@ -71,6 +76,11 @@ export async function readFile(
 	} catch (err: any) {
 		const fsErr = classifyError(err);
 		if (fsErr.reason === "not-found") return null;
+		// Retry transient locks (iCloud sync) before giving up.
+		if (fsErr.reason === "locked" && _attempt < READ_MAX_RETRIES) {
+			await new Promise((r) => setTimeout(r, READ_RETRY_DELAY_MS));
+			return readFile(dir, filename, _attempt + 1);
+		}
 		console.error("[readFile]", { filename, reason: fsErr.reason, err });
 		throw fsErr;
 	}
@@ -164,6 +174,22 @@ export async function readDefaultsFile(
 	dir: FileSystemDirectoryHandle,
 ): Promise<string | null> {
 	return readFile(dir, "Defaults.md");
+}
+
+/**
+ * Classify a raw FSAA error into a FolderErrorReason for recovery UI.
+ * Callers in state.svelte.ts use this to set errorReason on FolderState
+ * so FolderPicker can show the right recovery actions.
+ *
+ * @param err - The raw caught value from an FSAA operation.
+ */
+export function classifyFolderError(
+	err: unknown,
+): import("./folder.js").FolderErrorReason {
+	const fsErr = classifyError(err);
+	if (fsErr.reason === "permission") return "permission-denied";
+	if (fsErr.reason === "locked") return "icloud-locked";
+	return "unknown";
 }
 
 /**
