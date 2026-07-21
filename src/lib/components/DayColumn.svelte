@@ -96,7 +96,7 @@
 	});
 
 	const totalMin = $derived(
-		tasks.reduce((s, t) => s + (t.estimateMin ?? 30), 0)
+		tasks.reduce((s, t) => s + (t.estimateMin ?? 45), 0)
 	);
 
 	function formatTotal(min: number): string {
@@ -200,7 +200,7 @@
 					onSectionDrop={dropOnSection}
 					onTaskDragStart={ondragTaskStart}
 					colorIndexOf={(t) => colorMap.get(t) ?? null}
-					minHeightFor={(t) => Math.max(80, 80 + ((t.estimateMin ?? 30) - 30) / 15 * 25)}
+					minHeightFor={(t) => Math.max(40, 40 + ((t.estimateMin ?? 45) - 45) / 15 * 12.5)}
 				/>
 			{/each}
 		{/if}
@@ -266,7 +266,7 @@
 	line-height: 1; display: flex; align-items: center;
 }
 .btn-obsidian:hover { color: var(--text-muted); background: var(--bg); }
-.day-col.today .day-head { border-bottom: 2px solid var(--crimson); }
+.day-col.today .day-head { padding: 5px 10px; border-bottom: 2px solid var(--crimson); }
 
 .day-dn {
 	font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
