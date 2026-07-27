@@ -130,7 +130,8 @@
 
 <div
 	class="task-item"
-	class:done={task.done}
+	class:done={task.status === 'done'}
+	class:in-progress={task.status === 'in-progress'}
 	class:has-color={color}
 	style={[
 		color     ? `border-left: 3px solid ${color.border}; padding-left: 5px;` : '',
@@ -144,13 +145,18 @@
 	<!-- Main row: handle + checkbox + title + duration -->
 	<div class="task-main">
 		<span class="drag-handle">&#8942;&#8942;</span>
-		<input type="checkbox" checked={task.done} onchange={() => {
-			if (task.file === 'Backlog.md' && !task.done && todayFilename) {
-				completeBacklogTask(task, todayFilename);
-			} else {
-				toggleTask(task);
-			}
-		}} />
+		<input
+			type="checkbox"
+			checked={task.status === 'done'}
+			indeterminate={task.status === 'in-progress'}
+			onchange={() => {
+				if (task.file === 'Backlog.md' && task.status !== 'done' && todayFilename) {
+					completeBacklogTask(task, todayFilename);
+				} else {
+					toggleTask(task);
+				}
+			}}
+		/>
 		<div class="task-body">
 			{#if editing}
 				<input
@@ -197,8 +203,13 @@
 	{#if task.children.length > 0}
 		<ul class="subtask-preview">
 			{#each task.children as child, idx}
-				<li class:done={child.done}>
-					<input type="checkbox" checked={child.done} onchange={() => toggleChild(task, child)} />
+				<li class:done={child.status === 'done'} class:in-progress={child.status === 'in-progress'}>
+					<input
+						type="checkbox"
+						checked={child.status === 'done'}
+						indeterminate={child.status === 'in-progress'}
+						onchange={() => toggleChild(task, child)}
+					/>
 					{#if editingChildIdx === idx}
 						<input
 							bind:this={editChildEl}
@@ -275,6 +286,8 @@
 .task-item:hover { background: rgba(0,0,0,.02); }
 .task-item.done { opacity: .55; }
 .task-item.done .task-title { text-decoration: line-through; color: var(--text-muted); }
+.task-item.in-progress { opacity: .85; background: rgba(0,0,0,.03); }
+.task-item.in-progress .task-title { font-style: italic; }
 
 .task-main {
 	display: flex; align-items: flex-start; gap: 6px;
@@ -337,6 +350,7 @@
 }
 .subtask-preview li span { font-size: 11px; color: var(--text-mid); line-height: 1.3; }
 .subtask-preview li.done span { text-decoration: line-through; color: var(--text-muted); }
+.subtask-preview li.in-progress span { font-style: italic; color: var(--text-dark); }
 
 /* Add-subtask inline input */
 .new-subtask-row { margin: 2px 0 2px 26px; }

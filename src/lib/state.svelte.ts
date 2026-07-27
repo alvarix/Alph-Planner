@@ -406,7 +406,7 @@ export async function editTaskTitle(
 	if (current === null) return;
 	const lines = current.split("\n");
 	const line = lines[task.lineRange[0]];
-	const m = line.match(/^(\s*-\s*\[[ xX]\]\s*)(.*)/);
+	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
 	if (!m) return;
 	const prefix = m[1];
 	const rest = m[2];
@@ -430,7 +430,7 @@ export async function toggleStar(task: Task): Promise<void> {
 	const lines = current.split("\n");
 	const line = lines[task.lineRange[0]];
 	// Extract the checkbox prefix and the rest of the line.
-	const m = line.match(/^(\s*-\s*\[[ xX]\]\s*)(.*)/);
+	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
 	if (!m) return;
 	const prefix = m[1];
 	const rest = m[2];
@@ -571,7 +571,7 @@ export async function editChildTitle(
 	if (current === null) return;
 	const lines = current.split("\n");
 	const line = lines[child.lineIndex];
-	const m = line.match(/^(\s*-\s*\[[ xX]\]\s*)(.*)/);
+	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
 	if (!m) return;
 	lines[child.lineIndex] = `${m[1]}${trimmed}`;
 	const updated = lines.join("\n");
@@ -596,7 +596,7 @@ export async function editTaskDuration(
 	if (current === null) return;
 	const lines = current.split("\n");
 	const line = lines[task.lineRange[0]];
-	const m = line.match(/^(\s*-\s*\[[ xX]\]\s*)(.*)/);
+	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
 	if (!m) return;
 	const prefix = m[1];
 	const rest = m[2];
@@ -661,7 +661,7 @@ export function doneTasksByDate(
 		})
 		.map(([name, tasks]) => ({
 			date: name.replace(".md", ""),
-			tasks: tasks.filter((t) => t.done),
+			tasks: tasks.filter((t) => t.status === "done"),
 		}))
 		.filter((g) => g.tasks.length > 0)
 		.sort((a, b) => b.date.localeCompare(a.date));
@@ -795,11 +795,10 @@ export async function completeBacklogTask(
 
 		const lines = backlogContent.split("\n");
 
-		// Toggle the parent line to [x] in the local copy.
-		lines[task.lineRange[0]] = lines[task.lineRange[0]].replace(
-			/\[\s\]/,
-			"[x]",
-		);
+		// Toggle the parent line to [x] (done) in the local copy.
+		lines[task.lineRange[0]] = lines[task.lineRange[0]]
+			.replace(/\[\s\]/, "[x]")
+			.replace(/\[-\]/, "[x]");
 
 		// Build the checked block (parent + children).
 		const childLines = task.children.map((c) => c.raw);
@@ -845,7 +844,9 @@ export function overdueTasks(todayISO: string): Task[] {
 			const m = name.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
 			return m && m[1] < todayISO;
 		})
-		.flatMap(([, tasks]) => tasks.filter((t) => !t.done && !t.fromDefaults));
+		.flatMap(([, tasks]) =>
+			tasks.filter((t) => t.status !== "done" && !t.fromDefaults),
+		);
 }
 
 /**

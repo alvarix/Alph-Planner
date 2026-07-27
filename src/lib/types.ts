@@ -1,8 +1,11 @@
+/** Tri-state task status. */
+export type TaskStatus = "todo" | "in-progress" | "done";
+
 export interface ChildTask {
 	/** Line index within the file (0-based). */
 	lineIndex: number;
 	title: string;
-	done: boolean;
+	status: TaskStatus;
 	/** Original line verbatim — used for round-trip write-back. */
 	raw: string;
 }
@@ -19,7 +22,7 @@ export interface Task {
 	title: string;
 	starred: boolean;
 	estimateMin: number | null;
-	done: boolean;
+	status: TaskStatus;
 	children: ChildTask[];
 	/** Original parent line verbatim — used for round-trip write-back. */
 	raw: string;
