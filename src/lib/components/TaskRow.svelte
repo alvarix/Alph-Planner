@@ -408,4 +408,13 @@
 .del-yes:hover { background: var(--surface-em); }
 .del-no  { background: var(--bg); border-color: var(--border); color: var(--text-subtle); }
 .del-no:hover  { background: var(--surface-muted); }
+
+.in-progress {
+	outline: 1px #f9c0af dashed !important;
+    background: var(--surface) !important;
+	input {
+		    accent-color: var(--crimson) !important;
+	}
+}
+
 </style>
