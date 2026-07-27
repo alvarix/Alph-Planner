@@ -14,9 +14,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Only apply security headers in production (Vite HMR breaks in dev).
 	if (import.meta.env.PROD) {
 		// Per-request nonce — SvelteKit applies it to all inline <script>
-		// and <style> elements it generates via the %sveltekit.nonce% marker
-		// in app.html. This allows SvelteKit's own bootstrap scripts while
-		// blocking any XSS-injected inline script that lacks the nonce.
+		// elements it generates via the %sveltekit.nonce% marker
+		// in app.html.
 		const nonce = crypto.randomUUID();
 
 		event.locals.nonce = nonce;
@@ -28,7 +27,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 			[
 				`default-src 'self'`,
 				`script-src 'self' 'nonce-${nonce}'`,
-				`style-src 'self' 'unsafe-inline' 'nonce-${nonce}'`, // Svelte scoped styles need unsafe-inline (nonce covers others)
+				// Nonce omitted from style-src deliberately: when a nonce
+				// or hash is present the browser ignores 'unsafe-inline',
+				// which breaks Svelte's scoped <style> blocks. Styles are
+				// all build-time compiled — no user input controls CSS.
+				`style-src 'self' 'unsafe-inline'`,
 				`img-src 'self' data:`,
 				`font-src 'self'`,
 				`connect-src 'self'`,
