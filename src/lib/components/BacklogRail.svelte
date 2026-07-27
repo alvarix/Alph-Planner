@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { appState, moveTask, addTask, addCategoryToFile, moveToCategoryInFile, deleteTask } from '$lib/state.svelte.js';
+	import { appState, moveTask, addTask, addTaskWithCategory, addCategoryToFile, moveToCategoryInFile, deleteTask } from '$lib/state.svelte.js';
 	import { isFolded, toggleFolded, unfoldAll, anyFolded } from '$lib/ui/foldState.js';
 	import TaskRow from './TaskRow.svelte';
 	import TaskSection from './TaskSection.svelte';
@@ -11,12 +11,14 @@
 		todayFilename,
 		ondragstart,
 		externalDragTask = null,
+		colonEnabled     = true,
 	}: {
 		backlog:           Task[];
 		overdue:           Task[];
 		todayFilename:     string;
 		ondragstart?:      (task: Task) => void;
 		externalDragTask?: Task | null;
+		colonEnabled?:     boolean;
 	} = $props();
 
 	const allItems    = $derived([...backlog, ...overdue]);
@@ -97,6 +99,27 @@
 	}
 
 	async function submitAdd() {
+		const raw = addValue.trim();
+		if (!raw) return;
+
+		// Colon shortcut: "PP: drawing" → category PP, title "drawing"
+		if (colonEnabled) {
+			const colonIdx = raw.indexOf(': ');
+			if (colonIdx > 0) {
+				const cat  = raw.slice(0, colonIdx).trim();
+				const rest = raw.slice(colonIdx + 2).trim();
+				const line = buildLine(rest);
+				if (line && cat) {
+					await addTaskWithCategory('Backlog.md', cat, line);
+					addValue = '';
+					addCat   = '';
+					adding   = false;
+					return;
+				}
+			}
+		}
+
+		// Normal flow
 		const line = buildLine(addValue);
 		if (!line) return;
 		await addTask('Backlog.md', line, addCat || null);

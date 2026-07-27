@@ -232,6 +232,7 @@
 		todayFilename={todayISO + '.md'}
 		ondragstart={(t) => (draggingTask = t)}
 		externalDragTask={draggingTask}
+		colonEnabled={colonCatEnabled}
 	/>
 	<div id="columns">
 		{#each visibleDays as day (day.iso)}
