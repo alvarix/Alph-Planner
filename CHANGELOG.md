@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.0] - 2026-07-19
+
+### Added
+
+- **Tri-state task checkboxes**: `- [-]` marks a task as in-progress. Clicking a checkbox cycles through all three states: `[ ]` (todo) → `[-]` (in-progress) → `[x]` (done) → `[ ]` (todo). Native HTML `indeterminate` attribute on checkboxes gives a distinct visual for the in-progress state. In-progress tasks render with italic titles at 85 % opacity.
+- `TaskStatus` type (`'todo' | 'in-progress' | 'done'`) replaces `done: boolean` on both `Task` and `ChildTask`
+- Parser regex updated to recognise `[-]`; serializer now cycles through all three states via `cycleCheckbox()`
+- 4 new unit tests: in-progress parse, in-progress subtask, cycle to done, cycle back to todo
+
 ## [1.6.2] - 2026-07-19
 
 ### Fixed

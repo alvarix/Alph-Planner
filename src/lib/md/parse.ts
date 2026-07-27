@@ -10,21 +10,24 @@
  * simply not returned from parseFile().
  */
 
-import type { Task, ChildTask } from '../types.js';
+import type { Task, ChildTask, TaskStatus } from "../types.js";
 
-const H1_RE   = /^#\s+(.+)/;
-const TASK_RE = /^(\s*)-\s*\[([ xX])\]\s*(.*)/;
-const DUR_RE  = /\s+(\d*\.?\d+)\s*(h|m)$/i;
+const H1_RE = /^#\s+(.+)/;
+const TASK_RE = /^(\s*)-\s*\[([ xX-])\]\s*(.*)/;
+const DUR_RE = /\s+(\d*\.?\d+)\s*(h|m)$/i;
 const STAR_RE = /^\*\*(.+)\*\*$/;
 
 /** Parse trailing duration token, e.g. "1h", "30m", "1.5h". */
-function parseDuration(text: string): { title: string; estimateMin: number | null } {
+function parseDuration(text: string): {
+	title: string;
+	estimateMin: number | null;
+} {
 	const m = text.match(DUR_RE);
 	if (!m) return { title: text.trim(), estimateMin: null };
 
-	const v    = parseFloat(m[1]);
+	const v = parseFloat(m[1]);
 	const unit = m[2].toLowerCase();
-	const min  = unit === 'h' ? Math.round(v * 60) : Math.round(v);
+	const min = unit === "h" ? Math.round(v * 60) : Math.round(v);
 	const estimateMin = min >= 5 && min <= 480 ? min : null;
 	return { title: text.slice(0, m.index).trim(), estimateMin };
 }
@@ -44,11 +47,11 @@ function parseStarred(text: string): { title: string; starred: boolean } {
  * @param filename - Bare filename, e.g. "2026-05-12.md" or "Backlog.md".
  */
 export function parseFile(content: string, filename: string): Task[] {
-	const lines  = content.split('\n');
+	const lines = content.split("\n");
 	const tasks: Task[] = [];
 
 	const dateMatch = filename.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
-	const date      = dateMatch ? dateMatch[1] : null;
+	const date = dateMatch ? dateMatch[1] : null;
 
 	let category: string | null = null;
 	let i = 0;
@@ -65,15 +68,23 @@ export function parseFile(content: string, filename: string): Task[] {
 		}
 
 		const tm = line.match(TASK_RE);
-		if (!tm) { i++; continue; }
+		if (!tm) {
+			i++;
+			continue;
+		}
 
-		const indent  = tm[1].length;
-		const checked = tm[2].toLowerCase() === 'x';
-		const rest    = tm[3];
+		const indent = tm[1].length;
+		const rawCheck = tm[2];
+		const status: TaskStatus =
+			rawCheck === " " ? "todo" : rawCheck === "-" ? "in-progress" : "done";
+		const rest = tm[3];
 
 		// Only process top-level (non-indented) task lines here.
 		// Indented lines are collected as children in the inner loop below.
-		if (indent > 0) { i++; continue; }
+		if (indent > 0) {
+			i++;
+			continue;
+		}
 
 		const { title: withStar, estimateMin } = parseDuration(rest);
 		const { title, starred } = parseStarred(withStar);
@@ -86,7 +97,7 @@ export function parseFile(content: string, filename: string): Task[] {
 			title,
 			starred,
 			estimateMin,
-			done: checked,
+			status,
 			children: [],
 			raw: line,
 		};
@@ -98,23 +109,36 @@ export function parseFile(content: string, filename: string): Task[] {
 			const cm = childLine.match(TASK_RE);
 			// Stop if non-task line that isn't blank (blank lines allowed between subtasks)
 			if (!cm) {
-				if (childLine.trim() === '') { j++; continue; }
+				if (childLine.trim() === "") {
+					j++;
+					continue;
+				}
 				break;
 			}
 			// Stop if we hit a top-level task
 			if (cm[1].length === 0) break;
 
+			const childRawCheck = cm[2];
+			const childStatus: TaskStatus =
+				childRawCheck === " "
+					? "todo"
+					: childRawCheck === "-"
+						? "in-progress"
+						: "done";
 			const child: ChildTask = {
 				lineIndex: j,
 				title: cm[3].trim(),
-				done: cm[2].toLowerCase() === 'x',
+				status: childStatus,
 				raw: childLine,
 			};
 			task.children.push(child);
 			j++;
 		}
 
-		task.lineRange = [i, task.children.length > 0 ? task.children.at(-1)!.lineIndex : i];
+		task.lineRange = [
+			i,
+			task.children.length > 0 ? task.children.at(-1)!.lineIndex : i,
+		];
 		tasks.push(task);
 		i = j;
 	}

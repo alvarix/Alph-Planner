@@ -24,8 +24,9 @@ Open the same folder in Obsidian and edits appear in the app on the next focus. 
 | Element | Meaning |
 | --- | --- |
 | `# Category` | Optional H1 section header — tasks below inherit the category |
-| `- [ ] title` | Unchecked task |
-| `- [x] title` | Done task |
+| `- [ ] title` | Todo (unchecked) |
+| `- [-] title` | In progress |
+| `- [x] title` | Done |
 | `**bold title**` | Starred (priority) task |
 | `30m` / `1h` / `1.5h` | Optional duration estimate at end of title |
 | Indented `- [ ]` | Subtask — moves with parent, expands on click |
@@ -45,7 +46,7 @@ Use the **+** button in the backlog header to add a task directly to `Backlog.md
 
 | Action | How |
 | --- | --- |
-| Check / uncheck | Checkbox |
+| Check / cycle state | Checkbox cycles todo → in-progress → done |
 | Star / unstar | ★ button (shows on hover) |
 | Edit title | Double-click the title |
 | Edit duration | Double-click the time badge (e.g. `1h`) — accepts `2h`, `30m`, bare minutes like `90`, or empty to clear |

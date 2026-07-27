@@ -8,23 +8,39 @@
  * None of these functions do I/O. Call readFile → mutate → writeFile.
  */
 
-import type { Task, ChildTask } from '../types.js';
+import type { Task, ChildTask, TaskStatus } from "../types.js";
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
 function splitLines(content: string): string[] {
-	return content.split('\n');
+	return content.split("\n");
 }
 
 function joinLines(lines: string[]): string {
-	return lines.join('\n');
+	return lines.join("\n");
 }
 
-/** Flip `[ ]` ↔ `[x]` on a single line, leaving everything else intact. */
-function flipCheckbox(line: string, done: boolean): string {
-	return done
-		? line.replace(/\[\s\]/, '[x]')
-		: line.replace(/\[x\]/i, '[ ]');
+/**
+ * Detect the current checkbox state from a task line and return the next
+ * status in the cycle: todo → in-progress → done → todo.
+ */
+function nextStatusFromLine(line: string): TaskStatus {
+	if (/\[\s\]/.test(line)) return "in-progress";
+	if (/\[-\]/.test(line)) return "done";
+	return "todo";
+}
+
+/**
+ * Cycle the checkbox on a single line through the tri-state:
+ * [ ] → [-] → [x] → [ ]
+ */
+function cycleCheckbox(line: string): string {
+	const next = nextStatusFromLine(line);
+	return next === "in-progress"
+		? line.replace(/\[\s\]/, "[-]")
+		: next === "done"
+			? line.replace(/\[-\]/, "[x]")
+			: line.replace(/\[x\]/i, "[ ]");
 }
 
 // ── Exported mutations ────────────────────────────────────────────────────────
@@ -39,7 +55,7 @@ function flipCheckbox(line: string, done: boolean): string {
  */
 export function toggleTaskDone(content: string, task: Task): string {
 	const lines = splitLines(content);
-	lines[task.lineRange[0]] = flipCheckbox(lines[task.lineRange[0]], !task.done);
+	lines[task.lineRange[0]] = cycleCheckbox(lines[task.lineRange[0]]);
 	return joinLines(lines);
 }
 
@@ -53,7 +69,7 @@ export function toggleTaskDone(content: string, task: Task): string {
  */
 export function toggleChildDone(content: string, child: ChildTask): string {
 	const lines = splitLines(content);
-	lines[child.lineIndex] = flipCheckbox(lines[child.lineIndex], !child.done);
+	lines[child.lineIndex] = cycleCheckbox(lines[child.lineIndex]);
 	return joinLines(lines);
 }
 
@@ -73,7 +89,7 @@ export function reorderTasks(
 	content: string,
 	tasks: Task[],
 	fromIndex: number,
-	toIndex: number
+	toIndex: number,
 ): string {
 	if (fromIndex === toIndex) return content;
 
@@ -81,10 +97,10 @@ export function reorderTasks(
 
 	// Extract each task's line block (parent line + child lines).
 	type Block = { lines: string[]; start: number; end: number };
-	const blocks: Block[] = tasks.map(t => ({
+	const blocks: Block[] = tasks.map((t) => ({
 		lines: lines.slice(t.lineRange[0], t.lineRange[1] + 1),
 		start: t.lineRange[0],
-		end:   t.lineRange[1],
+		end: t.lineRange[1],
 	}));
 
 	// Reorder the blocks array.
@@ -94,7 +110,7 @@ export function reorderTasks(
 	// Rebuild: preserve every line outside known task ranges, replace task ranges
 	// with the reordered blocks in sequence.
 	const taskLines = new Set<number>();
-	tasks.forEach(t => {
+	tasks.forEach((t) => {
 		for (let i = t.lineRange[0]; i <= t.lineRange[1]; i++) taskLines.add(i);
 	});
 
@@ -113,7 +129,7 @@ export function reorderTasks(
 			// Advance past all task lines in this region.
 			const origBlock = tasks[blockIdx - 1] ?? tasks.at(-1)!;
 			// Jump i past the original task's line range.
-			const originalTask = tasks.find(t => t.lineRange[0] === i);
+			const originalTask = tasks.find((t) => t.lineRange[0] === i);
 			if (originalTask) {
 				i = originalTask.lineRange[1] + 1;
 			} else {
@@ -134,21 +150,25 @@ export function reorderTasks(
  * @param category - If provided, append under the matching H1 section.
  * @returns New file text.
  */
-export function appendTask(content: string, taskLine: string, category: string | null): string {
+export function appendTask(
+	content: string,
+	taskLine: string,
+	category: string | null,
+): string {
 	const lines = splitLines(content);
 
 	if (!category) {
-		const firstH1 = lines.findIndex(l => /^#\s+/.test(l));
+		const firstH1 = lines.findIndex((l) => /^#\s+/.test(l));
 		if (firstH1 === -1) {
 			// No H1 exists — insert at end of file, before trailing blanks.
 			let insertAt = lines.length;
-			while (insertAt > 0 && lines[insertAt - 1].trim() === '') insertAt--;
+			while (insertAt > 0 && lines[insertAt - 1].trim() === "") insertAt--;
 			lines.splice(insertAt, 0, taskLine);
 		} else {
 			// Insert just before the first H1, walking back past any blank lines
 			// so the task groups with other uncategorised items, not whitespace.
 			let insertAt = firstH1;
-			while (insertAt > 0 && lines[insertAt - 1].trim() === '') insertAt--;
+			while (insertAt > 0 && lines[insertAt - 1].trim() === "") insertAt--;
 			lines.splice(insertAt, 0, taskLine);
 		}
 		return joinLines(lines);
@@ -162,14 +182,17 @@ export function appendTask(content: string, taskLine: string, category: string |
 	for (let i = 0; i < lines.length; i++) {
 		const m = lines[i].match(h1Pattern);
 		if (m) {
-			if (inSection) { insertAt = i; break; }
+			if (inSection) {
+				insertAt = i;
+				break;
+			}
 			if (m[1].trim() === category) inSection = true;
 		}
 	}
 
 	// insertAt now points to the line after the last item in the section.
 	// Walk back past trailing blanks to keep spacing tidy.
-	while (insertAt > 0 && lines[insertAt - 1].trim() === '') insertAt--;
+	while (insertAt > 0 && lines[insertAt - 1].trim() === "") insertAt--;
 	lines.splice(insertAt, 0, taskLine);
 	return joinLines(lines);
 }
@@ -185,8 +208,8 @@ export function appendTask(content: string, taskLine: string, category: string |
 export function addCategoryHeader(content: string, name: string): string {
 	const lines = splitLines(content);
 	let end = lines.length;
-	while (end > 0 && lines[end - 1].trim() === '') end--;
-	const insert = end > 0 ? ['', `# ${name}`] : [`# ${name}`];
+	while (end > 0 && lines[end - 1].trim() === "") end--;
+	const insert = end > 0 ? ["", `# ${name}`] : [`# ${name}`];
 	lines.splice(end, 0, ...insert);
 	return joinLines(lines);
 }
@@ -204,14 +227,14 @@ export function addCategoryHeader(content: string, name: string): string {
 export function reorderCategories(
 	content: string,
 	fromIndex: number,
-	toIndex: number
+	toIndex: number,
 ): string {
 	if (fromIndex === toIndex) return content;
 
 	const lines = splitLines(content);
 
 	// Preserve notes (everything from first `---` line onward).
-	const divIdx = lines.findIndex(l => /^---\s*$/.test(l));
+	const divIdx = lines.findIndex((l) => /^---\s*$/.test(l));
 	const mainLines = divIdx === -1 ? lines : lines.slice(0, divIdx);
 	const tailLines = divIdx === -1 ? [] : lines.slice(divIdx);
 
@@ -257,9 +280,9 @@ export function reorderCategories(
 export function removeCategoryHeader(content: string, name: string): string {
 	const h1Pat = /^#\s+(.+)/;
 	return joinLines(
-		splitLines(content).filter(l => {
+		splitLines(content).filter((l) => {
 			const m = l.match(h1Pat);
 			return !(m && m[1].trim() === name);
-		})
+		}),
 	);
 }
