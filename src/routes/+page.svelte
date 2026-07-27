@@ -4,7 +4,7 @@
 	import { slide } from 'svelte/transition';
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
 	import { restoreFolder, pickFolder, forgetFolder } from '$lib/fs/folder.js';
-	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady, forgetAndResetFolder } from '$lib/state.svelte.js';
+	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady } from '$lib/state.svelte.js';
 	import type { Task } from '$lib/types.js';
 	import FolderPicker from '$lib/components/FolderPicker.svelte';
 	import DayColumn from '$lib/components/DayColumn.svelte';
@@ -28,10 +28,21 @@
 
 	let hidePast = $state(localStorage.getItem('hidePast') === 'true');
 	let colonCatEnabled = $state(localStorage.getItem('colonCatEnabled') !== 'false');
+	let vaultName = $state(localStorage.getItem('obsidianVault') ?? '');
+	let editingVault = $state(false);
+	let vaultInputEl: HTMLInputElement;
 	const visibleDays = $derived(hidePast ? weekDays.filter(d => !d.past) : weekDays);
 
 	$effect(() => { localStorage.setItem('hidePast', String(hidePast)); });
 	$effect(() => { localStorage.setItem('colonCatEnabled', String(colonCatEnabled)); });
+	$effect(() => { if (vaultName) localStorage.setItem('obsidianVault', vaultName); });
+
+	function startEditVault() { editingVault = true; }
+	function applyVault() {
+		editingVault = false;
+		localStorage.setItem('obsidianVault', vaultName.trim());
+	}
+	$effect(() => { if (editingVault) vaultInputEl?.focus(); });
 
 	function shiftWeek(dir: -1 | 0 | 1) {
 		if (dir === 0) appState.weekOffset = 0;
@@ -188,6 +199,24 @@
 	{/if}
 	{#if appState.folder.status === 'ready'}
 		<span class="folder-badge">{appState.folder.name}/</span>
+		{#if editingVault}
+			<input
+				bind:this={vaultInputEl}
+				bind:value={vaultName}
+				class="vault-input"
+				placeholder={appState.folder.name}
+				onkeydown={(e) => { if (e.key === 'Enter') applyVault(); if (e.key === 'Escape') { editingVault = false; vaultName = localStorage.getItem('obsidianVault') ?? ''; } }}
+				onblur={applyVault}
+			/>
+		{:else}
+			<button
+				class="vault-badge"
+				title={vaultName ? `Obsidian vault: ${vaultName}` : 'Click to set Obsidian vault name'}
+				onclick={startEditVault}
+			>
+				{vaultName ? `vault: ${vaultName}` : 'set vault'}
+			</button>
+		{/if}
 	{/if}
 	{#if appState.conflicts.length > 0}
 		<span class="conflict-badge" title={appState.conflicts.join(', ')}>
@@ -258,6 +287,19 @@ h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--bar-
 	background: var(--bar-surface); border: 1px solid var(--bar-border);
 	padding: 2px 7px; border-radius: 5px;
 }
+.vault-badge {
+	font-size: 11px; color: var(--bar-text-faint); font-family: monospace;
+	background: var(--bar-surface); border: 1px solid var(--bar-border);
+	padding: 2px 7px; border-radius: 5px; cursor: pointer;
+}
+.vault-badge:hover { color: var(--bar-text-muted); border-color: var(--bar-border-strong); }
+.vault-input {
+	font-size: 11px; font-family: monospace;
+	background: var(--bar-surface); border: 1px solid var(--bar-border-strong);
+	padding: 2px 7px; border-radius: 5px; width: 120px; outline: none;
+	color: var(--bar-text);
+}
+.vault-input::placeholder { color: var(--bar-text-faint); }
 .conflict-badge {
 	font-size: 11px; font-weight: 600; color: var(--bar-text-dim);
 	background: var(--bar-muted); border: 1px solid var(--bar-border-strong);
