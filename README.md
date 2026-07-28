@@ -46,7 +46,7 @@ Use the **+** button in the backlog header to add a task directly to `Backlog.md
 
 | Action | How |
 | --- | --- |
-| Check / cycle state | Checkbox cycles todo → in-progress → done |
+| Check / cycle state | Checkbox cycles todo → in-progress → done. For backlog tasks with children, the first click sets in-progress and the second click completes (moves to today). Checking individual subtasks auto-propagates: any active child sets the parent to in-progress; all children checked completes the parent automatically. |
 | Star / unstar | ★ button (shows on hover) |
 | Edit title | Double-click the title |
 | Edit duration | Double-click the time badge (e.g. `1h`) — accepts `2h`, `30m`, bare minutes like `90`, or empty to clear |
@@ -63,7 +63,8 @@ Use the **+** button in the backlog header to add a task directly to `Backlog.md
 
 ```sh
 pnpm install
-pnpm dev               # http://localhost:5173
+pnpm dev               # http://localhost:5173 (dev server with HMR)
+pnpm start             # same as dev — http://localhost:5173
 pnpm test:unit         # Vitest unit tests (parser + serializer)
 pnpm test              # Playwright smoke tests
 pnpm check             # TypeScript + Svelte type check
@@ -105,6 +106,12 @@ The app is available at `http://localhost:5177`. Open it in Chrome and install v
 
 ```sh
 pnpm build && pm2 restart alph-planner
+```
+
+Or use the shortcut:
+
+```sh
+pnpm start && pm2 restart alph-planner
 ```
 
 The service worker updates automatically on the next page load. If the app shows stale content: DevTools → Application → Service Workers → **Update** → reload.
@@ -202,3 +209,10 @@ Source of truth is your local Markdown files. The app holds an in-memory cache r
 ## Architecture
 
 See `docs/markdown-first-plan.md` for the full design spec and `docs/postmortem-grid-version.md` for why the v0 time-slot grid was retired.
+
+## Security
+
+- **XSS**: All user content (task titles, notes, category names) is rendered through Svelte's auto-escaping. Zero `{@html}` directives exist in the codebase.
+- **CSP**: Production deployments set Content-Security-Policy headers locking external origins, preventing clickjacking, and blocking form-based data exfiltration.
+- **Path traversal**: The File System Access API enforces directory containment — the app cannot read or write files outside the chosen folder.
+- **Dependencies**: All `pnpm audit` findings are build-time only or irrelevant to this app's architecture (see `CHANGELOG.md`).

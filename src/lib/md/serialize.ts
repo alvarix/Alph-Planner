@@ -60,6 +60,22 @@ export function toggleTaskDone(content: string, task: Task): string {
 }
 
 /**
+ * Set a task's parent line to a specific status without cycling.
+ * Used for auto-status propagation from children to parent.
+ *
+ * @param line   - The task's parent markdown line.
+ * @param status - Target checkbox state.
+ * @returns The line with the checkbox replaced.
+ */
+export function setTaskLineStatus(line: string, status: TaskStatus): string {
+	if (status === "in-progress")
+		return line.replace(/\[\s\]/, "[-").replace(/\[x\]/i, "[-");
+	if (status === "done")
+		return line.replace(/\[\s\]/, "[x]").replace(/\[-\]/, "[x]");
+	return line.replace(/\[x\]/i, "[ ]").replace(/\[-\]/, "[ ]");
+}
+
+/**
  * Toggle the done state of a subtask (child).
  * Only mutates the child's own line.
  *

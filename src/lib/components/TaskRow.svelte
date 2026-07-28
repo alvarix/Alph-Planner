@@ -150,7 +150,7 @@
 			checked={task.status === 'done'}
 			indeterminate={task.status === 'in-progress'}
 			onchange={() => {
-				if (task.file === 'Backlog.md' && task.status !== 'done' && todayFilename) {
+				if (task.file === 'Backlog.md' && task.status === 'in-progress' && todayFilename) {
 					completeBacklogTask(task, todayFilename);
 				} else {
 					toggleTask(task);
@@ -208,7 +208,7 @@
 						type="checkbox"
 						checked={child.status === 'done'}
 						indeterminate={child.status === 'in-progress'}
-						onchange={() => toggleChild(task, child)}
+						onchange={() => toggleChild(task, child, todayFilename ?? undefined)}
 					/>
 					{#if editingChildIdx === idx}
 						<input

@@ -13,6 +13,7 @@ import {
 	appendTask,
 	addCategoryHeader,
 	removeCategoryHeader,
+	setTaskLineStatus,
 } from "./md/serialize.js";
 import { extractNotes, setNotes } from "./md/notes.js";
 import {
@@ -26,7 +27,7 @@ import {
 } from "./fs/files.js";
 import { parseDefaults, applyDefaults } from "./md/defaults.js";
 import { clearHandle } from "./fs/handle-store.js";
-import type { Task, ChildTask } from "./types.js";
+import type { Task, ChildTask, TaskStatus } from "./types.js";
 import type { FolderState } from "./fs/folder.js";
 
 interface FileCache {
@@ -621,14 +622,126 @@ export async function editTaskDuration(
 
 /**
  * Toggle a subtask's done state and write back to disk.
+ *
+ * When the parent task has children, toggling any child also propagates
+ * status upward:
+ *  - Any non-todo child → parent moves to in-progress.
+ *  - All children done → parent moves to done.
+ *  - All children back to todo → parent moves to todo.
+ *
+ * For backlog tasks, a parent that becomes done through this cascade is
+ * automatically completed (moved to today's file as [x]).
+ *
+ * @param task          - Parent task.
+ * @param child         - Subtask being toggled.
+ * @param todayFilename - Today's daily file (only needed for backlog auto-complete).
  */
-export async function toggleChild(task: Task, child: ChildTask): Promise<void> {
+export async function toggleChild(
+	task: Task,
+	child: ChildTask,
+	todayFilename?: string,
+): Promise<void> {
 	const d = dir();
 	if (!d) return;
 	try {
 		const current = await readFile(d, task.file);
 		if (current === null) return;
-		const updated = toggleChildDone(current, child);
+
+		// 1. Toggle the child line.
+		let updated = toggleChildDone(current, child);
+
+		// 2. Re-parse to get fresh children states.
+		const freshTasks = parseFile(updated, task.file);
+		const freshTask = freshTasks.find(
+			(t) => t.lineRange[0] === task.lineRange[0],
+		);
+
+		if (freshTask && freshTask.children.length > 0) {
+			const doneCount = freshTask.children.filter(
+				(c) => c.status === "done",
+			).length;
+			const hasActive = freshTask.children.some(
+				(c) => c.status === "done" || c.status === "in-progress",
+			);
+
+			// 3. Determine parent's correct status.
+			let targetStatus: TaskStatus;
+			if (doneCount === freshTask.children.length) {
+				targetStatus = "done";
+			} else if (hasActive) {
+				targetStatus = "in-progress";
+			} else {
+				targetStatus = "todo";
+			}
+
+			// 4. If parent status needs to change, apply it.
+			if (targetStatus !== freshTask.status) {
+				if (
+					targetStatus === "done" &&
+					task.file === "Backlog.md" &&
+					todayFilename
+				) {
+					// Backlog task with all children done: auto-complete to today.
+					const lines = updated.split("\n");
+
+					// Mark parent line as [x].
+					lines[task.lineRange[0]] = setTaskLineStatus(
+						lines[task.lineRange[0]],
+						"done",
+					);
+
+					// Build the checked block for insertion into today's file.
+					const childLines = freshTask.children.map((c) => c.raw);
+					const checkedBlock = [lines[task.lineRange[0]], ...childLines].join(
+						"\n",
+					);
+
+					// Remove block from backlog copy.
+					lines.splice(
+						task.lineRange[0],
+						task.lineRange[1] - task.lineRange[0] + 1,
+					);
+
+					// Append to today's file.
+					const todayContent =
+						(await readFile(d, todayFilename)) ?? NEW_DAILY_TEMPLATE;
+					const todayUpdated = appendTask(
+						todayContent,
+						checkedBlock,
+						task.category,
+					);
+					await writeFile(d, todayFilename, todayUpdated);
+
+					// Write the pruned backlog.
+					await writeFile(d, "Backlog.md", lines.join("\n"));
+
+					// Refresh both caches.
+					const [newToday, newBacklog] = await Promise.all([
+						readFile(d, todayFilename),
+						readFile(d, "Backlog.md"),
+					]);
+					if (newToday)
+						appState.cache[todayFilename] = parseFile(newToday, todayFilename);
+					if (newBacklog)
+						appState.cache["Backlog.md"] = parseFile(newBacklog, "Backlog.md");
+				} else {
+					// Same-file parent status update.
+					const lines = updated.split("\n");
+					lines[task.lineRange[0]] = setTaskLineStatus(
+						lines[task.lineRange[0]],
+						targetStatus,
+					);
+					updated = lines.join("\n");
+					await writeFile(d, task.file, updated);
+					appState.cache[task.file] = parseFile(updated, task.file);
+				}
+				// Parent was updated — cache is already refreshed in the
+				// branches above; return to avoid the double-parse below.
+				return;
+			}
+		}
+
+		// No parent update needed — write the child-only toggle.
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
 	} catch (err) {
