@@ -12,6 +12,11 @@
 
 ### Added
 
+- **Diagnostic probe** (`src/lib/fs/diagnostics.ts`). Fires automatically on every
+  `NoModificationAllowedError`. Independently tests Service Worker state, IndexedDB
+  handle, directory permissions, and folder path. Outputs a structured console report
+  with ranked likely causes — next time the error occurs, the root cause is
+  immediately identifiable.
 - **"Clear cache & reload" button** in the FolderPicker recovery overlay. One click
   unregisters the service worker, clears all caches and IndexedDB, and reloads the page.
   No more DevTools ritual.

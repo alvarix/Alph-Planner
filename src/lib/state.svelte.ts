@@ -28,6 +28,10 @@ import {
 } from "./fs/files.js";
 import { parseDefaults, applyDefaults } from "./md/defaults.js";
 import { clearHandle } from "./fs/handle-store.js";
+import {
+	diagnoseAccessFailure,
+	logDiagnosticReport,
+} from "./fs/diagnostics.js";
 import type { Task, ChildTask, TaskStatus } from "./types.js";
 import type { FolderState } from "./fs/folder.js";
 
@@ -208,6 +212,13 @@ export async function refresh(): Promise<void> {
 		const reason = classifyFolderError(err);
 		appState.refreshFailCount++;
 		appState.lastRefreshError = reason;
+
+		// ── Diagnostic probe: isolate the root cause ──────────────────
+		if (reason === "icloud-locked" && appState.folder.status === "ready") {
+			diagnoseAccessFailure(appState.folder.handle, err).then(
+				logDiagnosticReport,
+			);
+		}
 
 		if (err instanceof FsError && err.reason === "permission") {
 			// Permission genuinely revoked — transition to needs-permission.
@@ -481,9 +492,24 @@ export function backlogCategoryHeaders(): string[] {
 export async function toggleTask(task: Task): Promise<void> {
 	const key = `${task.file}:${task.lineRange[0]}`;
 
-	// If there's a pending completion, clicking again cancels it (undo).
+	// If there's a pending completion, the task was optimistically marked done.
+	// Cancel the timer and cycle to unchecked (todo) instead of reverting to
+	// the previous status — this completes the tri-state cycle for the user.
 	if (appState.pendingCompletions.has(key)) {
 		cancelCompletion(task);
+		// Now write the unchecked state to disk immediately.
+		const d = dir();
+		if (!d) return;
+		try {
+			const current = await readFile(d, task.file);
+			if (current === null) return;
+			const updated = toggleTaskDone(current, task);
+			await writeFile(d, task.file, updated);
+			appState.cache[task.file] = parseFile(updated, task.file);
+		} catch (err) {
+			console.error("[toggleTask/undo]", err);
+			fail("Could not save checkbox — try the Sync button or reconnect the folder.");
+		}
 		return;
 	}
 

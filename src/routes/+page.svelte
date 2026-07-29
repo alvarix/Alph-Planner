@@ -5,6 +5,7 @@
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
 	import { restoreFolder, pickFolder, forgetFolder } from '$lib/fs/folder.js';
 	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady } from '$lib/state.svelte.js';
+	import { diagnoseAccessFailure, logDiagnosticReport } from '$lib/fs/diagnostics.js';
 	import type { Task } from '$lib/types.js';
 	import FolderPicker from '$lib/components/FolderPicker.svelte';
 	import DayColumn from '$lib/components/DayColumn.svelte';
@@ -121,6 +122,9 @@
 		}
 
 		if (!probeOk) {
+			// Run diagnostic to isolate the root cause.
+			diagnoseAccessFailure(handle, new Error('changeFolder probe failed')).then(logDiagnosticReport);
+
 			// Handle is broken — clear the stored handle so on next load the
 			// app starts fresh instead of restoring a known-bad handle.
 			await forgetFolder();

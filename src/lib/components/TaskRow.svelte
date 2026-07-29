@@ -46,10 +46,15 @@
 	let longPressActive = $state(false);
 	const LONG_PRESS_MS = 500;
 
+	/** True when long-press just fired — suppresses the next checkbox onchange. */
+	let longPressJustFired = $state(false);
+
 	function startLongPress() {
 		longPressActive = false;
+		longPressJustFired = false;
 		longPressTimer = setTimeout(() => {
 			longPressActive = true;
+			longPressJustFired = true;
 			longPressTimer = null;
 			if (task.file === 'Backlog.md' && task.status === 'in-progress' && todayFilename) {
 				completeBacklogTask(task, todayFilename);
@@ -185,6 +190,8 @@
 			checked={task.status === 'done'}
 			indeterminate={task.status === 'in-progress'}
 			onchange={() => {
+				// Suppress: the long-press gesture already fired completeTask.
+				if (longPressJustFired) { longPressJustFired = false; return; }
 				if (task.file === 'Backlog.md' && task.status === 'in-progress' && todayFilename) {
 					completeBacklogTask(task, todayFilename);
 				} else {

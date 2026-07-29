@@ -70,26 +70,26 @@ handle mismatch, no errors. This is deterministic — no timing dependency.
 
 ### Added (non-recurrence)
 
-- SW `clients.claim()` to take over existing tabs after update
-- `onNeedRefresh` callback with in-app update banner
-- "Clear cache & reload" button in recovery UI
+- **"Clear cache & reload" button** in recovery UI — one-click unregister SW + clear caches + reload
+- **Update banner** — "A new version is available. Refresh now" when SW detects new deploy
+- **Diagnostic probe** (`src/lib/fs/diagnostics.ts`) — fires on every `icloud-locked` error. Independently tests SW state, IndexedDB handle, directory permissions, and folder path. Outputs a structured console report with ranked likely causes. Next time the error occurs, we'll know exactly which variable failed.
 - Improved error messages that name stale cache as the likely cause
 
-## Diagnostic decision tree
+## Next time it breaks
+
+Open the console — the diagnostic probe fires automatically when
+`NoModificationAllowedError` occurs. It will show a group like:
 
 ```
-App loads with NoModificationAllowedError?
-
-1. Was there a recent deploy?
-   → YES: Unregister SW, clear site data, hard reload. Re-pick folder.
-   → NO: Go to 2.
-
-2. Did the error start after browser restart or macOS update?
-   → YES: Forget folder, re-pick folder (fresh handle).
-   → NO: Go to 3.
-
-3. Is the folder on iCloud Drive AND has the app never worked with it?
-   → YES: Move to local folder (genuine CloudKit denial on first use).
-   → NO: Restart Chrome. If still failing, go to 1 anyway (SW might be stale
-     from a deploy you forgot about).
+🔍 Access Failure Diagnostic  2026-07-28T...
+  Service Worker: controlling=true, updateWaiting=false
+  IndexedDB: storeExists=true, handles=1
+  Handle: rw=granted, read=granted
+  Folder: name=Daily, likelyICloud=true
+  Likely causes:
+    → sw-active: SW active, no pending update — not the SW
+    → handle-ok: Both permissions granted — not the handle
+    → icloud-path: iCloud folder — possible CloudKit denial
 ```
+
+This tells us exactly which fixes to try and which are ruled out.
