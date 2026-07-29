@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added
+
+- **Info drawer.** Right-side slide-in panel ("i" button in header) with three tabs:
+  - **Info** — explains every header button, lists all features, shows Markdown file format sample
+  - **Options** — houses Upcoming toggle, Colon shortcut toggle, Sync, Change folder, vault name setting, and conflict warnings (moved out of the header to reduce clutter)
+  - **History** — in-session change log showing every mutation as a timestamped entry (adds, deletes, renames, moves, completions, subtask changes). Capped at 200 entries; resets on page reload.
+- **`recordChange()`** in `lib/state.svelte.ts` — wired into all 10 write-path mutations so the History tab stays in sync automatically.
+
+### Changed
+
+- **Header simplified.** Upcoming, Colon, Sync, Change folder, Reconnect folder, and vault controls moved into the Info drawer. Header now contains only: week nav, week label, Done log, folder badge, conflict badge, and the "i" drawer toggle.
+
 ### Fixed
 
 - **Stale Service Worker identified as root cause of `NoModificationAllowedError`.**

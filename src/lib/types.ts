@@ -1,6 +1,19 @@
 /** Tri-state task status. */
 export type TaskStatus = "todo" | "in-progress" | "done";
 
+/** A single entry in the in-memory change log (git-tree panel). */
+export interface ChangeEntry {
+	timestamp: Date;
+	/** Single-character symbol for the action type. */
+	icon: string;
+	/** Past-tense verb, e.g. "Completed", "Added", "Deleted". */
+	action: string;
+	/** Filename affected, e.g. "2026-05-12.md". */
+	file: string;
+	/** Human-readable detail, e.g. task title. */
+	detail: string;
+}
+
 export interface ChildTask {
 	/** Line index within the file (0-based). */
 	lineIndex: number;

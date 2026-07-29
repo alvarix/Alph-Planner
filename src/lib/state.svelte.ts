@@ -32,7 +32,7 @@ import {
 	diagnoseAccessFailure,
 	logDiagnosticReport,
 } from "./fs/diagnostics.js";
-import type { Task, ChildTask, TaskStatus } from "./types.js";
+import type { Task, ChildTask, TaskStatus, ChangeEntry } from "./types.js";
 import type { FolderState } from "./fs/folder.js";
 
 interface FileCache {
@@ -62,6 +62,8 @@ interface AppState {
 	lastRefreshError: import("./fs/folder.js").FolderErrorReason | null;
 	/** Pending delayed completions keyed by "file:lineIndex". */
 	pendingCompletions: Map<string, PendingCompletion>;
+	/** In-memory change log for the git-tree history panel. Capped at 200. */
+	changeLog: ChangeEntry[];
 }
 
 interface PendingCompletion {
@@ -87,6 +89,7 @@ export const appState = $state<AppState>({
 	refreshFailCount: 0,
 	lastRefreshError: null,
 	pendingCompletions: new Map(),
+	changeLog: [],
 });
 
 /** Extract all # H1 section names from raw file text. */
@@ -337,6 +340,7 @@ export async function moveTask(
 		appState.cache[targetFilename] = parseFile(newTarget, targetFilename);
 	if (newSource) appState.cache[task.file] = parseFile(newSource, task.file);
 	else delete appState.cache[task.file];
+	recordChange('→', 'Moved', targetFilename, `${task.title} ← ${task.file}`);
 }
 
 /**
@@ -357,6 +361,10 @@ export async function addTask(
 	const updated = appendTask(current, rawLine, category);
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
+	// Extract title from the raw line for the change log.
+	const tMatch = rawLine.match(/^\s*-\s*\[[ xX-]\]\s*(?:\*\*)?(.+?)(?:\*\*)?(?:\s+\d)/);
+	const tTitle = tMatch ? tMatch[1].trim() : rawLine.trim();
+	recordChange('+', 'Added', filename, tTitle);
 }
 
 /**
@@ -386,6 +394,9 @@ export async function addTaskWithCategory(
 	if (filename === "Backlog.md") {
 		appState.backlogHeaders = appState.fileHeaders[filename];
 	}
+	const ctMatch = taskLine.match(/^\s*-\s*\[[ xX-]\]\s*(?:\*\*)?(.+?)(?:\*\*)?(?:\s+\d)/);
+	const ctTitle = ctMatch ? ctMatch[1].trim() : taskLine.trim();
+	recordChange('+', 'Added', filename, ctTitle);
 }
 
 /**
@@ -402,6 +413,7 @@ export async function deleteTask(task: Task): Promise<void> {
 		const updated = lines.join("\n");
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
+		recordChange('−', 'Deleted', task.file, task.title);
 	} catch (err) {
 		console.error("[deleteTask]", err);
 		fail(
@@ -439,6 +451,9 @@ export async function editTaskTitle(
 	const updated = lines.join("\n");
 	await writeFile(d, task.file, updated);
 	appState.cache[task.file] = parseFile(updated, task.file);
+	if (task.title !== trimmed) {
+		recordChange('✎', 'Renamed', task.file, `${task.title} → ${trimmed}`);
+	}
 }
 
 /**
@@ -555,6 +570,8 @@ export async function toggleTask(task: Task): Promise<void> {
 		const updated = toggleTaskDone(current, task);
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
+		const newStatus: TaskStatus = task.status === 'todo' ? 'in-progress' : 'todo';
+		recordChange(newStatus === 'todo' ? '○' : '−', newStatus === 'todo' ? 'Reopened' : 'Started', task.file, task.title);
 	} catch (err) {
 		console.error("[toggleTask]", err);
 		fail(
@@ -662,6 +679,7 @@ async function flushCompletion(task: Task, key: string): Promise<void> {
 		const updated = setTaskDone(current, task, "done");
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
+		recordChange('✓', 'Completed', task.file, task.title);
 	} catch (err) {
 		console.error("[flushCompletion]", err);
 		// Revert the cache so the UI doesn't lie.
@@ -741,6 +759,7 @@ export async function addSubtask(task: Task, title: string): Promise<void> {
 	const updated = lines.join("\n");
 	await writeFile(d, task.file, updated);
 	appState.cache[task.file] = parseFile(updated, task.file);
+	recordChange('+', 'Added subtask', task.file, `${task.title} › ${title}`);
 }
 
 /**
@@ -915,6 +934,7 @@ export async function toggleChild(
 						appState.cache[todayFilename] = parseFile(newToday, todayFilename);
 					if (newBacklog)
 						appState.cache["Backlog.md"] = parseFile(newBacklog, "Backlog.md");
+					recordChange('✓', 'Completed', todayFilename, `${task.title} (all subtasks done)`);
 				} else {
 					// Same-file parent status update.
 					const lines = updated.split("\n");
@@ -925,6 +945,12 @@ export async function toggleChild(
 					updated = lines.join("\n");
 					await writeFile(d, task.file, updated);
 					appState.cache[task.file] = parseFile(updated, task.file);
+					recordChange(
+						targetStatus === 'done' ? '✓' : targetStatus === 'in-progress' ? '−' : '○',
+						targetStatus === 'done' ? 'Completed' : targetStatus === 'in-progress' ? 'Started' : 'Reopened',
+						task.file,
+						`${task.title} (via subtasks)`,
+					);
 				}
 				// Parent was updated — cache is already refreshed in the
 				// branches above; return to avoid the double-parse below.
@@ -935,11 +961,47 @@ export async function toggleChild(
 		// No parent update needed — write the child-only toggle.
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
+		recordChange(
+			child.status === 'done' ? '○' : child.status === 'in-progress' ? '✓' : '−',
+			child.status === 'done' ? 'Reopened subtask' : child.status === 'in-progress' ? 'Completed subtask' : 'Started subtask',
+			task.file,
+			`${task.title} › ${child.title}`,
+		);
 	} catch (err) {
 		console.error("[toggleChild]", err);
 		fail(
 			"Could not save subtask — try the Sync button or reconnect the folder.",
 		);
+	}
+}
+
+/** Maximum entries in the in-memory change log before oldest are pruned. */
+const CHANGE_LOG_CAP = 200;
+
+/**
+ * Record a mutation in the change log for the git-tree history panel.
+ * Automatically prunes oldest entries when the cap is exceeded.
+ *
+ * @param icon   - Single-character symbol (e.g. "✓", "+", "−", "→", "✎").
+ * @param action - Past-tense verb (e.g. "Completed", "Added").
+ * @param file   - Filename affected.
+ * @param detail - Human-readable detail (usually the task title).
+ */
+export function recordChange(
+	icon: string,
+	action: string,
+	file: string,
+	detail: string,
+): void {
+	appState.changeLog.unshift({
+		timestamp: new Date(),
+		icon,
+		action,
+		file,
+		detail,
+	});
+	if (appState.changeLog.length > CHANGE_LOG_CAP) {
+		appState.changeLog.length = CHANGE_LOG_CAP;
 	}
 }
 
@@ -1127,6 +1189,7 @@ export async function completeBacklogTask(
 			appState.cache[todayFilename] = parseFile(newToday, todayFilename);
 		if (newBacklog)
 			appState.cache["Backlog.md"] = parseFile(newBacklog, "Backlog.md");
+		recordChange('✓', 'Completed', todayFilename, `${task.title} ← Backlog`);
 	} catch (err) {
 		console.error("[completeBacklogTask]", err);
 		fail(

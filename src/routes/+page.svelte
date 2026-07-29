@@ -11,6 +11,7 @@
 	import DayColumn from '$lib/components/DayColumn.svelte';
 	import BacklogRail from '$lib/components/BacklogRail.svelte';
 	import DoneLog from '$lib/components/DoneLog.svelte';
+	import InfoDrawer from '$lib/components/InfoDrawer.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import { toast } from '$lib/components/Toast.svelte';
 
@@ -22,6 +23,7 @@
 
 	let draggingTask: Task | null  = $state(null);
 	let doneLogOpen               = $state(false);
+	let infoDrawerOpen            = $state(false);
 	// Incrementing triggers the today column to open its add input.
 	let todayAddSignal            = $state(0);
 	// Guard against concurrent refresh calls (focus fires repeatedly on tab-switch).
@@ -31,7 +33,6 @@
 	let colonCatEnabled = $state(localStorage.getItem('colonCatEnabled') !== 'false');
 	let vaultName = $state(localStorage.getItem('obsidianVault') ?? '');
 	let editingVault = $state(false);
-	let vaultInputEl: HTMLInputElement;
 	const visibleDays = $derived(hidePast ? weekDays.filter(d => !d.past) : weekDays);
 
 	$effect(() => { localStorage.setItem('hidePast', String(hidePast)); });
@@ -43,7 +44,6 @@
 		editingVault = false;
 		localStorage.setItem('obsidianVault', vaultName.trim());
 	}
-	$effect(() => { if (editingVault) vaultInputEl?.focus(); });
 
 	function shiftWeek(dir: -1 | 0 | 1) {
 		if (dir === 0) appState.weekOffset = 0;
@@ -173,60 +173,23 @@
 	<div class="spacer"></div>
 	<button
 		class="btn-nav"
-		class:active={hidePast}
-		onclick={() => (hidePast = !hidePast)}
-	>Upcoming</button>
-	<button
-		class="btn-nav"
-		class:active={colonCatEnabled}
-		onclick={() => (colonCatEnabled = !colonCatEnabled)}
-		title="Colon shortcut: type PP: task to add under # PP"
-	>Colon</button>
-	<button
-		class="btn-nav"
 		class:active={doneLogOpen}
 		onclick={() => (doneLogOpen = !doneLogOpen)}
 	>Done log</button>
-	<button
-		class="btn-nav"
-		disabled={isRefreshing}
-		onclick={manualRefresh}
-		title="Re-read all files from disk"
-	>Sync</button>
-	<button
-		class="btn-nav"
-		onclick={changeFolder}
-		title="Pick a different folder or reconnect after permission loss"
-	>Change folder</button>
-	{#if appState.folder.status === 'needs-permission'}
-		<button class="btn-nav warn" onclick={changeFolder}>Reconnect folder</button>
-	{/if}
 	{#if appState.folder.status === 'ready'}
 		<span class="folder-badge">{appState.folder.name}/</span>
-		{#if editingVault}
-			<input
-				bind:this={vaultInputEl}
-				bind:value={vaultName}
-				class="vault-input"
-				placeholder={appState.folder.name}
-				onkeydown={(e) => { if (e.key === 'Enter') applyVault(); if (e.key === 'Escape') { editingVault = false; vaultName = localStorage.getItem('obsidianVault') ?? ''; } }}
-				onblur={applyVault}
-			/>
-		{:else}
-			<button
-				class="vault-badge"
-				title={vaultName ? `Obsidian vault: ${vaultName}` : 'Click to set Obsidian vault name'}
-				onclick={startEditVault}
-			>
-				{vaultName ? `vault: ${vaultName}` : 'set vault'}
-			</button>
-		{/if}
 	{/if}
 	{#if appState.conflicts.length > 0}
 		<span class="conflict-badge" title={appState.conflicts.join(', ')}>
 			&#9888; {appState.conflicts.length} conflict{appState.conflicts.length > 1 ? 's' : ''}
 		</span>
 	{/if}
+	<button
+		class="btn-nav"
+		class:active={infoDrawerOpen}
+		onclick={() => (infoDrawerOpen = !infoDrawerOpen)}
+		title="Options and info"
+	>i</button>
 </div>
 
 <div id="main">
@@ -258,6 +221,25 @@
 	<DoneLog groups={doneTasksByDate(todayISO)} onclose={() => (doneLogOpen = false)} />
 {/if}
 
+{#if infoDrawerOpen}
+	<InfoDrawer
+		{hidePast}
+		{colonCatEnabled}
+		{vaultName}
+		{isRefreshing}
+		editingVault={editingVault}
+		onclose={() => (infoDrawerOpen = false)}
+		ontoggleHidePast={() => (hidePast = !hidePast)}
+		ontoggleColon={() => (colonCatEnabled = !colonCatEnabled)}
+		onsync={manualRefresh}
+		onchangeFolder={changeFolder}
+		onstartEditVault={startEditVault}
+		onapplyVault={applyVault}
+		onvaultInputKeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') applyVault(); if (e.key === 'Escape') { editingVault = false; vaultName = localStorage.getItem('obsidianVault') ?? ''; } }}
+		onvaultInputBlur={applyVault}
+	/>
+{/if}
+
 <Toast />
 
 <style>
@@ -282,8 +264,6 @@ h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--bar-
 }
 .btn-nav:hover { background: var(--bar-hover); color: var(--bar-text); border-color: var(--bar-border-strong); }
 .btn-nav.active { background: var(--bar-text); color: var(--bar-bg); border-color: var(--bar-text); }
-.btn-nav.warn { color: var(--crimson); border-color: var(--crimson); font-weight: 600; }
-.btn-nav.warn:hover { background: var(--crimson); color: #fff; }
 .btn-nav:disabled { opacity: 0.45; cursor: not-allowed; }
 #week-label { font-size: 13px; font-weight: 500; color: var(--bar-text-muted); }
 .spacer { flex: 1; }
@@ -292,19 +272,6 @@ h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--bar-
 	background: var(--bar-surface); border: 1px solid var(--bar-border);
 	padding: 2px 7px; border-radius: 5px;
 }
-.vault-badge {
-	font-size: 11px; color: var(--bar-text-faint); font-family: monospace;
-	background: var(--bar-surface); border: 1px solid var(--bar-border);
-	padding: 2px 7px; border-radius: 5px; cursor: pointer;
-}
-.vault-badge:hover { color: var(--bar-text-muted); border-color: var(--bar-border-strong); }
-.vault-input {
-	font-size: 11px; font-family: monospace;
-	background: var(--bar-surface); border: 1px solid var(--bar-border-strong);
-	padding: 2px 7px; border-radius: 5px; width: 120px; outline: none;
-	color: var(--bar-text);
-}
-.vault-input::placeholder { color: var(--bar-text-faint); }
 .conflict-badge {
 	font-size: 11px; font-weight: 600; color: var(--bar-text-dim);
 	background: var(--bar-muted); border: 1px solid var(--bar-border-strong);

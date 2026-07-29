@@ -59,6 +59,16 @@ Use the **+** button in the backlog header to add a task directly to `Backlog.md
 |---|---|
 | `n` | Focus add-task input for today |
 
+## Info drawer
+
+Click the **i** button in the top-right corner of the header to open the right-side drawer. Three tabs:
+
+| Tab | Purpose |
+|---|---|
+| Info | Explains every button and feature — built-in help |
+| Options | Upcoming toggle, Colon shortcut, Sync, Change folder, vault name, conflict warnings |
+| History | Session change log — every task mutation as a timestamped entry (resets on reload) |
+
 ## Local dev
 
 ```sh
