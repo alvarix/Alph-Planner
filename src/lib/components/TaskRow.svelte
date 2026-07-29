@@ -189,9 +189,12 @@
 			type="checkbox"
 			checked={task.status === 'done'}
 			indeterminate={task.status === 'in-progress'}
+			onclick={(e) => {
+				// Long press already fired — prevent browser from toggling the
+				// native checkbox state, which would fight Svelte's binding.
+				if (longPressJustFired) { longPressJustFired = false; e.preventDefault(); }
+			}}
 			onchange={() => {
-				// Suppress: the long-press gesture already fired completeTask.
-				if (longPressJustFired) { longPressJustFired = false; return; }
 				if (task.file === 'Backlog.md' && task.status === 'in-progress' && todayFilename) {
 					completeBacklogTask(task, todayFilename);
 				} else {

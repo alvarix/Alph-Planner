@@ -493,22 +493,26 @@ export async function toggleTask(task: Task): Promise<void> {
 	const key = `${task.file}:${task.lineRange[0]}`;
 
 	// If there's a pending completion, the task was optimistically marked done.
-	// Cancel the timer and cycle to unchecked (todo) instead of reverting to
-	// the previous status — this completes the tri-state cycle for the user.
+	// Cancel the timer and force-write todo ([ ]) — the disk still has [-]
+	// because the timer hasn't flushed yet, so cycling would go back to [x].
 	if (appState.pendingCompletions.has(key)) {
-		cancelCompletion(task);
-		// Now write the unchecked state to disk immediately.
+		const entry = appState.pendingCompletions.get(key)!;
+		clearTimeout(entry.timer);
+		appState.pendingCompletions.delete(key);
+
 		const d = dir();
 		if (!d) return;
 		try {
 			const current = await readFile(d, task.file);
 			if (current === null) return;
-			const updated = toggleTaskDone(current, task);
+			const updated = setTaskDone(current, task, "todo");
 			await writeFile(d, task.file, updated);
 			appState.cache[task.file] = parseFile(updated, task.file);
 		} catch (err) {
 			console.error("[toggleTask/undo]", err);
-			fail("Could not save checkbox — try the Sync button or reconnect the folder.");
+			fail(
+				"Could not save checkbox — try the Sync button or reconnect the folder.",
+			);
 		}
 		return;
 	}
