@@ -113,6 +113,37 @@ describe("toggleChildDone", () => {
 		expect(toggleTaskDone(src, task)).toBe("- [ ] finished");
 	});
 
+	it("cycles parent with children — todo to in-progress", () => {
+		const src = lines(
+			"# Art",
+			"- [ ] Practice",
+			"  - [-] Splotch",
+			"  - [ ] Portrait",
+			"  - [ ] Giveaway",
+		);
+		const tasks = parseFile(src, "2026-07-19.md");
+		const result = toggleTaskDone(src, tasks[0]).split("\n");
+		expect(result[1]).toBe("- [-] Practice"); // parent toggled
+		expect(result[2]).toBe("  - [-] Splotch"); // child unchanged
+		expect(result[3]).toBe("  - [ ] Portrait"); // child unchanged
+		expect(result[4]).toBe("  - [ ] Giveaway"); // child unchanged
+	});
+
+	it("safety guard: returns original line when result would be invalid", () => {
+		// Simulate stale lineRange pointing to a non-task line
+		const src = lines("![[Backlog]]", "", "- [ ] real task");
+		const tasks = parseFile(src, "2026-07-19.md");
+		// Manually construct a bad case — point lineRange at the embed line
+		const badTask = {
+			...tasks[0],
+			lineRange: [0, 0] as [number, number],
+			raw: "![[Backlog]]",
+		};
+		// Should return original content unchanged (non-task line -> no mutation)
+		const result = toggleTaskDone(src, badTask);
+		expect(result.split("\n")[0]).toBe("![[Backlog]]");
+	});
+
 	it("marks a child undone", () => {
 		const src = lines("- [ ] groceries", "  - [x] milk");
 		const tasks = parseFile(src, "2026-05-12.md");

@@ -11,9 +11,8 @@ import { saveHandle, loadHandle, clearHandle } from "./handle-store.js";
 /** Why the folder connection failed — drives recovery UI in FolderPicker. */
 export type FolderErrorReason =
 	| "permission-denied" // queryPermission returned denied — user must re-grant
-	| "icloud-locked" // NoModificationAllowedError on probe/write — likely iCloud Drive
+	| "icloud-locked" // NoModificationAllowedError on probe/write — likely stale SW cache or iCloud Drive
 	| "stale-handle" // Permission granted but operations fail — handle from old deploy
-	| "transient-lock" // Temporary lock, retry may succeed after a short wait
 	| "unknown";
 
 export type FolderState =

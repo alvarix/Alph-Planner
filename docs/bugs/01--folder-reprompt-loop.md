@@ -1,7 +1,9 @@
 # Bug 01 — Folder re-prompt loop
 
-**Status:** Open  
-**Severity:** High — user cannot use the app without manual intervention  
+**Status:** Resolved (2026-07-28)
+**Resolution:** Root cause was stale Service Worker cache, not iCloud/CloudKit denial.
+See `docs/icloud-fsaa-postmortem.md` for the full investigation and timeline.
+**Severity:** High — user cannot use the app without manual intervention
 **First reported:** 2026-07-19
 
 ## Symptom

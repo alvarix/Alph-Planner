@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Stale Service Worker identified as root cause of `NoModificationAllowedError`.**
+  After a deploy, the PWA's cached service worker served old JS bundles that could not
+  talk to the filesystem. This was misdiagnosed as iCloud/CloudKit FileProvider denial
+  for weeks. The app has worked with iCloud files the entire time — the error only
+  appeared when the SW cache was stale. See `docs/icloud-fsaa-postmortem.md`.
+
+### Added
+
+- **"Clear cache & reload" button** in the FolderPicker recovery overlay. One click
+  unregisters the service worker, clears all caches and IndexedDB, and reloads the page.
+  No more DevTools ritual.
+- **Update banner** in the layout. When a new app version is detected, a banner appears
+  at the top of the page: "A new version is available. Refresh now."
+- **Improved error messages.** Recovery hints now name stale cache as the likely cause
+  instead of telling users to move files off iCloud.
+
+### Removed
+
+- **`mode: "read"` folder open + `ensureWritePermission` escalation.** Reverted — this
+  was an attempted fix for the CloudKit denial theory and added complexity for no benefit.
+- **`"transient-lock"` FolderErrorReason.** Defined but never returned by any code path.
+- **`instanceof FsError` pass-through in `classifyError()`.** Was only needed for the
+  escalation path.
+
 ## 0.0.1
 
 ### Security

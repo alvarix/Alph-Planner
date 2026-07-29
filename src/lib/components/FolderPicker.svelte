@@ -56,6 +56,26 @@
 		}
 	}
 
+	/**
+	 * Unregister the service worker, clear all site data, and reload.
+	 * This is the most reliable fix for stale-cache errors after a deploy.
+	 */
+	async function clearCacheAndReload() {
+		if ('serviceWorker' in navigator) {
+			const registrations = await navigator.serviceWorker.getRegistrations();
+			for (const reg of registrations) await reg.unregister();
+		}
+		// Clear IndexedDB (handle store).
+		const dbs = await indexedDB.databases();
+		for (const db of dbs) {
+			if (db.name) indexedDB.deleteDatabase(db.name);
+		}
+		// Clear caches.
+		const keys = await caches.keys();
+		for (const key of keys) await caches.delete(key);
+		window.location.reload();
+	}
+
 	const errorReason = $derived(
 		appState.folder.status === 'needs-permission' ? appState.folder.errorReason : null,
 	);
@@ -63,13 +83,13 @@
 	/** Recovery instructions per error reason. */
 	const recoveryHint = $derived(
 		errorReason === 'icloud-locked'
-			? 'Chrome cannot write to iCloud Drive folders. Move your .md files to a local folder (e.g. ~/Documents/alph-planner) and pick that folder instead.'
+			? 'This is usually caused by a stale app cache after a deploy. Try "Clear cache & reload" below. If that does not help, your files may be on iCloud Drive — move them to a local folder (e.g. ~/Documents/alph-planner) and pick that folder instead.'
 			: errorReason === 'permission-denied'
 				? 'Permission was denied. Click Re-grant below to allow access, or pick a different folder.'
 				: errorReason === 'stale-handle'
 					? 'The stored folder handle is from an older version. Click "Forget folder" to clear it, then pick your folder again.'
 					: appState.refreshFailCount >= 3
-						? 'Refresh has failed repeatedly. Your files may be on iCloud Drive or temporarily locked. Wait a moment and try Retry, or Forget folder to start fresh.'
+						? 'Refresh has failed repeatedly. Try "Clear cache & reload" below — a stale service worker cache is the most common cause after a deploy.'
 						: '',
 	);
 </script>
@@ -103,6 +123,9 @@
 			</div>
 			<button class="btn-danger" onclick={forget} disabled={busy}>
 				Forget folder &amp; start fresh
+			</button>
+			<button class="btn-clear-cache" onclick={clearCacheAndReload}>
+				Clear cache &amp; reload
 			</button>
 		{:else}
 			<button class="btn-primary" onclick={choose} disabled={busy}>
@@ -170,4 +193,12 @@ code { font-family: monospace; font-size: 11px; background: #f8fafc; padding: 2p
 }
 .btn-danger:hover:not(:disabled) { background: #fef2f2; }
 .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-clear-cache {
+	display: block; width: 100%; padding: 11px;
+	font-size: 12px; font-weight: 500;
+	background: none; color: #7c3aed;
+	border: 1px solid #ddd6fe; border-radius: 7px; cursor: pointer;
+	margin-top: 4px;
+}
+.btn-clear-cache:hover { background: #f5f3ff; }
 </style>

@@ -217,4 +217,12 @@ describe("parseFile — unknown lines", () => {
 		const tasks = parseFile(src, "2026-05-12.md");
 		expect(tasks[0].children[0].raw).toBe("  - [ ] milk");
 	});
+
+	it("does NOT parse a corrupted line missing closing bracket", () => {
+		// Regression: - [- Practice (missing ]) must not parse — it would
+		// cause the task to silently disappear from the UI.
+		const src = lines("# Art", "- [- Practice");
+		const tasks = parseFile(src, "2026-05-12.md");
+		expect(tasks).toHaveLength(0);
+	});
 });

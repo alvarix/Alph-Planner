@@ -14,6 +14,7 @@ import {
 	addCategoryHeader,
 	removeCategoryHeader,
 	setTaskLineStatus,
+	setTaskDone,
 } from "./md/serialize.js";
 import { extractNotes, setNotes } from "./md/notes.js";
 import {
@@ -55,6 +56,14 @@ interface AppState {
 	refreshFailCount: number;
 	/** Reason for the last failed refresh (null when last refresh succeeded). */
 	lastRefreshError: import("./fs/folder.js").FolderErrorReason | null;
+	/** Pending delayed completions keyed by "file:lineIndex". */
+	pendingCompletions: Map<string, PendingCompletion>;
+}
+
+interface PendingCompletion {
+	task: Task;
+	previousStatus: TaskStatus;
+	timer: ReturnType<typeof setTimeout>;
 }
 
 /** Template written when the app creates a new daily file from scratch. */
@@ -73,6 +82,7 @@ export const appState = $state<AppState>({
 	defaultsApplied: new Set(),
 	refreshFailCount: 0,
 	lastRefreshError: null,
+	pendingCompletions: new Map(),
 });
 
 /** Extract all # H1 section names from raw file text. */
@@ -227,7 +237,7 @@ export async function refresh(): Promise<void> {
 			}
 			const hint =
 				reason === "icloud-locked"
-					? " If your files are on iCloud Drive, Chrome cannot write to them — move them to a local folder."
+					? ' If this started after a deploy, a stale service worker cache is likely the cause — try "Clear cache & reload" in the folder picker.'
 					: "";
 			fail(`Could not read folder: ${err?.message ?? "unknown error"}.${hint}`);
 		} else {
@@ -469,6 +479,44 @@ export function backlogCategoryHeaders(): string[] {
  * Re-parses only the affected file after writing.
  */
 export async function toggleTask(task: Task): Promise<void> {
+	const key = `${task.file}:${task.lineRange[0]}`;
+
+	// If there's a pending completion, clicking again cancels it (undo).
+	if (appState.pendingCompletions.has(key)) {
+		cancelCompletion(task);
+		return;
+	}
+
+	// Check if this toggle will transition to "done" (from in-progress).
+	const willBeDone = task.status === "in-progress";
+
+	if (willBeDone) {
+		const d = dir();
+		if (!d) return;
+
+		// Optimistic cache update — show done immediately.
+		const cache = appState.cache[task.file];
+		if (cache) {
+			const idx = cache.findIndex((t) => t.lineRange[0] === task.lineRange[0]);
+			if (idx !== -1) {
+				cache[idx] = { ...cache[idx], status: "done" as TaskStatus };
+			}
+		}
+
+		// Schedule the actual write 3 seconds later.
+		const timer = setTimeout(() => {
+			flushCompletion(task, key);
+		}, 3_000);
+
+		appState.pendingCompletions.set(key, {
+			task,
+			previousStatus: task.status,
+			timer,
+		});
+		return;
+	}
+
+	// Immediate write for non-done transitions.
 	const d = dir();
 	if (!d) return;
 	try {
@@ -482,6 +530,119 @@ export async function toggleTask(task: Task): Promise<void> {
 		fail(
 			"Could not save checkbox — try the Sync button or reconnect the folder.",
 		);
+	}
+}
+
+/**
+ * Complete a task immediately, skipping the tri-state cycle.
+ * Used by long-press gesture. Always sets status to "done" with a 3-second
+ * undo window, regardless of current status.
+ *
+ * If the task is already done or has a pending completion, this acts as undo.
+ *
+ * @param task - The task to complete.
+ */
+export async function completeTask(task: Task): Promise<void> {
+	const key = `${task.file}:${task.lineRange[0]}`;
+
+	// If already pending completion, clicking again cancels it.
+	if (appState.pendingCompletions.has(key)) {
+		cancelCompletion(task);
+		return;
+	}
+
+	// If already done, toggle back to todo immediately.
+	if (task.status === "done") {
+		const d = dir();
+		if (!d) return;
+		try {
+			const current = await readFile(d, task.file);
+			if (current === null) return;
+			const updated = toggleTaskDone(current, task);
+			await writeFile(d, task.file, updated);
+			appState.cache[task.file] = parseFile(updated, task.file);
+		} catch (err) {
+			console.error("[completeTask/undo]", err);
+			fail("Could not undo — try the Sync button.");
+		}
+		return;
+	}
+
+	const previousStatus = task.status;
+
+	// Optimistic cache update — show done immediately.
+	const cache = appState.cache[task.file];
+	if (cache) {
+		const idx = cache.findIndex((t) => t.lineRange[0] === task.lineRange[0]);
+		if (idx !== -1) {
+			cache[idx] = { ...cache[idx], status: "done" as TaskStatus };
+		}
+	}
+
+	// Schedule the actual write 3 seconds later.
+	const timer = setTimeout(() => {
+		flushCompletion(task, key);
+	}, 3_000);
+
+	appState.pendingCompletions.set(key, {
+		task,
+		previousStatus,
+		timer,
+	});
+}
+
+/**
+ * Cancel a pending delayed completion and revert the task to its
+ * previous status in the cache.
+ *
+ * @param task - The task whose pending completion should be cancelled.
+ */
+export function cancelCompletion(task: Task): void {
+	const key = `${task.file}:${task.lineRange[0]}`;
+	const entry = appState.pendingCompletions.get(key);
+	if (!entry) return;
+
+	clearTimeout(entry.timer);
+	appState.pendingCompletions.delete(key);
+
+	// Revert the cache to the previous status.
+	const cache = appState.cache[task.file];
+	if (cache) {
+		const idx = cache.findIndex((t) => t.lineRange[0] === task.lineRange[0]);
+		if (idx !== -1) {
+			cache[idx] = { ...cache[idx], status: entry.previousStatus };
+		}
+	}
+}
+
+/**
+ * Internal: flush a delayed completion to disk.
+ * Called when the 3-second timer fires.
+ */
+async function flushCompletion(task: Task, key: string): Promise<void> {
+	appState.pendingCompletions.delete(key);
+
+	const d = dir();
+	if (!d) return;
+
+	try {
+		const current = await readFile(d, task.file);
+		if (current === null) return;
+		// Force the line to [x] regardless of current state.
+		const updated = setTaskDone(current, task, "done");
+		await writeFile(d, task.file, updated);
+		appState.cache[task.file] = parseFile(updated, task.file);
+	} catch (err) {
+		console.error("[flushCompletion]", err);
+		// Revert the cache so the UI doesn't lie.
+		const cache = appState.cache[task.file];
+		if (cache) {
+			const idx = cache.findIndex((t) => t.lineRange[0] === task.lineRange[0]);
+			if (idx !== -1) {
+				cache[idx] = { ...cache[idx], status: task.status };
+			}
+		}
+		fail("Could not save completion — try the Sync button.");
 	}
 }
 

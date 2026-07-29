@@ -30,17 +30,38 @@ function nextStatusFromLine(line: string): TaskStatus {
 	return "todo";
 }
 
+/** Regex that a valid task line must match after checkbox mutation. */
+const VALID_TASK_LINE = /^(\s*-\s*\[[ xX-]\]\s*)/;
+
 /**
  * Cycle the checkbox on a single line through the tri-state:
  * [ ] → [-] → [x] → [ ]
+ *
+ * If the result would be an invalid task line (missing closing bracket),
+ * the original line is returned unchanged as a safety guard.
  */
 function cycleCheckbox(line: string): string {
 	const next = nextStatusFromLine(line);
-	return next === "in-progress"
-		? line.replace(/\[\s\]/, "[-]")
-		: next === "done"
-			? line.replace(/\[-\]/, "[x]")
-			: line.replace(/\[x\]/i, "[ ]");
+	const result =
+		next === "in-progress"
+			? line.replace(/\[\s\]/, "[-]")
+			: next === "done"
+				? line.replace(/\[-\]/, "[x]")
+				: line.replace(/\[x\]/i, "[ ]");
+	// Safety guard: if the result doesn't look like a valid task line,
+	// return the original line unchanged — prevents data corruption
+	// from stale lineRange or unexpected line content.
+	if (!VALID_TASK_LINE.test(result)) {
+		console.error(
+			"[cycleCheckbox] produced invalid task line — returning original",
+			{
+				input: line,
+				output: result,
+			},
+		);
+		return line;
+	}
+	return result;
 }
 
 // ── Exported mutations ────────────────────────────────────────────────────────
@@ -60,6 +81,28 @@ export function toggleTaskDone(content: string, task: Task): string {
 }
 
 /**
+ * Force a task's parent line to the given status, ignoring the tri-state cycle.
+ * Used for long-press completion (skips in-progress → done).
+ *
+ * @param content - Raw file text.
+ * @param task    - The task to update.
+ * @param status  - Target checkbox state.
+ * @returns New file text.
+ */
+export function setTaskDone(
+	content: string,
+	task: Task,
+	status: TaskStatus,
+): string {
+	const lines = splitLines(content);
+	lines[task.lineRange[0]] = setTaskLineStatus(
+		lines[task.lineRange[0]],
+		status,
+	);
+	return joinLines(lines);
+}
+
+/**
  * Set a task's parent line to a specific status without cycling.
  * Used for auto-status propagation from children to parent.
  *
@@ -69,7 +112,7 @@ export function toggleTaskDone(content: string, task: Task): string {
  */
 export function setTaskLineStatus(line: string, status: TaskStatus): string {
 	if (status === "in-progress")
-		return line.replace(/\[\s\]/, "[-").replace(/\[x\]/i, "[-");
+		return line.replace(/\[\s\]/, "[-]").replace(/\[x\]/i, "[-]");
 	if (status === "done")
 		return line.replace(/\[\s\]/, "[x]").replace(/\[-\]/, "[x]");
 	return line.replace(/\[x\]/i, "[ ]").replace(/\[-\]/, "[ ]");

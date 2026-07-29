@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeBacklogTask } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeBacklogTask, completeTask, cancelCompletion, appState } from '$lib/state.svelte.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -40,6 +40,36 @@
 	let addingSubtask   = $state(false);
 	let newSubtaskValue = $state('');
 	let newSubtaskEl:   HTMLInputElement;
+
+	// ── Long-press state ───────────────────────────────────────────────
+	let longPressTimer:  ReturnType<typeof setTimeout> | null = null;
+	let longPressActive = $state(false);
+	const LONG_PRESS_MS = 500;
+
+	function startLongPress() {
+		longPressActive = false;
+		longPressTimer = setTimeout(() => {
+			longPressActive = true;
+			longPressTimer = null;
+			if (task.file === 'Backlog.md' && task.status === 'in-progress' && todayFilename) {
+				completeBacklogTask(task, todayFilename);
+			} else {
+				completeTask(task);
+			}
+		}, LONG_PRESS_MS);
+	}
+
+	function cancelLongPress() {
+		if (longPressTimer) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+		longPressActive = false;
+	}
+
+	// ── Pending completion state (derived from global map) ────────────
+	const taskKey = $derived(`${task.file}:${task.lineRange[0]}`);
+	const isPendingComplete = $derived(appState.pendingCompletions.has(taskKey));
 
 	function startEdit() {
 		editValue = task.title;
@@ -133,6 +163,7 @@
 	class:done={task.status === 'done'}
 	class:in-progress={task.status === 'in-progress'}
 	class:has-color={color}
+	class:pending={isPendingComplete}
 	style={[
 		color     ? `border-left: 3px solid ${color.border}; padding-left: 5px;` : '',
 		minHeight ? `min-height: ${minHeight}px;` : '',
@@ -141,6 +172,10 @@
 	draggable="true"
 	ondragstart={(e) => ondragstart?.(e, task)}
 	ondragend={(e) => ondragend?.(e)}
+	onpointerdown={startLongPress}
+	onpointerup={cancelLongPress}
+	onpointerleave={cancelLongPress}
+	onpointercancel={cancelLongPress}
 >
 	<!-- Main row: handle + checkbox + title + duration -->
 	<div class="task-main">
@@ -157,6 +192,14 @@
 				}
 			}}
 		/>
+		{#if isPendingComplete}
+			<button
+				class="undo-btn"
+				onclick={(e) => { e.stopPropagation(); cancelCompletion(task); }}
+				title="Undo completion"
+				aria-label="Undo completion"
+			>undo</button>
+		{/if}
 		<div class="task-body">
 			{#if editing}
 				<input
@@ -415,6 +458,40 @@
 	input {
 		    accent-color: var(--crimson) !important;
 	}
+}
+
+/* ── Pending completion (3-second undo window) ──────────────────────── */
+.task-item.pending {
+	opacity: 0.7;
+	background: linear-gradient(90deg, var(--surface) 0%, #e8f5e9 50%, var(--surface) 100%);
+	background-size: 200% 100%;
+	animation: pending-pulse 0.8s ease-in-out infinite;
+}
+.task-item.pending .task-title {
+	text-decoration: line-through;
+	color: var(--text-muted);
+}
+
+@keyframes pending-pulse {
+	0%   { background-position: 100% 0; }
+	100% { background-position: 0% 0; }
+}
+
+.undo-btn {
+	font-size: 10px;
+	background: var(--surface);
+	border: 1px solid var(--border-input);
+	border-radius: 3px;
+	color: var(--text-muted);
+	cursor: pointer;
+	padding: 1px 6px;
+	line-height: 1.5;
+	flex-shrink: 0;
+	transition: color .1s, border-color .1s;
+}
+.undo-btn:hover {
+	color: var(--crimson);
+	border-color: var(--crimson);
 }
 
 </style>

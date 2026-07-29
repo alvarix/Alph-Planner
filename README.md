@@ -142,65 +142,34 @@ When that happens the app detects it automatically on the next window focus and 
 
 If the app shows empty columns or a missing Backlog after a reload, click **Change folder** and re-select the same folder. No data is lost — all content lives in your `.md` files.
 
-**iCloud users**: files being actively synced by iCloud are temporarily locked. The app skips applying recurring defaults to locked files and retries on the next focus — you will not lose data or see stale tasks as a result.
-
 ## Troubleshooting
 
-### App loads with no data after a deploy
+### App loads with no data (columns empty, errors in console)
 
-**Symptom:** columns are empty, "Refresh failed" toast appears with a file-modification error, re-picking the folder does not fix it.
+**Symptom:** columns are empty, "Refresh failed" or "File temporarily locked or inaccessible" toast appears, re-picking the folder does not fix it.
 
-**Cause:** the PWA service worker is serving a stale cached bundle that predates a deployed fix. A normal reload does not always swap the SW-cached assets — you are running old code against a new deploy.
+**Cause (most common):** the PWA service worker is serving a stale cached bundle from a previous deploy. The old code cannot talk to the filesystem correctly.
 
-**Fix (30 seconds):**
+**Fix — one click:** When the error overlay appears, click **"Clear cache & reload"**. This unregisters the service worker, clears all cached app assets, clears the stored folder handle, and reloads the page. Then re-pick your folder.
 
-1. DevTools → Application → **Service Workers → Unregister**.
-2. DevTools → Application → **Storage → Clear site data**.
-3. Hard reload (Cmd+Shift+R) and re-pick your folder.
+**Fix — manual:** DevTools (F12) → Application → **Service Workers → Unregister**, then **Storage → Clear site data**, then hard reload (Cmd+Shift+R) and re-pick.
 
 This clears only cached app assets — your `.md` files are untouched.
 
 ### Folder picker keeps re-prompting (cannot select folder)
 
-**Symptom:** you pick a folder, the overlay re-appears, and clicking "Re-grant access" or "Choose folder" just loops. Console shows `NoModificationAllowedError`.
+**Symptom:** you pick a folder, the overlay re-appears, and clicking "Re-grant access" just loops. Console shows `NoModificationAllowedError`.
 
-**Common causes and fixes, ordered from fastest to most involved:**
+**Fixes, ordered from fastest:**
 
-#### Fix 1: Click "Forget folder & start fresh" (in-app)
-
-The FolderPicker now has a red "Forget folder & start fresh" button when it detects a persistent error. This clears the stored handle from IndexedDB and lets you pick a folder from scratch.
-
-#### Fix 2: Clear the stored handle manually
-
-1. Open DevTools (F12)
-2. Application → IndexedDB → `alph-planner-fs` → `handles` → right-click → **Clear**
-3. Reload (Cmd+R) and re-pick your folder
-
-#### Fix 3: Clear all site data
-
-1. DevTools → Application → **Storage → Clear site data**
-2. Reload (Cmd+R) and re-pick your folder
-
-#### Fix 4: Unregister the service worker
-
-1. DevTools → Application → **Service Workers → Unregister**
-2. Clear site data (Fix 3 above)
-3. Hard reload (Cmd+Shift+R)
-
-#### Fix 5: Move files off iCloud Drive
-
-Chrome's File System Access API does not support writing to iCloud Drive folders. If your `.md` files live in an iCloud-synced directory (e.g., `~/Library/Mobile Documents/...`), you must move them to a local folder:
-
-```sh
-mkdir -p ~/Documents/alph-planner-data
-cp ~/Library/Mobile\ Documents/com~apple~CloudDocs/alph-planner/*.md ~/Documents/alph-planner-data/
-```
-
-Then pick `~/Documents/alph-planner-data` in the app. See `docs/bugs/01--folder-reprompt-loop.md` for the full diagnosis.
+1. **"Clear cache & reload" button** (in the error overlay) — one click, fixes stale cache
+2. **"Forget folder & start fresh" button** (in the error overlay) — clears the stored handle, then re-pick
+3. **Manual:** DevTools → Application → IndexedDB → `alph-planner-fs` → clear, reload, re-pick
+4. **Last resort — move to local folder:** if the folder is on iCloud Drive and nothing above works, move your `.md` files to a local folder (e.g. `~/Documents/alph-planner`) and pick that instead. See `docs/icloud-fsaa-postmortem.md` for the full diagnosis.
 
 ### Edits not saving
 
-If task check/uncheck or text edits do not appear in your `.md` files after a save attempt, the folder may have lost write permission. Click **Reconnect folder** in the topbar. If that does not help, hard reload and re-pick the folder — this discards a stale file handle that may have accumulated OS-level locks across deploys.
+If task check/uncheck or text edits do not appear in your `.md` files after a save attempt, the folder may have lost write permission. Click **Reconnect folder** in the topbar. If that does not help, use the "Clear cache & reload" button in the error overlay.
 
 ## Data
 
