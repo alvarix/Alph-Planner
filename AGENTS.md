@@ -118,3 +118,9 @@ This is a **local-first Markdown task planner**. The app has no database or back
 | `src/lib/dates.ts` | Week navigation utilities |
 | `src/lib/ui/foldState.ts` | localStorage category fold state |
 | `src/routes/+page.svelte` | App entry point, layout orchestration |
+
+## Commit Discipline
+
+- **Track hunks per conversation thread.** Before committing, review every hunk in `git diff --cached` and confirm it belongs to the current task. If a file contains changes from multiple threads, stage only the relevant hunks with `git add -p`.
+- **Check for pre-existing untracked files.** Before writing new spec docs or config files, check `git status` for untracked files that may belong to another thread. Never overwrite untracked files without asking.
+- **Commit only the files relevant to the current task.** If unrelated changes have crept into the working tree, leave them unstaged.
