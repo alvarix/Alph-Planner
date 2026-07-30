@@ -249,6 +249,25 @@
 .day-col.weekend { background: var(--surface-muted); }
 .day-col.weekend .day-dn  { color: var(--text-dimmed); }
 .day-col.today  { background: var(--surface-raised); }
+
+/* Past days — archived, visually recessed */
+.day-col.past {
+	background: #e0e0e0;
+}
+.day-col.past .day-head {
+	opacity: 0.5;
+}
+.day-col.past .task-list {
+	background-color: #d4d4d4;
+}
+.day-col.past :global(.task-item) {
+	background: #eaeaea;
+	border-color: #d0d0d0;
+}
+.day-col.past :global(.task-item.done) {
+	opacity: 0.35;
+}
+
 .day-col.drag-over {
 	background: var(--surface-muted);
 	box-shadow: inset 0 0 0 2px var(--border-mid);

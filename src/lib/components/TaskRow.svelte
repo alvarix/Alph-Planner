@@ -56,8 +56,12 @@
 			longPressActive = true;
 			longPressJustFired = true;
 			longPressTimer = null;
-			if (task.file === 'Backlog.md' && task.status === 'in-progress' && todayFilename) {
+			if (task.file === 'Backlog.md' && todayFilename) {
 				completeBacklogTask(task, todayFilename);
+			} else if (task.file === 'Backlog.md') {
+				// Backlog task without todayFilename — shouldn't happen, but fall back to
+				// in-place completion so the task isn't stuck.
+				completeTask(task);
 			} else {
 				completeTask(task);
 			}
@@ -195,8 +199,12 @@
 				if (longPressJustFired) { longPressJustFired = false; e.preventDefault(); }
 			}}
 			onchange={() => {
+				// Backlog tasks: first click → in-progress. Second click → move to today as done.
 				if (task.file === 'Backlog.md' && task.status === 'in-progress' && todayFilename) {
 					completeBacklogTask(task, todayFilename);
+				} else if (task.file === 'Backlog.md' && task.status === 'done' && todayFilename) {
+					// Clicking a done backlog task un-completes it (moves back to todo in-place).
+					toggleTask(task);
 				} else {
 					toggleTask(task);
 				}

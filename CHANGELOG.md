@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Changed
+
+- **Past days visually recessed.** Past day columns now have a darker background (`#e0e0e0`),
+  dimmed headers (50% opacity), darker dot-grid (`#d4d4d4`), and muted task cards
+  (`#eaeaea`). Done tasks in past days fade to 35% opacity instead of 55%.
+  Past days remain fully interactive but are clearly "archived" not active workspace.
+- **Backlog rail darkened.** Background (`#e8e8e8`), task list (`#dcdcdc`), task cards
+  (`#eee`), and duration badges all shifted darker to visually distinguish from active
+  day columns.
+
+### Fixed
+
+- **Long-press on backlog tasks now moves to today.** Previously, long-pressing a `todo`
+  backlog task marked it `[x]` in-place in `Backlog.md` instead of moving to today's
+  file. Now any backlog task completed via long-press is moved to today as a done task.
+- **Checkbox click on done backlog tasks handled correctly.** Added explicit handler for
+  clicking a `done` backlog task — un-completes it in-place (todo) rather than falling
+  through to the generic toggle path.
+- **Clear cache & reload button.** Added to the InfoDrawer Options tab. Deregisters all
+  service workers, clears caches, IndexedDB, and localStorage, then reloads. Use after
+  deploys when the app appears stale.
+
 ### Added
 
 - **Info drawer.** Right-side slide-in panel ("i" button in header) with three tabs:

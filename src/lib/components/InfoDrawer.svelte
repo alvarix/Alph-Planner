@@ -60,6 +60,41 @@
 		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
 
+	/** Unregister all service workers, clear caches, IndexedDB, and localStorage, then reload. */
+	async function deregisterAndClear() {
+		// Clear localStorage (fold state, UI prefs, FS handle key reference).
+		localStorage.clear();
+
+		// Clear all IndexedDB databases.
+		if (window.indexedDB?.databases) {
+			try {
+				const dbs = await window.indexedDB.databases();
+				for (const db of dbs) {
+					if (db.name) window.indexedDB.deleteDatabase(db.name);
+				}
+			} catch { /* some browsers don't support databases() */ }
+		}
+
+		// Clear all cache storage.
+		if ('caches' in window) {
+			try {
+				const keys = await caches.keys();
+				for (const key of keys) await caches.delete(key);
+			} catch { /* ignore */ }
+		}
+
+		// Unregister all service workers.
+		if ('serviceWorker' in navigator) {
+			try {
+				const regs = await navigator.serviceWorker.getRegistrations();
+				for (const reg of regs) await reg.unregister();
+			} catch { /* ignore */ }
+		}
+
+		// Reload to pick up the fresh deployment.
+		window.location.reload();
+	}
+
 	/** Group change log entries by date for section headers. */
 	const groupedChanges = $derived.by(() => {
 		const groups: { label: string; entries: ChangeEntry[] }[] = [];
@@ -298,6 +333,13 @@ Free-form notes go here.</pre>
 						</ul>
 					</div>
 				{/if}
+
+				<hr class="opt-divider" />
+
+				<button class="opt-btn warn" onclick={deregisterAndClear}>
+					Clear cache &amp; reload
+					<span class="opt-btn-desc">Deregister service worker, clear all site data, and reload. Use when the app seems stale after a deploy.</span>
+				</button>
 			</div>
 
 		<!-- ─── History Tab ──────────────────────────────────── -->

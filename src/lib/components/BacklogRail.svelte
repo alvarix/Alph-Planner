@@ -282,7 +282,7 @@
 #backlog-rail {
 	width: 225px; flex-shrink: 0;
 	display: flex; flex-direction: column;
-	background: var(--bg); border-right: 1px solid var(--border);
+	background: #e8e8e8; border-right: 1px solid var(--border);
 	overflow: hidden; transition: box-shadow .12s;
 }
 #backlog-rail.drag-over {
@@ -310,7 +310,7 @@
 
 .add-form {
 	padding: 6px 8px; border-bottom: 1px solid var(--border);
-	background: var(--bg);
+	background: #e4e4e4;
 }
 .add-cat {
 	width: 100%; margin-bottom: 4px; font-size: 11px;
@@ -326,7 +326,7 @@
 
 .rail-list {
 	flex: 1; overflow-y: auto;
-	background-color: var(--surface-pattern);
+	background-color: #dcdcdc;
 	background-image: radial-gradient(circle, rgba(0,0,0,0.07) 1px, transparent 1px);
 	background-size: 14px 14px;
 	padding-top: 4px;
@@ -345,7 +345,7 @@
 }
 .btn-roll {
 	width: 100%; padding: 6px 10px; font-size: 11px; font-weight: 600;
-	background: var(--surface); border: 1px solid var(--border);
+	background: #e0e0e0; border: 1px solid var(--border);
 	border-radius: 5px; cursor: pointer; color: var(--text-mid);
 }
 .btn-roll:hover { background: var(--surface-muted); }
@@ -355,10 +355,19 @@
 	top: 5px;
 	right: 8px;
 	font-size: 9px;
-	background: var(--surface-em);
+	background: #d5d5d5;
 	color: var(--text-mid);
 	padding: 1px 5px;
 	border-radius: 3px;
 	font-weight: 600;
+}
+
+/* Darker task cards inside the backlog rail */
+:global(#backlog-rail .task-item) {
+	background: #eee;
+	border-color: #d0d0d0;
+}
+:global(#backlog-rail .task-item.done) {
+	opacity: 0.35;
 }
 </style>
