@@ -400,6 +400,42 @@ export async function addTaskWithCategory(
 }
 
 /**
+ * Duplicate a task, inserting the copy immediately after the original.
+ * The new task is always unchecked ([ ]) regardless of the original's
+ * checkbox state. Children, star, and duration are preserved.
+ *
+ * @param task - The task to duplicate (parent + children).
+ */
+export async function duplicateTask(task: Task): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	try {
+		const current = await readFile(d, task.file);
+		if (current === null) return;
+		const lines = current.split("\n");
+
+		// Build the duplicated block with all checkboxes reset to [ ].
+		const dupParent = task.raw.replace(/\[.\]/i, "[ ]");
+		const dupChildren = task.children.map((c) =>
+			c.raw.replace(/\[.\]/i, "[ ]"),
+		);
+		const block = [dupParent, ...dupChildren];
+
+		// Insert after the original task block.
+		lines.splice(task.lineRange[1] + 1, 0, ...block);
+		const updated = lines.join("\n");
+		await writeFile(d, task.file, updated);
+		appState.cache[task.file] = parseFile(updated, task.file);
+		recordChange('+', 'Duplicated', task.file, task.title);
+	} catch (err) {
+		console.error("[duplicateTask]", err);
+		fail(
+			"Could not duplicate task — try the Sync button or reconnect the folder.",
+		);
+	}
+}
+
+/**
  * Delete a task (parent + all children) from its file.
  */
 export async function deleteTask(task: Task): Promise<void> {

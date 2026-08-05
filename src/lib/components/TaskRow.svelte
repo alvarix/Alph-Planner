@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeBacklogTask, completeTask, cancelCompletion, appState } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeBacklogTask, completeTask, cancelCompletion, duplicateTask, appState } from '$lib/state.svelte.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -314,6 +314,12 @@
 			aria-label={task.starred ? 'unstar task' : 'star task'}
 		>&#9733;</button>
 		<button
+			class="dup-btn"
+			onclick={() => duplicateTask(task)}
+			title="Duplicate task"
+			aria-label="Duplicate task"
+		>dup</button>
+		<button
 			class="add-sub-btn"
 			onclick={() => (addingSubtask = true)}
 			title="Add subtask"
@@ -429,10 +435,11 @@
 }
 
 /* All strip controls hidden until hover */
-.star-btn, .add-sub-btn, .del-btn {
+.star-btn, .dup-btn, .add-sub-btn, .del-btn {
 	opacity: 0; transition: opacity .1s, color .1s;
 }
 .task-item:hover .star-btn,
+.task-item:hover .dup-btn,
 .task-item:hover .add-sub-btn,
 .task-item:hover .del-btn { opacity: 1; }
 
@@ -445,6 +452,14 @@
 }
 .star-btn.starred { color: var(--yellow); }
 .star-btn:hover { color: var(--yellow); }
+
+.dup-btn {
+	font-size: 10px; background: none; border: 1px solid var(--border);
+	border-radius: 3px; cursor: pointer; color: var(--text-muted);
+	padding: 0 4px; line-height: 1.6;
+	transition: color .1s, border-color .1s, opacity .1s;
+}
+.dup-btn:hover { color: var(--text); border-color: var(--border-input); }
 
 .add-sub-btn {
 	font-size: 10px; background: none; border: 1px solid var(--border);

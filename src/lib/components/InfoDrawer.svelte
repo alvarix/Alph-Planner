@@ -17,6 +17,7 @@
 		onapplyVault,
 		onvaultInputKeydown,
 		onvaultInputBlur,
+		onvaultInput,
 		editingVault,
 	}: {
 		hidePast: boolean;
@@ -32,6 +33,7 @@
 		onapplyVault: () => void;
 		onvaultInputKeydown: (e: KeyboardEvent) => void;
 		onvaultInputBlur: () => void;
+		onvaultInput: (e: Event) => void;
 		editingVault: boolean;
 	} = $props();
 
@@ -313,7 +315,8 @@ Free-form notes go here.</pre>
 							value={vaultName}
 							class="opt-vault-input"
 							placeholder={appState.folder.status === 'ready' ? appState.folder.name : 'vault name'}
-							onkeydown={onvaultInputKeydown}
+							oninput={onvaultInput}
+						onkeydown={onvaultInputKeydown}
 							onblur={onvaultInputBlur}
 						/>
 					{:else}

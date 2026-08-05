@@ -220,6 +220,31 @@ describe("extractH1s", () => {
 	});
 });
 
+// ── duplicateTask (checkbox reset pattern) ────────────────────────────────────
+
+describe("duplicate checkbox reset", () => {
+	it("resets [x] to [ ]", () => {
+		expect("- [x] buy milk".replace(/\[.\]/i, "[ ]")).toBe("- [ ] buy milk");
+	});
+
+	it("resets [-] to [ ]", () => {
+		expect("- [-] in progress".replace(/\[.\]/i, "[ ]")).toBe("- [ ] in progress");
+	});
+
+	it("leaves [ ] unchanged", () => {
+		expect("- [ ] already todo".replace(/\[.\]/i, "[ ]")).toBe("- [ ] already todo");
+	});
+
+	it("resets children too", () => {
+		expect("  - [x] done child".replace(/\[.\]/i, "[ ]")).toBe("  - [ ] done child");
+		expect("  - [-] active child".replace(/\[.\]/i, "[ ]")).toBe("  - [ ] active child");
+	});
+
+	it("preserves star and duration", () => {
+		expect("- [x] **ship invoice** 1h".replace(/\[.\]/i, "[ ]")).toBe("- [ ] **ship invoice** 1h");
+	});
+});
+
 // ── appendTask ────────────────────────────────────────────────────────────────
 
 describe("appendTask", () => {

@@ -237,6 +237,7 @@
 		onapplyVault={applyVault}
 		onvaultInputKeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') applyVault(); if (e.key === 'Escape') { editingVault = false; vaultName = localStorage.getItem('obsidianVault') ?? ''; } }}
 		onvaultInputBlur={applyVault}
+		onvaultInput={(e: Event) => { vaultName = (e.target as HTMLInputElement).value; }}
 	/>
 {/if}
 
