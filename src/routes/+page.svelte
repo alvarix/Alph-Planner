@@ -45,9 +45,10 @@
 		localStorage.setItem('obsidianVault', vaultName.trim());
 	}
 
-	function shiftWeek(dir: -1 | 0 | 1) {
+	async function shiftWeek(dir: -1 | 0 | 1) {
 		if (dir === 0) appState.weekOffset = 0;
 		else appState.weekOffset += dir;
+		if (folderReady()) await refresh();
 	}
 
 	// Surface FS errors as toasts.

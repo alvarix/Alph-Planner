@@ -75,6 +75,25 @@ interface PendingCompletion {
 /** Template written when the app creates a new daily file from scratch. */
 const NEW_DAILY_TEMPLATE = "![[Backlog]]\n\n";
 
+/**
+ * Get content for a daily file, falling back to template with defaults
+ * applied when the file doesn't exist yet. Non-date files (e.g. Backlog.md)
+ * receive the plain template without defaults injection.
+ */
+async function getOrCreateDayContent(
+	d: FileSystemDirectoryHandle,
+	filename: string,
+): Promise<string> {
+	const existing = await readFile(d, filename);
+	if (existing !== null) return existing;
+	const dateMatch = filename.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
+	if (!dateMatch) return NEW_DAILY_TEMPLATE;
+	const defaultsText = await readDefaultsFile(d);
+	if (!defaultsText) return NEW_DAILY_TEMPLATE;
+	const defaults = parseDefaults(defaultsText);
+	return applyDefaults(NEW_DAILY_TEMPLATE, defaults, dateMatch[1], appState.defaultsApplied);
+}
+
 export const appState = $state<AppState>({
 	folder: { status: "none" },
 	cache: {},
@@ -288,8 +307,7 @@ export async function moveTask(
 	if (!d || task.file === targetFilename) return;
 
 	// ── 1. Append to target ───────────────────────────────────────────────────
-	const targetContent =
-		(await readFile(d, targetFilename)) ?? NEW_DAILY_TEMPLATE;
+	const targetContent = await getOrCreateDayContent(d, targetFilename);
 	const taskLine = task.raw;
 	const childLines = task.children.map((c) => c.raw);
 	const block = [taskLine, ...childLines].join("\n");
@@ -357,7 +375,7 @@ export async function addTask(
 ): Promise<void> {
 	const d = dir();
 	if (!d) return;
-	const current = (await readFile(d, filename)) ?? NEW_DAILY_TEMPLATE;
+	const current = await getOrCreateDayContent(d, filename);
 	const updated = appendTask(current, rawLine, category);
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
@@ -383,7 +401,7 @@ export async function addTaskWithCategory(
 ): Promise<void> {
 	const d = dir();
 	if (!d) return;
-	let current = (await readFile(d, filename)) ?? NEW_DAILY_TEMPLATE;
+	let current = await getOrCreateDayContent(d, filename);
 	if (!extractH1s(current).includes(category)) {
 		current = addCategoryHeader(current, category);
 	}
@@ -949,8 +967,7 @@ export async function toggleChild(
 					);
 
 					// Append to today's file.
-					const todayContent =
-						(await readFile(d, todayFilename)) ?? NEW_DAILY_TEMPLATE;
+					const todayContent = await getOrCreateDayContent(d, todayFilename);
 					const todayUpdated = appendTask(
 						todayContent,
 						checkedBlock,
@@ -1111,7 +1128,7 @@ export async function addCategoryToFile(
 ): Promise<void> {
 	const d = dir();
 	if (!d) return;
-	const current = (await readFile(d, filename)) ?? NEW_DAILY_TEMPLATE;
+	const current = await getOrCreateDayContent(d, filename);
 	const updated = addCategoryHeader(current, name);
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
@@ -1207,8 +1224,7 @@ export async function completeBacklogTask(
 		const checkedBlock = [lines[task.lineRange[0]], ...childLines].join("\n");
 
 		// 1. Append checked block to today's file.
-		const todayContent =
-			(await readFile(d, todayFilename)) ?? NEW_DAILY_TEMPLATE;
+		const todayContent = await getOrCreateDayContent(d, todayFilename);
 		const todayUpdated = appendTask(todayContent, checkedBlock, task.category);
 		await writeFile(d, todayFilename, todayUpdated);
 
