@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### Added
+
+- **Duplicate task button.** A "dup" button appears on hover next to the star button on
+  each task row. Duplicates the task (parent + children) with all checkboxes reset to
+  `[ ]`, inserting the copy immediately after the original.
+- **Colon shortcut in backlog add input.** The `Category: task` shorthand now works in
+  the BacklogRail input, same as in day column inputs. Creates the category H1 header
+  if it doesn't already exist in `Backlog.md`.
+
+### Fixed
+
+- **Vault name input now reactive on every keystroke.** Switched from `onkeydown` to
+  `oninput` so the vault name reflects live typing, not just on Enter/Blur.
+- **Long-press checkbox race condition.** When long-pressing a task to complete it, the
+  native checkbox `onclick` no longer fights Svelte's binding (moved guard from
+  `onchange` to `onclick` + `preventDefault`).
+- **Pending completion undo writes correct state.** Clicking the checkbox during the
+  3-second undo window now force-writes `[ ]` instead of cycling through the tri-state,
+  matching the actual disk state while the timer hasn't flushed.
+- **Defaults now apply on week navigation and new file creation.** Navigating to a
+  future week with the arrow buttons now triggers a refresh, so existing files get
+  their Weekly/Monthly defaults applied immediately. New day files created by adding
+  a task also bake in defaults from `Defaults.md` on first write instead of waiting
+  for the next refresh cycle.
+
 ### Changed
 
 - **Past days visually recessed.** Past day columns now have a darker background (`#e0e0e0`),
