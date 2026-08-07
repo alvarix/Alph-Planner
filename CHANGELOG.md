@@ -4,6 +4,17 @@
 
 ### Added
 
+- **Week-end roll to backlog.** A "Roll week to backlog" button appears in the topbar when
+  viewing a fully-past week that still holds unfinished (todo or in-progress) tasks. Clicking
+  it moves every unfinished task from that week's daily files into `Backlog.md`, preserving
+  each block's raw lines, subtasks, and checkbox state. Done tasks stay in their daily files.
+  The batch writes `Backlog.md` first, then each source file, and restores `Backlog.md` if any
+  source write fails.
+- **Visible week separator in Backlog.md.** Rolled tasks are grouped under a
+  `## Added week of YYYY-MM-DD` heading (H2 — never a category, never the notes divider).
+  Manually added backlog tasks without a category land under the current week's heading too,
+  so last week's arrivals (rolled + manually added) sit visibly below older backlog content.
+  Headings are placed in chronological order, before the notes `---` divider.
 - **Duplicate task button.** A "dup" button appears on hover next to the star button on
   each task row. Duplicates the task (parent + children) with all checkboxes reset to
   `[ ]`, inserting the copy immediately after the original.
@@ -13,6 +24,9 @@
 
 ### Fixed
 
+- **Categorized tasks no longer append below week headings or notes.** `appendTask` now
+  treats `## Added week of` headings and the `---` notes divider as section boundaries,
+  and new category headers are inserted above the week sections instead of below them.
 - **Overdue tasks no longer mirror into the backlog rail while their day column is visible.**
   Derived overdue rows are now filtered by the visible daily filenames, so one Markdown
   task has only one representation in the active view. If a past day is hidden with

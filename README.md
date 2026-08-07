@@ -113,6 +113,8 @@ Open the same folder in Obsidian and edits appear in the app on the next focus. 
 
 `Backlog.md` in the same folder holds free-form todos without a specific day. Unchecked tasks from past daily files surface here with a red date tag. Drag any backlog item into a day column, or use "Roll all" to move everything to today.
 
+When you view a fully-past week that still has unfinished tasks, a **Roll week to backlog** button appears in the topbar. It moves every todo and in-progress task from that week's daily files into `Backlog.md` under a visible `## Added week of YYYY-MM-DD` heading, so last week's arrivals sit separated from older backlog content. Done tasks stay in their daily files. Tasks you add manually to the backlog without a category land under the current week's heading too. The operation is safe to repeat — an already-rolled week has nothing left to move.
+
 Use the **+** button in the backlog header to add a task directly to `Backlog.md`. If categories already exist in the backlog a dropdown lets you assign one. Subtasks are shown indented under their parent in the rail.
 
 ## Task actions

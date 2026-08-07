@@ -1,15 +1,15 @@
 # 11 — Past-day visual distinction, backlog darkening & backlog completion fixes
 
-## Status: Part A done, Part B deferred, bug fixes shipped
+## Status: Part A done, Part B shipped (with week headings), bug fixes shipped
 
 ### Shipped
 - **Part A** — Visual distinction for past days and backlog (darker backgrounds, dimmed headers)
+- **Part B** — Roll week to backlog: `rollWeekToBacklog(weekOffset)` action, topbar button for fully-past weeks with unfinished tasks, and a visible `## Added week of YYYY-MM-DD` heading in Backlog.md separating newly arrived tasks (rolled + manually added) from older content. Covered by integration tests in `src/lib/state.test.ts`.
 - **Bug fix** — Long-press on backlog tasks now correctly moves them to today
 - **Bug fix** — Checkbox completion of done backlog tasks handled explicitly
 - **Clear cache & reload** button added to InfoDrawer Options tab
 
 ### Deferred
-- **Part B** — Roll week to backlog (manual button for past weeks)
 - **Part C** — Auto-roll prompt on new week detection
 
 ---
@@ -153,16 +153,22 @@ After Parts A and B are implemented and tested, assess whether an automatic prom
 - [ ] Verify tasks remain interactive (checkboxes, drag, edit, double-click)
 - [ ] Test with `hidePast` toggle — ensure past days look correct when revealed
 
-### B — Roll week to backlog
+### B — Roll week to backlog (shipped)
 
-- [ ] Add `rollWeekToBacklog(weekOffset)` action to `state.svelte.ts`
-- [ ] Guard: only allow negative offsets (past weeks), all days must be past
-- [ ] Iterate all 7 day files, collect non-done tasks, move each via `moveTask()`
-- [ ] Return count and show toast
-- [ ] Add "Roll week to backlog" button to topbar in `+page.svelte`
-- [ ] Button visibility: only when viewing a fully-past week with unfinished tasks
-- [ ] Write unit tests for the roll logic (mocked FS)
-- [ ] Run `pnpm check` and `pnpm test:unit`
+- [x] Add `rollWeekToBacklog(weekOffset)` action to `state.svelte.ts`
+- [x] Guard: only allow fully-past weeks (all days past)
+- [x] Collect non-done tasks from all 7 day files and move them into `Backlog.md`
+- [x] Return count and show toast
+- [x] Add "Roll week to backlog" button to topbar in `+page.svelte`
+- [x] Button visibility: only when viewing a fully-past week with unfinished tasks
+- [x] Write unit tests for the roll logic (mocked FS) — `src/lib/state.test.ts`
+- [x] Run `pnpm check` and `pnpm test:unit`
+
+Implementation notes (vs. the plan below): the roll writes `Backlog.md` first as a
+single batch, then each source file, restoring `Backlog.md` on any source failure.
+Tasks are grouped under a visible `## Added week of YYYY-MM-DD` heading instead of
+their original category sections; manually added no-category backlog tasks join the
+current week's heading via `insertUnderWeekMarker` in `serialize.ts`.
 
 ### C — Spec updates
 

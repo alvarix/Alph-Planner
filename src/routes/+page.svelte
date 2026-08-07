@@ -5,7 +5,7 @@
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
 	import { tasksOutsideVisibleFiles } from '$lib/taskSelectors.js';
 	import { restoreFolder, pickFolder, forgetFolder } from '$lib/fs/folder.js';
-	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady } from '$lib/state.svelte.js';
+	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady, rollWeekToBacklog } from '$lib/state.svelte.js';
 	import { diagnoseAccessFailure, logDiagnosticReport } from '$lib/fs/diagnostics.js';
 	import type { Task } from '$lib/types.js';
 	import FolderPicker from '$lib/components/FolderPicker.svelte';
@@ -56,6 +56,23 @@
 		if (dir === 0) appState.weekOffset = 0;
 		else appState.weekOffset += dir;
 		if (folderReady()) await refresh();
+	}
+
+	// A fully-past week is eligible for rollover when it still holds
+	// unfinished tasks (todo or in-progress).
+	const rollableWeek = $derived(
+		appState.weekOffset < 0 &&
+		weekDays.every((d) => d.past) &&
+		weekDays.some((d) =>
+			tasksForFile(d.iso + '.md').some((t) => t.status !== 'done'),
+		),
+	);
+
+	/** Move all unfinished tasks from the viewed past week into Backlog.md. */
+	async function handleRollWeek() {
+		const n = await rollWeekToBacklog(appState.weekOffset);
+		if (n > 0) toast(`Rolled ${n} task${n === 1 ? '' : 's'} to backlog`);
+		await refresh();
 	}
 
 	// Surface FS errors as toasts.
@@ -178,6 +195,9 @@
 		<button class="btn-nav" onclick={() => shiftWeek(1)}>&#8594;</button>
 	</div>
 	<span id="week-label">{weekLabel}</span>
+	{#if rollableWeek}
+		<button class="btn-nav btn-roll-week" onclick={handleRollWeek} title="Move all unfinished tasks from this past week to Backlog.md">Roll week to backlog</button>
+	{/if}
 	<div class="spacer"></div>
 	<button
 		class="btn-nav"
@@ -275,6 +295,11 @@ h1 { font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: var(--bar-
 .btn-nav.active { background: var(--bar-text); color: var(--bar-bg); border-color: var(--bar-text); }
 .btn-nav:disabled { opacity: 0.45; cursor: not-allowed; }
 #week-label { font-size: 13px; font-weight: 500; color: var(--bar-text-muted); }
+.btn-roll-week {
+	font-weight: 600; color: var(--bar-text-dim, var(--bar-text-muted));
+	border-color: var(--bar-border-strong);
+}
+.btn-roll-week:hover { background: var(--bar-hover); }
 .spacer { flex: 1; }
 .folder-badge {
 	font-size: 11px; color: var(--bar-text-faint); font-family: monospace;

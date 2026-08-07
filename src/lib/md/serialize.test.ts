@@ -6,6 +6,7 @@ import {
 	reorderTasks,
 	appendTask,
 	addCategoryHeader,
+	insertUnderWeekMarker,
 } from "./serialize.js";
 import { extractH1s } from "../state.svelte.js";
 
@@ -276,5 +277,100 @@ describe("appendTask", () => {
 		expect(result[1]).toBe("- [ ] task a");
 		expect(result[2]).toBe("- [ ] task c");
 		expect(result[3]).toBe("# Personal");
+	});
+
+	it("does not append a categorized task below a week heading or notes divider", () => {
+		const src = lines(
+			"# Work",
+			"- [ ] task a",
+			"",
+			"## Added week of 2026-08-03",
+			"- [ ] rolled task",
+		);
+		const result = appendTask(src, "- [ ] task b", "Work").split("\n");
+		expect(result[1]).toBe("- [ ] task a");
+		expect(result[2]).toBe("- [ ] task b");
+		expect(result[3]).toBe("");
+		expect(result[4]).toBe("## Added week of 2026-08-03");
+	});
+});
+
+// ── insertUnderWeekMarker ──────────────────────────────────────────────────────
+
+describe("insertUnderWeekMarker", () => {
+	it("creates the heading at the end of the file with blank separation", () => {
+		const src = "- [ ] older task";
+		const result = insertUnderWeekMarker(src, "- [ ] new task", "2026-08-03");
+		expect(result).toBe(
+			lines(
+				"- [ ] older task",
+				"",
+				"## Added week of 2026-08-03",
+				"- [ ] new task",
+			),
+		);
+	});
+
+	it("appends subsequent blocks directly under the previous task", () => {
+		let content = "- [ ] older task";
+		content = insertUnderWeekMarker(content, "- [ ] first", "2026-08-03");
+		content = insertUnderWeekMarker(content, "- [ ] second", "2026-08-03");
+		expect(content).toBe(
+			lines(
+				"- [ ] older task",
+				"",
+				"## Added week of 2026-08-03",
+				"- [ ] first",
+				"- [ ] second",
+			),
+		);
+	});
+
+	it("places an older week before a later-dated heading", () => {
+		const src = lines("## Added week of 2026-08-10", "- [ ] newer week task");
+		const result = insertUnderWeekMarker(
+			src,
+			"- [ ] old week task",
+			"2026-08-03",
+		);
+		expect(result).toBe(
+			lines(
+				"## Added week of 2026-08-03",
+				"- [ ] old week task",
+				"",
+				"## Added week of 2026-08-10",
+				"- [ ] newer week task",
+			),
+		);
+	});
+
+	it("keeps the notes divider after the new section", () => {
+		const src = lines("- [ ] task", "---", "freeform notes");
+		const result = insertUnderWeekMarker(src, "- [ ] new task", "2026-08-03");
+		expect(result).toBe(
+			lines(
+				"- [ ] task",
+				"",
+				"## Added week of 2026-08-03",
+				"- [ ] new task",
+				"",
+				"---",
+				"freeform notes",
+			),
+		);
+	});
+
+	it("inserts a multi-line block (parent + children) under the heading", () => {
+		const src = lines("## Added week of 2026-08-03", "- [ ] existing");
+		const block = lines("- [ ] parent", "  - [ ] child");
+		const result = insertUnderWeekMarker(src, block, "2026-08-03");
+		expect(result).toBe(
+			lines(
+				"## Added week of 2026-08-03",
+				"- [ ] existing",
+				"- [ ] parent",
+				"  - [ ] child",
+			),
+		);
 	});
 });

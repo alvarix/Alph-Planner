@@ -55,6 +55,32 @@ describe("parseFile — basic", () => {
 	});
 });
 
+// ── Week boundary headings ────────────────────────────────────────────────────
+
+describe("parseFile — week boundary headings", () => {
+	it("tasks under a week heading are uncategorized even after an H1", () => {
+		const src = lines(
+			"# PP",
+			"- [ ] old pp task",
+			"",
+			"## Added week of 2026-08-03",
+			"- [ ] new task",
+		);
+		const tasks = parseFile(src, "Backlog.md");
+		expect(tasks.find((t) => t.title === "old pp task")?.category).toBe("PP");
+		expect(tasks.find((t) => t.title === "new task")?.category).toBeNull();
+	});
+
+	it("parses tasks under a week heading with no H1 at all", () => {
+		const tasks = parseFile(
+			lines("## Added week of 2026-08-03", "- [ ] first", "- [x] second"),
+			"Backlog.md",
+		);
+		expect(tasks[0].category).toBeNull();
+		expect(tasks[1].status).toBe("done");
+	});
+});
+
 // ── Starred (bold) ────────────────────────────────────────────────────────────
 
 describe("parseFile — starred", () => {

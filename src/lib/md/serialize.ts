@@ -64,6 +64,89 @@ function cycleCheckbox(line: string): string {
 	return result;
 }
 
+// ── Week-boundary markers ─────────────────────────────────────────────────────
+
+/**
+ * Matches the visible week-boundary heading written to Backlog.md, e.g.
+ * `## Added week of 2026-08-03`. An H2 heading is deliberate: H1 headings are
+ * category sections, and `---` is the notes divider, so H2 is the only
+ * unambiguous visible marker slot.
+ */
+export const WEEK_MARKER_RE = /^##\s+Added week of\s+(\d{4}-\d{2}-\d{2})\s*$/;
+
+/**
+ * Insert a task block (parent + children lines) under a `## Added week of`
+ * boundary heading, creating the heading if it doesn't exist yet.
+ *
+ * Appending to an existing heading keeps blocks directly under it, one task
+ * per line, no blank lines between tasks. Creating a heading places it in
+ * chronological order (before any later-dated heading, otherwise at the end
+ * of the file, before the notes `---` divider) with blank-line separation.
+ *
+ * @param content   - Raw file text (usually Backlog.md).
+ * @param taskBlock - One or more raw markdown task lines, newline-joined.
+ * @param mondayISO - Monday date of the week, "YYYY-MM-DD".
+ * @returns New file text.
+ */
+export function insertUnderWeekMarker(
+	content: string,
+	taskBlock: string,
+	mondayISO: string,
+): string {
+	const lines = splitLines(content);
+	const target = `## Added week of ${mondayISO}`;
+
+	// Locate every week heading and the exact one for this week.
+	const markers: number[] = [];
+	lines.forEach((l, i) => {
+		if (WEEK_MARKER_RE.test(l.trim())) markers.push(i);
+	});
+	const exact = markers.find((i) => lines[i].trim() === target);
+
+	if (exact !== undefined) {
+		// Section ends at the next week heading, the notes divider, or EOF.
+		let end = lines.length;
+		const next = markers.find((i) => i > exact);
+		if (next !== undefined) end = next;
+		const div = lines.findIndex((l, i) => i > exact && /^---\s*$/.test(l));
+		if (div !== -1) end = Math.min(end, div);
+		// Walk back past trailing blanks so blocks sit directly under the
+		// previous task in the section (no blank lines between tasks).
+		let insertAt = end;
+		while (insertAt > exact && lines[insertAt - 1].trim() === "") insertAt--;
+		lines.splice(insertAt, 0, taskBlock);
+		return joinLines(lines);
+	}
+
+	// No heading for this week yet — create it in chronological position:
+	// before the first later-dated heading, otherwise at the end of the file
+	// (before the notes divider, after any trailing blank lines).
+	const later = markers.find((i) => {
+		const m = lines[i].trim().match(WEEK_MARKER_RE);
+		return m ? m[1] > mondayISO : false;
+	});
+
+	let insertAt: number;
+	if (later !== undefined) {
+		insertAt = later;
+	} else {
+		insertAt = lines.length;
+		const div = lines.findIndex((l) => /^---\s*$/.test(l));
+		if (div !== -1) insertAt = div;
+		while (insertAt > 0 && lines[insertAt - 1].trim() === "") insertAt--;
+	}
+
+	// Build the heading + block with blank-line separation from neighbours.
+	const before = insertAt > 0 ? lines[insertAt - 1] : undefined;
+	const after = insertAt < lines.length ? lines[insertAt] : undefined;
+	const insertion: string[] = [];
+	if (before !== undefined && before.trim() !== "") insertion.push("");
+	insertion.push(target, taskBlock);
+	if (after !== undefined && after.trim() !== "") insertion.push("");
+	lines.splice(insertAt, 0, ...insertion);
+	return joinLines(lines);
+}
+
 // ── Exported mutations ────────────────────────────────────────────────────────
 
 /**
@@ -233,7 +316,10 @@ export function appendTask(
 		return joinLines(lines);
 	}
 
-	// Find the matching H1 and insert before the next H1 (or end of file).
+	// Find the matching H1 and insert before the next H1, week-boundary
+	// heading, or notes divider (or end of file). Week headings and the
+	// divider must end the section, otherwise categorized tasks would land
+	// below the chronological rollover sections at the bottom of the file.
 	const h1Pattern = /^#\s+(.+)/;
 	let inSection = false;
 	let insertAt = lines.length;
@@ -246,6 +332,14 @@ export function appendTask(
 				break;
 			}
 			if (m[1].trim() === category) inSection = true;
+			continue;
+		}
+		if (
+			inSection &&
+			(WEEK_MARKER_RE.test(lines[i].trim()) || /^---\s*$/.test(lines[i]))
+		) {
+			insertAt = i;
+			break;
 		}
 	}
 
@@ -266,7 +360,10 @@ export function appendTask(
  */
 export function addCategoryHeader(content: string, name: string): string {
 	const lines = splitLines(content);
-	let end = lines.length;
+	// Categories sit above the chronological rollover sections, so insert
+	// before the first week-boundary heading when one exists.
+	const markerIdx = lines.findIndex((l) => WEEK_MARKER_RE.test(l.trim()));
+	let end = markerIdx === -1 ? lines.length : markerIdx;
 	while (end > 0 && lines[end - 1].trim() === "") end--;
 	const insert = end > 0 ? ["", `# ${name}`] : [`# ${name}`];
 	lines.splice(end, 0, ...insert);

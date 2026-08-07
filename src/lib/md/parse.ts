@@ -11,6 +11,7 @@
  */
 
 import type { Task, ChildTask, TaskStatus } from "../types.js";
+import { WEEK_MARKER_RE } from "./serialize.js";
 
 const H1_RE = /^#\s+(.+)/;
 const TASK_RE = /^(\s*)-\s*\[([ xX-])\]\s*(.*)/;
@@ -63,6 +64,15 @@ export function parseFile(content: string, filename: string): Task[] {
 		const h1 = line.match(H1_RE);
 		if (h1) {
 			category = h1[1].trim();
+			i++;
+			continue;
+		}
+
+		// `## Added week of YYYY-MM-DD` is a chronological boundary heading,
+		// not a category — reset the category so tasks under it are
+		// uncategorized even when a later H1 section appears above them.
+		if (WEEK_MARKER_RE.test(line.trim())) {
+			category = null;
 			i++;
 			continue;
 		}

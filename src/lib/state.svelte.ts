@@ -11,6 +11,7 @@ import {
 	reorderTasks,
 	reorderCategories,
 	appendTask,
+	insertUnderWeekMarker,
 	addCategoryHeader,
 	removeCategoryHeader,
 	setTaskLineStatus,
@@ -75,6 +76,15 @@ interface PendingCompletion {
 
 /** Template written when the app creates a new daily file from scratch. */
 const NEW_DAILY_TEMPLATE = "![[Backlog]]\n\n";
+
+/**
+ * Monday (ISO) of the current real week. Backlog additions without an
+ * explicit category are grouped under a `## Added week of` heading for this
+ * week, so manually added tasks stay with the tasks rolled from the same week.
+ */
+function currentWeekMonday(): string {
+	return getWeekDays(0)[0].iso;
+}
 
 /**
  * Get content for a daily file, falling back to template with defaults
@@ -323,12 +333,20 @@ export function tasksForFile(filename: string): Task[] {
  * Atomic: write target first, then remove from source. Rolls back target
  * if source removal fails.
  *
+ * Destination placement: when a weekMarker is supplied (week rollover) the
+ * task is appended under the `## Added week of` heading regardless of its
+ * category. Otherwise, tasks moving into Backlog.md without a category are
+ * grouped under the current week's heading; all other moves keep the task's
+ * category section placement via appendTask.
+ *
  * @param task           - The task to move.
  * @param targetFilename - Destination file, e.g. "2026-05-13.md".
+ * @param opts           - Optional weekMarker (Monday ISO) for rollover moves.
  */
 export async function moveTask(
 	task: Task,
 	targetFilename: string,
+	opts?: { weekMarker?: string },
 ): Promise<void> {
 	const d = dir();
 	if (!d || task.file === targetFilename) return;
@@ -338,7 +356,11 @@ export async function moveTask(
 	const taskLine = task.raw;
 	const childLines = task.children.map((c) => c.raw);
 	const block = [taskLine, ...childLines].join("\n");
-	const targetUpdated = appendTask(targetContent, block, task.category);
+	const targetUpdated = opts?.weekMarker
+		? insertUnderWeekMarker(targetContent, block, opts.weekMarker)
+		: targetFilename === "Backlog.md" && !task.category
+			? insertUnderWeekMarker(targetContent, block, currentWeekMonday())
+			: appendTask(targetContent, block, task.category);
 	await writeFile(d, targetFilename, targetUpdated);
 
 	// ── 2. Remove from source (rollback on failure) ───────────────────────────
@@ -389,6 +411,120 @@ export async function moveTask(
 }
 
 /**
+ * Move every unfinished (todo or in-progress) task from a fully-past week
+ * into Backlog.md, grouped under a visible `## Added week of YYYY-MM-DD`
+ * heading. Done tasks stay in their original daily files. Blocks keep their
+ * raw lines, children, and checkbox state verbatim.
+ *
+ * The batch is written target-first (Backlog.md), then each source file;
+ * if any source write fails, Backlog.md is restored from its original text
+ * and no task is reported as moved. Safe to run repeatedly — an already-
+ * rolled week contains no unfinished tasks, so a second run is a no-op.
+ *
+ * @param weekOffset - Week offset from the current week; must be negative
+ *                     (only fully-past weeks are eligible).
+ * @returns The number of tasks rolled.
+ */
+export async function rollWeekToBacklog(weekOffset: number): Promise<number> {
+	const d = dir();
+	if (!d) return 0;
+	const days = getWeekDays(weekOffset);
+	if (!days.every((day) => day.past)) {
+		fail("Only fully-past weeks can be rolled to the backlog.");
+		return 0;
+	}
+
+	// Collect unfinished tasks per day file, in chronological order.
+	const mondayISO = days[0].iso;
+	const perDay: { filename: string; tasks: Task[] }[] = [];
+	let total = 0;
+	for (const day of days) {
+		const filename = `${day.iso}.md`;
+		const tasks = (appState.cache[filename] ?? []).filter(
+			(t) => t.status !== "done",
+		);
+		if (tasks.length === 0) continue;
+		perDay.push({ filename, tasks });
+		total += tasks.length;
+	}
+	if (total === 0) return 0;
+
+	// Read every affected file once.
+	const backlogOriginal = (await readFile(d, "Backlog.md")) ?? "";
+	const sourceTexts = new Map<string, string>();
+	for (const { filename } of perDay) {
+		const text = await readFile(d, filename);
+		if (text !== null) sourceTexts.set(filename, text);
+	}
+
+	// Build the new Backlog.md: insert each block under the week heading,
+	// preserving file order (Mon → Sun, top-to-bottom within each day).
+	let newBacklog = backlogOriginal;
+	const moved: { task: Task; filename: string }[] = [];
+	for (const { filename, tasks } of perDay) {
+		for (const task of tasks) {
+			const block = [task.raw, ...task.children.map((c) => c.raw)].join("\n");
+			newBacklog = insertUnderWeekMarker(newBacklog, block, mondayISO);
+			moved.push({ task, filename });
+		}
+	}
+
+	// Build new source contents by removing blocks bottom-up, so every
+	// remaining lineRange stays valid for the splice below.
+	const newSources = new Map<string, string>();
+	for (const { filename, tasks } of perDay) {
+		const text = sourceTexts.get(filename);
+		if (text === undefined) continue;
+		const sorted = [...tasks].sort((a, b) => b.lineRange[0] - a.lineRange[0]);
+		let content = text;
+		for (const task of sorted) {
+			const lines = content.split("\n");
+			lines.splice(
+				task.lineRange[0],
+				task.lineRange[1] - task.lineRange[0] + 1,
+			);
+			// Collapse the blank line left behind at the splice point.
+			if (
+				lines[task.lineRange[0]]?.trim() === "" &&
+				(task.lineRange[0] === 0 ||
+					lines[task.lineRange[0] - 1]?.trim() === "")
+			) {
+				lines.splice(task.lineRange[0], 1);
+			}
+			content = lines.join("\n");
+		}
+		newSources.set(filename, content);
+	}
+
+	// Write target first, then sources; restore the target on any failure.
+	try {
+		await writeFile(d, "Backlog.md", newBacklog);
+		for (const [filename, content] of newSources) {
+			await writeFile(d, filename, content);
+		}
+	} catch (err) {
+		console.error("[rollWeekToBacklog] write failed, rolling back", err);
+		try {
+			await writeFile(d, "Backlog.md", backlogOriginal);
+		} catch {
+			// Target restore failed — unrecoverable, the error is surfaced below.
+		}
+		fail("Roll week failed — no changes were kept.");
+		return 0;
+	}
+
+	// Refresh caches and log each move.
+	appState.cache["Backlog.md"] = parseFile(newBacklog, "Backlog.md");
+	for (const [filename, content] of newSources) {
+		appState.cache[filename] = parseFile(content, filename);
+	}
+	for (const { task, filename } of moved) {
+		recordChange('→', 'Rolled', 'Backlog.md', `${task.title} ← ${filename}`);
+	}
+	return moved.length;
+}
+
+/**
  * Append a new task to a file and refresh its cache entry.
  *
  * @param filename - Target file, e.g. "2026-05-12.md".
@@ -403,7 +539,13 @@ export async function addTask(
 	const d = dir();
 	if (!d) return;
 	const current = await getOrCreateDayContent(d, filename);
-	const updated = appendTask(current, rawLine, category);
+	// Manual backlog additions without a category join the current week's
+	// "## Added week of" section so they stay with tasks rolled from that
+	// week. Categorized adds keep their explicit section placement.
+	const updated =
+		filename === "Backlog.md" && !category
+			? insertUnderWeekMarker(current, rawLine, currentWeekMonday())
+			: appendTask(current, rawLine, category);
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
 	// Extract title from the raw line for the change log.
