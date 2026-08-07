@@ -24,6 +24,11 @@
 
 ### Fixed
 
+- **Pending-completion undo UI now actually renders.** `pendingCompletions` was a plain
+  `Map` inside `$state`, which Svelte 5 does not make reactive (only plain objects and
+  arrays are deep-proxied) — the 3-second completion flush ran, but the pending pulse
+  and Undo button never appeared. Switched to `SvelteMap` (SSR-safe), so `$derived`
+  consumers re-evaluate on set/delete.
 - **Categorized tasks no longer append below week headings or notes.** `appendTask` now
   treats `## Added week of` headings and the `---` notes divider as section boundaries,
   and new category headers are inserted above the week sections instead of below them.

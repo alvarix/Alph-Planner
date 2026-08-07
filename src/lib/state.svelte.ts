@@ -30,6 +30,7 @@ import {
 import { parseDefaults, applyDefaults } from "./md/defaults.js";
 import { getWeekDays } from "./dates.js";
 import { clearHandle } from "./fs/handle-store.js";
+import { SvelteMap } from "svelte/reactivity";
 import {
 	diagnoseAccessFailure,
 	logDiagnosticReport,
@@ -118,7 +119,7 @@ export const appState = $state<AppState>({
 	defaultsApplied: new Set(),
 	refreshFailCount: 0,
 	lastRefreshError: null,
-	pendingCompletions: new Map(),
+	pendingCompletions: new SvelteMap(),
 	changeLog: [],
 });
 
