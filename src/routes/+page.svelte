@@ -3,6 +3,7 @@
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import { getWeekDays, weekRangeLabel } from '$lib/dates.js';
+	import { tasksOutsideVisibleFiles } from '$lib/taskSelectors.js';
 	import { restoreFolder, pickFolder, forgetFolder } from '$lib/fs/folder.js';
 	import { appState, refresh, tasksForFile, backlogTasks, overdueTasks, doneTasksByDate, folderReady } from '$lib/state.svelte.js';
 	import { diagnoseAccessFailure, logDiagnosticReport } from '$lib/fs/diagnostics.js';
@@ -34,6 +35,12 @@
 	let vaultName = $state(localStorage.getItem('obsidianVault') ?? '');
 	let editingVault = $state(false);
 	const visibleDays = $derived(hidePast ? weekDays.filter(d => !d.past) : weekDays);
+	const visibleDayFiles = $derived(new Set(visibleDays.map(day => `${day.iso}.md`)));
+	// Avoid rendering the same daily-file task in both its day column and the
+	// backlog rail. Hidden or off-week overdue tasks still surface in the rail.
+	const railOverdueTasks = $derived(
+		tasksOutsideVisibleFiles(overdueTasks(todayISO), visibleDayFiles),
+	);
 
 	$effect(() => { localStorage.setItem('hidePast', String(hidePast)); });
 	$effect(() => { localStorage.setItem('colonCatEnabled', String(colonCatEnabled)); });
@@ -196,7 +203,7 @@
 <div id="main">
 	<BacklogRail
 		backlog={backlogTasks()}
-		overdue={overdueTasks(todayISO)}
+		overdue={railOverdueTasks}
 		todayFilename={todayISO + '.md'}
 		ondragstart={(t) => (draggingTask = t)}
 		externalDragTask={draggingTask}

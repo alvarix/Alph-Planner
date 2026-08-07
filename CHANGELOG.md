@@ -13,6 +13,11 @@
 
 ### Fixed
 
+- **Overdue tasks no longer mirror into the backlog rail while their day column is visible.**
+  Derived overdue rows are now filtered by the visible daily filenames, so one Markdown
+  task has only one representation in the active view. If a past day is hidden with
+  `Upcoming`, or is outside the selected week, its unfinished tasks still surface under
+  `Overdue`.
 - **Vault name input now reactive on every keystroke.** Switched from `onkeydown` to
   `oninput` so the vault name reflects live typing, not just on Enter/Blur.
 - **Long-press checkbox race condition.** When long-pressing a task to complete it, the
@@ -22,10 +27,11 @@
   3-second undo window now force-writes `[ ]` instead of cycling through the tri-state,
   matching the actual disk state while the timer hasn't flushed.
 - **Defaults now apply on week navigation and new file creation.** Navigating to a
-  future week with the arrow buttons now triggers a refresh, so existing files get
-  their Weekly/Monthly defaults applied immediately. New day files created by adding
-  a task also bake in defaults from `Defaults.md` on first write instead of waiting
-  for the next refresh cycle.
+  future week with the arrow buttons now triggers a refresh and creates missing day
+  files for the visible week on the fly. Weekly and Monthly defaults from
+  `Defaults.md` are baked into each new file immediately — no need to add a task
+  first to trigger creation. Only one day per week receives the weekly defaults
+  (the first file processed), matching the existing idempotency design.
 
 ### Changed
 

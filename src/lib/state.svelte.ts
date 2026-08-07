@@ -27,6 +27,7 @@ import {
 	FsError,
 } from "./fs/files.js";
 import { parseDefaults, applyDefaults } from "./md/defaults.js";
+import { getWeekDays } from "./dates.js";
 import { clearHandle } from "./fs/handle-store.js";
 import {
 	diagnoseAccessFailure,
@@ -226,6 +227,32 @@ export async function refresh(): Promise<void> {
 		appState.notesCache = notesEntries;
 		appState.backlogHeaders = backlogH1s;
 		appState.conflicts = await detectConflicts(d);
+
+		// ── Create missing day files for the visible week ─────────────────
+		// Navigation to a future week should show defaults immediately, not
+		// just empty columns. For any visible day that has no file on disk,
+		// create it from the template with defaults applied.
+		const weekDays = getWeekDays(appState.weekOffset);
+		for (const day of weekDays) {
+			const name = `${day.iso}.md`;
+			if (!appState.cache[name]) {
+				const content = await getOrCreateDayContent(d, name);
+				// Only persist if defaults were applied (content differs from bare template).
+				if (content !== NEW_DAILY_TEMPLATE) {
+					try {
+						await writeFile(d, name, content);
+					} catch (err) {
+						console.warn("[refresh:createMissing] write failed", { name, err });
+					}
+				}
+				appState.cache[name] = parseFile(content, name);
+				appState.fileHeaders[name] = extractH1s(content);
+				// Notes cache: extract notes if present in the template.
+				const { notes } = extractNotes(content);
+				appState.notesCache[name] = { text: notes, hadDividerOnLoad: false };
+			}
+		}
+
 		// Reset fail counter on successful refresh.
 		appState.refreshFailCount = 0;
 		appState.lastRefreshError = null;
