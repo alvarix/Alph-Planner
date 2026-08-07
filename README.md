@@ -2,6 +2,79 @@
 
 Weekly task planner PWA. Your Markdown daily notes in Obsidian are the source of truth — the app is a read/write view over those files. No database, no sync service, no lock-in.
 
+## Local development
+
+```sh
+pnpm install
+pnpm dev               # http://localhost:5173 (development server with HMR)
+pnpm test:unit         # Vitest unit tests
+pnpm test              # Playwright smoke tests
+pnpm check             # TypeScript and Svelte type checking
+pnpm build             # Production build
+pnpm preview           # Preview the production build
+```
+
+`pnpm start` is an alias for the development server on port 5173. It remains attached to the terminal, so do not chain it before another command with `&&`.
+
+### Persistent local server with PM2
+
+Use PM2 when the production preview should remain available after closing the terminal.
+
+#### First-time setup
+
+```sh
+pnpm add -g pm2
+pnpm build
+pm2 start "pnpm exec vite preview --port 5177" --name alph-planner
+pm2 save
+pm2 startup
+```
+
+Run the command printed by `pm2 startup` to configure startup after a reboot. The app is then available at `http://localhost:5177`.
+
+#### After a code change
+
+```sh
+pnpm build && pm2 restart alph-planner --update-env
+```
+
+`--update-env` passes changed environment variables to the restarted process. It does not create a missing PM2 process.
+
+#### If `Process or Namespace alph-planner not found` appears
+
+First inspect PM2's process table:
+
+```sh
+pm2 status
+```
+
+If the table is empty even though the app previously worked, PM2 may have restarted without restoring its saved process list. Try restoring it:
+
+```sh
+pm2 resurrect
+pm2 status
+```
+
+If `alph-planner` is still absent, register and save it again:
+
+```sh
+pnpm build
+pm2 start "pnpm exec vite preview --port 5177" --name alph-planner
+pm2 save
+```
+
+Run PM2 as the same user each time. Using `sudo pm2` or another user opens a different PM2 process table and can make an existing process appear missing.
+
+Useful diagnostics:
+
+```sh
+pm2 status
+pm2 logs alph-planner --lines 30
+pm2 describe alph-planner
+```
+
+The service worker updates on the next page load after a build. If stale content remains, open DevTools → Application → Service Workers, select **Update**, and reload.
+
 ## How it works
 
 Point the app at the folder where your Obsidian daily notes live. It reads one `.md` file per day plus a `Backlog.md` for floating tasks. Everything you see in the app lives in those files; everything you do in the app writes back to them immediately.
@@ -69,17 +142,6 @@ Click the **i** button in the top-right corner of the header to open the right-s
 | Options | Upcoming toggle, Colon shortcut, Sync, Change folder, vault name, conflict warnings |
 | History | Session change log — every task mutation as a timestamped entry (resets on reload) |
 
-## Local dev
-
-```sh
-pnpm install
-pnpm dev               # http://localhost:5173 (dev server with HMR)
-pnpm start             # same as dev — http://localhost:5173
-pnpm test:unit         # Vitest unit tests (parser + serializer)
-pnpm test              # Playwright smoke tests
-pnpm check             # TypeScript + Svelte type check
-```
-
 ## Stack
 
 - SvelteKit 5 (runes mode), Vite 8, adapter-vercel
@@ -91,52 +153,6 @@ pnpm check             # TypeScript + Svelte type check
 ## Browser support
 
 Requires a Chromium browser (Chrome, Edge, Arc) for the File System Access API. Safari and Firefox are not supported.
-
-## Running persistently (always-on localhost)
-
-The app requires a server process to be running — there is no static file you can just open. When the process stops, `localhost` goes dark and the installed PWA shows a network error.
-
-### Why you need a persistent process
-
-This is a SvelteKit app served by Vite. The browser's File System Access API and IndexedDB still work offline once the page has loaded, but the initial page load (and any hard reload) must reach the local server. The PWA service worker caches assets after the first load, so the app can survive brief network blips, but a full server restart or machine reboot will break it until the server is running again.
-
-### Setup (first time)
-
-```sh
-pnpm add -g pm2
-pnpm build
-pm2 start "pnpm exec vite preview --port 5177" --name alph-planner
-pm2 save
-pm2 startup    # prints a command — run it to survive reboots
-```
-
-The app is available at `http://localhost:5177`. Open it in Chrome and install via the address bar icon.
-
-### After a code change
-
-```sh
-pnpm build && pm2 restart alph-planner
-```
-
-Or use the shortcut:
-
-```sh
-pnpm start && pm2 restart alph-planner
-```
-
-The service worker updates automatically on the next page load. If the app shows stale content: DevTools → Application → Service Workers → **Update** → reload.
-
-### Useful pm2 commands
-
-```sh
-pm2 status                 # see if the process is running
-pm2 logs alph-planner      # tail the server log
-pm2 restart alph-planner   # restart after a build
-pm2 stop alph-planner      # stop without removing
-pm2 delete alph-planner    # remove from pm2 entirely
-```
-
-**Note:** `pnpm dev` does not activate the service worker, so the install prompt will not appear in dev mode.
 
 ## Folder connection and recovery
 
