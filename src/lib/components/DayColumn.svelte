@@ -4,6 +4,7 @@
 	import TaskSection from './TaskSection.svelte';
 	import { appState, moveTask, moveToCategoryInFile, addCategoryToFile, addTask, deleteTask, notesFor } from '$lib/state.svelte.js';
 	import { isFolded, toggleFolded } from '$lib/ui/foldState.js';
+	import { sectionKey } from '$lib/sections.js';
 	import NewTaskInput from './NewTaskInput.svelte';
 	import NotesPopover from './NotesPopover.svelte';
 
@@ -183,7 +184,7 @@
 		{#if tasks.length === 0 && dayFileHeaders.length === 0}
 			<div class="empty-day">no tasks</div>
 		{:else}
-			{#each sections as section (section.category ?? '__none__')}
+			{#each sections as section, i (sectionKey(section.category, i))}
 				<TaskSection
 					{filename}
 					{section}

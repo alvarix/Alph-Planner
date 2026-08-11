@@ -4,7 +4,7 @@
  * window focus and after every write.
  */
 
-import { parseFile } from "./md/parse.js";
+import { parseFile, relocateTask, relocateChild } from "./md/parse.js";
 import {
 	toggleTaskDone,
 	toggleChildDone,
@@ -368,18 +368,18 @@ export async function moveTask(
 	try {
 		const sourceContent = await readFile(d, task.file);
 		if (sourceContent === null) throw new Error("source gone");
+		const fresh = relocateTask(sourceContent, task);
+		if (!fresh) throw new Error("task not found in source (file changed)");
 		const sourceLines = sourceContent.split("\n");
-		sourceLines.splice(
-			task.lineRange[0],
-			task.lineRange[1] - task.lineRange[0] + 1,
-		);
+		const start = fresh.lineRange[0];
+		const len = fresh.lineRange[1] - fresh.lineRange[0] + 1;
+		sourceLines.splice(start, len);
 		// Remove any blank line left behind at the splice point.
 		if (
-			sourceLines[task.lineRange[0]]?.trim() === "" &&
-			(task.lineRange[0] === 0 ||
-				sourceLines[task.lineRange[0] - 1]?.trim() === "")
+			sourceLines[start]?.trim() === "" &&
+			(start === 0 || sourceLines[start - 1]?.trim() === "")
 		) {
-			sourceLines.splice(task.lineRange[0], 1);
+			sourceLines.splice(start, 1);
 		}
 		await writeFile(d, task.file, sourceLines.join("\n"));
 	} catch (err) {
@@ -388,12 +388,30 @@ export async function moveTask(
 			targetFilename,
 			err,
 		});
-		// Rollback: remove the line we just added to the target.
+		// Rollback: remove the EXACT block we just inserted. The previous
+		// implementation chopped the last N lines of the target, which
+		// destroys real tasks when the block was inserted mid-file (Bug 03).
+		// Locating the block by its exact content is correct regardless of
+		// where appendTask/insertUnderWeekMarker placed it.
 		const reread = await readFile(d, targetFilename);
 		if (reread) {
 			const rb = reread.split("\n");
-			rb.splice(rb.length - childLines.length - 1, 1 + childLines.length);
-			await writeFile(d, targetFilename, rb.join("\n"));
+			const blockLines = block.split("\n");
+			let foundAt = -1;
+			for (
+				let i = 0;
+				i + blockLines.length <= rb.length;
+				i++
+			) {
+				if (blockLines.every((bl, k) => rb[i + k] === bl)) {
+					foundAt = i;
+					break;
+				}
+			}
+			if (foundAt !== -1) {
+				rb.splice(foundAt, blockLines.length);
+				await writeFile(d, targetFilename, rb.join("\n"));
+			}
 		}
 		fail("Move failed — source could not be updated. Change rolled back.");
 		return;
@@ -470,8 +488,11 @@ export async function rollWeekToBacklog(weekOffset: number): Promise<number> {
 		}
 	}
 
-	// Build new source contents by removing blocks bottom-up, so every
-	// remaining lineRange stays valid for the splice below.
+	// Build new source contents by removing each task block. Each task is
+	// re-located against the freshly-read (and evolving) source text before
+	// splicing, so a stale cached lineRange never removes the wrong block
+	// (Bug 03). Blocks are removed bottom-up as a fast path; relocateTask is
+	// authoritative if the cache drifted.
 	const newSources = new Map<string, string>();
 	for (const { filename, tasks } of perDay) {
 		const text = sourceTexts.get(filename);
@@ -479,18 +500,21 @@ export async function rollWeekToBacklog(weekOffset: number): Promise<number> {
 		const sorted = [...tasks].sort((a, b) => b.lineRange[0] - a.lineRange[0]);
 		let content = text;
 		for (const task of sorted) {
+			const fresh = relocateTask(content, task);
+			if (!fresh) {
+				// Task no longer present in this source file — skip it. Its block
+				// is already absent, so there is nothing to remove.
+				continue;
+			}
 			const lines = content.split("\n");
-			lines.splice(
-				task.lineRange[0],
-				task.lineRange[1] - task.lineRange[0] + 1,
-			);
+			const start = fresh.lineRange[0];
+			lines.splice(start, fresh.lineRange[1] - fresh.lineRange[0] + 1);
 			// Collapse the blank line left behind at the splice point.
 			if (
-				lines[task.lineRange[0]]?.trim() === "" &&
-				(task.lineRange[0] === 0 ||
-					lines[task.lineRange[0] - 1]?.trim() === "")
+				lines[start]?.trim() === "" &&
+				(start === 0 || lines[start - 1]?.trim() === "")
 			) {
-				lines.splice(task.lineRange[0], 1);
+				lines.splice(start, 1);
 			}
 			content = lines.join("\n");
 		}
@@ -600,17 +624,23 @@ export async function duplicateTask(task: Task): Promise<void> {
 	try {
 		const current = await readFile(d, task.file);
 		if (current === null) return;
+		const fresh = relocateTask(current, task);
+		if (!fresh) {
+			fail("File changed since you clicked — re-syncing.");
+			await refresh();
+			return;
+		}
 		const lines = current.split("\n");
 
 		// Build the duplicated block with all checkboxes reset to [ ].
-		const dupParent = task.raw.replace(/\[.\]/i, "[ ]");
-		const dupChildren = task.children.map((c) =>
+		const dupParent = fresh.raw.replace(/\[.\]/i, "[ ]");
+		const dupChildren = fresh.children.map((c) =>
 			c.raw.replace(/\[.\]/i, "[ ]"),
 		);
 		const block = [dupParent, ...dupChildren];
 
 		// Insert after the original task block.
-		lines.splice(task.lineRange[1] + 1, 0, ...block);
+		lines.splice(fresh.lineRange[1] + 1, 0, ...block);
 		const updated = lines.join("\n");
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
@@ -632,8 +662,18 @@ export async function deleteTask(task: Task): Promise<void> {
 	try {
 		const current = await readFile(d, task.file);
 		if (current === null) return;
+		const fresh = relocateTask(current, task);
+		if (!fresh) {
+			console.warn("[deleteTask] task not found — file changed", {
+				title: task.title,
+				raw: task.raw,
+			});
+			fail("File changed since you clicked — re-syncing.");
+			await refresh();
+			return;
+		}
 		const lines = current.split("\n");
-		lines.splice(task.lineRange[0], task.lineRange[1] - task.lineRange[0] + 1);
+		lines.splice(fresh.lineRange[0], fresh.lineRange[1] - fresh.lineRange[0] + 1);
 		const updated = lines.join("\n");
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
@@ -662,8 +702,14 @@ export async function editTaskTitle(
 	if (!trimmed) return;
 	const current = await readFile(d, task.file);
 	if (current === null) return;
+	const fresh = relocateTask(current, task);
+	if (!fresh) {
+		fail("File changed since you edited — re-syncing.");
+		await refresh();
+		return;
+	}
 	const lines = current.split("\n");
-	const line = lines[task.lineRange[0]];
+	const line = lines[fresh.lineRange[0]];
 	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
 	if (!m) return;
 	const prefix = m[1];
@@ -671,7 +717,7 @@ export async function editTaskTitle(
 	const durMatch = rest.match(/(\s+\d*\.?\d+\s*(?:h|m))$/i);
 	const dur = durMatch ? durMatch[1] : "";
 	const titled = task.starred ? `**${trimmed}**` : trimmed;
-	lines[task.lineRange[0]] = `${prefix}${titled}${dur}`;
+	lines[fresh.lineRange[0]] = `${prefix}${titled}${dur}`;
 	const updated = lines.join("\n");
 	await writeFile(d, task.file, updated);
 	appState.cache[task.file] = parseFile(updated, task.file);
@@ -688,8 +734,14 @@ export async function toggleStar(task: Task): Promise<void> {
 	if (!d) return;
 	const current = await readFile(d, task.file);
 	if (current === null) return;
+	const fresh = relocateTask(current, task);
+	if (!fresh) {
+		fail("File changed since you clicked — re-syncing.");
+		await refresh();
+		return;
+	}
 	const lines = current.split("\n");
-	const line = lines[task.lineRange[0]];
+	const line = lines[fresh.lineRange[0]];
 	// Extract the checkbox prefix and the rest of the line.
 	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
 	if (!m) return;
@@ -704,7 +756,7 @@ export async function toggleStar(task: Task): Promise<void> {
 	const newTitle = starred
 		? titleRaw.trim().slice(2, -2)
 		: `**${titleRaw.trim()}**`;
-	lines[task.lineRange[0]] = `${prefix}${newTitle}${dur}`;
+	lines[fresh.lineRange[0]] = `${prefix}${newTitle}${dur}`;
 	const updated = lines.join("\n");
 	await writeFile(d, task.file, updated);
 	appState.cache[task.file] = parseFile(updated, task.file);
@@ -744,7 +796,13 @@ export async function toggleTask(task: Task): Promise<void> {
 		try {
 			const current = await readFile(d, task.file);
 			if (current === null) return;
-			const updated = setTaskDone(current, task, "todo");
+			const fresh = relocateTask(current, task);
+			if (!fresh) {
+				fail("File changed — re-syncing.");
+				await refresh();
+				return;
+			}
+			const updated = setTaskDone(current, fresh, "todo");
 			await writeFile(d, task.file, updated);
 			appState.cache[task.file] = parseFile(updated, task.file);
 		} catch (err) {
@@ -791,7 +849,13 @@ export async function toggleTask(task: Task): Promise<void> {
 	try {
 		const current = await readFile(d, task.file);
 		if (current === null) return;
-		const updated = toggleTaskDone(current, task);
+		const fresh = relocateTask(current, task);
+		if (!fresh) {
+			fail("File changed — re-syncing.");
+			await refresh();
+			return;
+		}
+		const updated = toggleTaskDone(current, fresh);
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
 		const newStatus: TaskStatus = task.status === 'todo' ? 'in-progress' : 'todo';
@@ -829,7 +893,13 @@ export async function completeTask(task: Task): Promise<void> {
 		try {
 			const current = await readFile(d, task.file);
 			if (current === null) return;
-			const updated = toggleTaskDone(current, task);
+			const fresh = relocateTask(current, task);
+			if (!fresh) {
+				fail("File changed — re-syncing.");
+				await refresh();
+				return;
+			}
+			const updated = toggleTaskDone(current, fresh);
 			await writeFile(d, task.file, updated);
 			appState.cache[task.file] = parseFile(updated, task.file);
 		} catch (err) {
@@ -899,8 +969,23 @@ async function flushCompletion(task: Task, key: string): Promise<void> {
 	try {
 		const current = await readFile(d, task.file);
 		if (current === null) return;
+		const fresh = relocateTask(current, task);
+		if (!fresh) {
+			// Task line changed or vanished since the optimistic update — revert
+			// the cache so the UI doesn't claim done, then re-sync.
+			const cache = appState.cache[task.file];
+			if (cache) {
+				const idx = cache.findIndex((t) => t.lineRange[0] === task.lineRange[0]);
+				if (idx !== -1) {
+					cache[idx] = { ...cache[idx], status: task.status };
+				}
+			}
+			fail("File changed — re-syncing.");
+			await refresh();
+			return;
+		}
 		// Force the line to [x] regardless of current state.
-		const updated = setTaskDone(current, task, "done");
+		const updated = setTaskDone(current, fresh, "done");
 		await writeFile(d, task.file, updated);
 		appState.cache[task.file] = parseFile(updated, task.file);
 		recordChange('✓', 'Completed', task.file, task.title);
@@ -978,8 +1063,14 @@ export async function addSubtask(task: Task, title: string): Promise<void> {
 	if (!d) return;
 	const current = await readFile(d, task.file);
 	if (current === null) return;
+	const fresh = relocateTask(current, task);
+	if (!fresh) {
+		fail("File changed since you clicked — re-syncing.");
+		await refresh();
+		return;
+	}
 	const lines = current.split("\n");
-	lines.splice(task.lineRange[1] + 1, 0, `  - [ ] ${title}`);
+	lines.splice(fresh.lineRange[1] + 1, 0, `  - [ ] ${title}`);
 	const updated = lines.join("\n");
 	await writeFile(d, task.file, updated);
 	appState.cache[task.file] = parseFile(updated, task.file);
@@ -1004,11 +1095,17 @@ export async function editChildTitle(
 	if (!trimmed) return;
 	const current = await readFile(d, task.file);
 	if (current === null) return;
+	const fresh = relocateChild(current, task, child);
+	if (!fresh) {
+		fail("File changed since you edited — re-syncing.");
+		await refresh();
+		return;
+	}
 	const lines = current.split("\n");
-	const line = lines[child.lineIndex];
+	const line = lines[fresh.lineIndex];
 	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
 	if (!m) return;
-	lines[child.lineIndex] = `${m[1]}${trimmed}`;
+	lines[fresh.lineIndex] = `${m[1]}${trimmed}`;
 	const updated = lines.join("\n");
 	await writeFile(d, task.file, updated);
 	appState.cache[task.file] = parseFile(updated, task.file);
@@ -1029,8 +1126,14 @@ export async function editTaskDuration(
 	if (!d) return;
 	const current = await readFile(d, task.file);
 	if (current === null) return;
+	const fresh = relocateTask(current, task);
+	if (!fresh) {
+		fail("File changed since you edited — re-syncing.");
+		await refresh();
+		return;
+	}
 	const lines = current.split("\n");
-	const line = lines[task.lineRange[0]];
+	const line = lines[fresh.lineRange[0]];
 	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
 	if (!m) return;
 	const prefix = m[1];
@@ -1045,9 +1148,9 @@ export async function editTaskDuration(
 				: newDurMin >= 60
 					? `${(newDurMin / 60).toFixed(1)}h`
 					: `${newDurMin}m`;
-		lines[task.lineRange[0]] = `${prefix}${body} ${dur}`;
+		lines[fresh.lineRange[0]] = `${prefix}${body} ${dur}`;
 	} else {
-		lines[task.lineRange[0]] = `${prefix}${body}`;
+		lines[fresh.lineRange[0]] = `${prefix}${body}`;
 	}
 	const updated = lines.join("\n");
 	await writeFile(d, task.file, updated);
@@ -1081,14 +1184,23 @@ export async function toggleChild(
 		const current = await readFile(d, task.file);
 		if (current === null) return;
 
-		// 1. Toggle the child line.
-		let updated = toggleChildDone(current, child);
+		// 0. Re-locate the child against the freshly-read file so the
+		// toggle never targets a stale lineIndex (Bug 03).
+		const freshChild = relocateChild(current, task, child);
+		if (!freshChild) {
+			fail("File changed since you clicked — re-syncing.");
+			await refresh();
+			return;
+		}
 
-		// 2. Re-parse to get fresh children states.
+		// 1. Toggle the child line.
+		let updated = toggleChildDone(current, freshChild);
+
+		// 2. Re-parse to get fresh children states. Locate the parent by its
+		// raw line (the child toggle does not change the parent line), not by
+		// the cached lineRange, which may be stale (Bug 03).
 		const freshTasks = parseFile(updated, task.file);
-		const freshTask = freshTasks.find(
-			(t) => t.lineRange[0] === task.lineRange[0],
-		);
+		const freshTask = freshTasks.find((t) => t.raw === task.raw);
 
 		if (freshTask && freshTask.children.length > 0) {
 			const doneCount = freshTask.children.filter(
@@ -1115,33 +1227,32 @@ export async function toggleChild(
 					task.file === "Backlog.md" &&
 					todayFilename
 				) {
-					// Backlog task with all children done: auto-complete to today.
+						// Backlog task with all children done: auto-complete to today.
 					const lines = updated.split("\n");
+					const pStart = freshTask.lineRange[0];
+					const pEnd = freshTask.lineRange[1];
 
 					// Mark parent line as [x].
-					lines[task.lineRange[0]] = setTaskLineStatus(
-						lines[task.lineRange[0]],
+					lines[pStart] = setTaskLineStatus(
+						lines[pStart],
 						"done",
 					);
 
 					// Build the checked block for insertion into today's file.
 					const childLines = freshTask.children.map((c) => c.raw);
-					const checkedBlock = [lines[task.lineRange[0]], ...childLines].join(
+					const checkedBlock = [lines[pStart], ...childLines].join(
 						"\n",
 					);
 
 					// Remove block from backlog copy.
-					lines.splice(
-						task.lineRange[0],
-						task.lineRange[1] - task.lineRange[0] + 1,
-					);
+					lines.splice(pStart, pEnd - pStart + 1);
 
 					// Append to today's file.
 					const todayContent = await getOrCreateDayContent(d, todayFilename);
 					const todayUpdated = appendTask(
 						todayContent,
 						checkedBlock,
-						task.category,
+						freshTask.category,
 					);
 					await writeFile(d, todayFilename, todayUpdated);
 
@@ -1159,10 +1270,10 @@ export async function toggleChild(
 						appState.cache["Backlog.md"] = parseFile(newBacklog, "Backlog.md");
 					recordChange('✓', 'Completed', todayFilename, `${task.title} (all subtasks done)`);
 				} else {
-					// Same-file parent status update.
+					// Same-file parent status update — use the fresh lineRange.
 					const lines = updated.split("\n");
-					lines[task.lineRange[0]] = setTaskLineStatus(
-						lines[task.lineRange[0]],
+					lines[freshTask.lineRange[0]] = setTaskLineStatus(
+						lines[freshTask.lineRange[0]],
 						targetStatus,
 					);
 					updated = lines.join("\n");
@@ -1273,13 +1384,24 @@ export async function moveToCategoryInFile(
 	const current = await readFile(d, task.file);
 	if (current === null) return;
 
+	const fresh = relocateTask(current, task);
+	if (!fresh) {
+		console.warn("[moveToCategoryInFile] task not found — file changed", {
+			title: task.title,
+			raw: task.raw,
+		});
+		fail("File changed since you clicked — re-syncing.");
+		await refresh();
+		return;
+	}
+
 	// Remove the task block (parent + children) from the file.
 	const lines = current.split("\n");
-	lines.splice(task.lineRange[0], task.lineRange[1] - task.lineRange[0] + 1);
+	lines.splice(fresh.lineRange[0], fresh.lineRange[1] - fresh.lineRange[0] + 1);
 	const stripped = lines.join("\n");
 
-	// Append under the new category heading.
-	const block = [task.raw, ...task.children.map((c) => c.raw)].join("\n");
+	// Append under the new category heading, using the fresh block.
+	const block = [fresh.raw, ...fresh.children.map((c) => c.raw)].join("\n");
 	const updated = appendTask(stripped, block, targetCategory);
 
 	await writeFile(d, task.file, updated);
@@ -1382,24 +1504,39 @@ export async function completeBacklogTask(
 		const backlogContent = await readFile(d, "Backlog.md");
 		if (!backlogContent) return;
 
+		// Re-locate the task against the freshly-read file. The cached
+		// lineRange may be stale (a week heading or another task shifted line
+		// numbers between render and this click); splicing a stale index is the
+		// vanishing-tasks bug, so abort to a recoverable sync conflict instead.
+		const fresh = relocateTask(backlogContent, task);
+		if (!fresh) {
+			console.warn("[completeBacklogTask] task not found in backlog — file changed", {
+				title: task.title,
+				raw: task.raw,
+			});
+			fail("Backlog changed since you clicked — re-syncing.");
+			await refresh();
+			return;
+		}
+
 		const lines = backlogContent.split("\n");
 
 		// Toggle the parent line to [x] (done) in the local copy.
-		lines[task.lineRange[0]] = lines[task.lineRange[0]]
+		lines[fresh.lineRange[0]] = lines[fresh.lineRange[0]]
 			.replace(/\[\s\]/, "[x]")
 			.replace(/\[-\]/, "[x]");
 
-		// Build the checked block (parent + children).
-		const childLines = task.children.map((c) => c.raw);
-		const checkedBlock = [lines[task.lineRange[0]], ...childLines].join("\n");
+		// Build the checked block (parent + children) from the FRESH children.
+		const childLines = fresh.children.map((c) => c.raw);
+		const checkedBlock = [lines[fresh.lineRange[0]], ...childLines].join("\n");
 
 		// 1. Append checked block to today's file.
 		const todayContent = await getOrCreateDayContent(d, todayFilename);
-		const todayUpdated = appendTask(todayContent, checkedBlock, task.category);
+		const todayUpdated = appendTask(todayContent, checkedBlock, fresh.category);
 		await writeFile(d, todayFilename, todayUpdated);
 
 		// 2. Remove the task block from Backlog.md.
-		lines.splice(task.lineRange[0], task.lineRange[1] - task.lineRange[0] + 1);
+		lines.splice(fresh.lineRange[0], fresh.lineRange[1] - fresh.lineRange[0] + 1);
 		await writeFile(d, "Backlog.md", lines.join("\n"));
 
 		// 3. Refresh both caches.

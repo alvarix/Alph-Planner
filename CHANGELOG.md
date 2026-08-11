@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Vanishing tasks (Bug 03).** Two related data-integrity bugs are fixed.
+  (1) A `each_key_duplicate` crash — caused by a backlog file having
+  uncategorised tasks in two non-adjacent places (before the first H1 and
+  after a `## Added week of` marker, which both key to `__none__`) — aborted
+  Svelte's reactive flush and made both the backlog rail and today's column
+  stop repainting. Section keys now include the section's position via a
+  shared `sectionKey()` helper, so two legitimate "no category" groups no
+  longer collide. (2) Silent data loss from `completeBacklogTask`,
+  `deleteTask`, `moveTask`, and other splice-based mutations that trusted a
+  `lineRange` captured at render time: if line numbers shifted between
+  render and the click, the splice removed an unrelated block. Every
+  mutation now re-locates the task against freshly-read file text by raw
+  identity (`relocateTask` / `relocateChild`) before splicing, and aborts to
+  a recoverable "File changed — re-syncing" message instead of corrupting.
+  `moveTask`'s rollback was also rewritten to remove the exact inserted
+  block by content rather than chopping the last N lines. See
+  `docs/bugs/03--vanishing-tasks.md`.
+
 ### Added
 
 - **Week-end roll to backlog.** A "Roll week to backlog" button appears in the topbar when

@@ -15,6 +15,7 @@ import {
 	addTask,
 	moveTask,
 	rollWeekToBacklog,
+	completeBacklogTask,
 } from "./state.svelte.js";
 
 /** In-memory filesystem backing the mocked fs module. */
@@ -258,5 +259,100 @@ describe("backlog grouping", () => {
 		for (const t of rolled) {
 			expect(t.category).toBeNull();
 		}
+	});
+});
+
+describe("completeBacklogTask — stale lineRange safety (Bug 03)", () => {
+	it("removes the correct block when a week heading shifted line numbers after render", async () => {
+		setFolderReady();
+		const today = getWeekDays(0)[0].iso;
+		// What the user SAW (rendered) — BM Packing at line index 0.
+		const rendered = "- [-] BM Packing 2h\n";
+		fs.store.set("Backlog.md", rendered);
+		appState.cache["Backlog.md"] = parseFile(rendered, "Backlog.md");
+		const task = appState.cache["Backlog.md"][0];
+		expect(task.lineRange[0]).toBe(0);
+
+		// Before the click lands, a week heading is inserted above the task —
+		// the cached lineRange[0] (0) would now point at the heading line.
+		const shifted = "## Added week of 2026-08-10\n- [-] BM Packing 2h\n";
+		fs.store.set("Backlog.md", shifted);
+
+		await completeBacklogTask(task, `${today}.md`);
+
+		const backlog = fs.store.get("Backlog.md")!;
+		// The task is gone from backlog; the heading is intact; no extra loss.
+		expect(backlog).not.toContain("BM Packing");
+		expect(backlog).toContain("## Added week of 2026-08-10");
+		// Today received the completed block as [x].
+		const todayFile = fs.store.get(`${today}.md`)!;
+		expect(todayFile).toContain("- [x] BM Packing 2h");
+	});
+
+	it("aborts with a sync conflict instead of corrupting when the task is gone", async () => {
+		setFolderReady();
+		const today = getWeekDays(0)[0].iso;
+		const rendered = "- [-] BM Packing 2h\n";
+		fs.store.set("Backlog.md", rendered);
+		appState.cache["Backlog.md"] = parseFile(rendered, "Backlog.md");
+		const task = appState.cache["Backlog.md"][0];
+
+		// File changed under us — the task line is gone entirely.
+		fs.store.set("Backlog.md", "- [ ] something else\n");
+
+		await completeBacklogTask(task, `${today}.md`);
+
+		expect(appState.lastError).toContain("re-syncing");
+		// Today was NOT written (no spurious completion).
+		expect(fs.store.get(`${today}.md`)).toBeUndefined();
+	});
+});
+
+describe("moveTask — rollback removes the exact inserted block (Bug 03)", () => {
+	it("does not chop real tasks at EOF when the block was inserted mid-file", async () => {
+		setFolderReady();
+		const src = getWeekDays(-1)[0].iso;
+		// Source task lives under a # Work H1 so it carries a category, which
+		// makes the move insert UNDER that section in the target (mid-file),
+		// not at EOF.
+		seedDay(src, "# Work\n- [ ] dragged task\n");
+		// Target: the Work section is in the MIDDLE, with a real task after it
+		// under a different H1. The old rollback chopped the last N lines
+		// (EOF), which would destroy "keep me at EOF" and leave the inserted
+		// block in place.
+		fs.store.set(
+			"Backlog.md",
+			"# Work\n- [ ] existing work\n# Personal\n- [ ] keep me at EOF\n",
+		);
+		appState.cache["Backlog.md"] = parseFile(
+			fs.store.get("Backlog.md")!,
+			"Backlog.md",
+		);
+
+		const task = appState.cache[`${src}.md`][0];
+
+		// Make the SOURCE removal fail (after the target write succeeds) so the
+		// rollback path runs. The block is inserted mid-file (under # Work,
+		// before # Personal).
+		fs.writeFile
+			.mockImplementationOnce(
+				async (_d: unknown, name: string, content: string) => {
+					fs.store.set(name, content);
+				},
+			)
+			.mockImplementationOnce(async () => {
+				throw new Error("source write failed");
+			});
+
+		await moveTask(task, "Backlog.md");
+
+		// Rollback must remove ONLY the inserted block, leaving the pre-existing
+		// EOF task intact — proving the content-based rollback fixed D1. The
+		// old EOF-chop rollback would have deleted "keep me at EOF".
+		const backlog = fs.store.get("Backlog.md")!;
+		expect(backlog).toContain("keep me at EOF");
+		expect(backlog).toContain("# Personal");
+		expect(backlog).not.toContain("dragged task");
+		expect(appState.lastError).toContain("rolled back");
 	});
 });

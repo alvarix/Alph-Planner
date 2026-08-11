@@ -2,6 +2,7 @@
 	import type { Task } from '$lib/types.js';
 	import { appState, moveTask, addTask, addTaskWithCategory, addCategoryToFile, moveToCategoryInFile, deleteTask } from '$lib/state.svelte.js';
 	import { isFolded, toggleFolded, unfoldAll, anyFolded } from '$lib/ui/foldState.js';
+	import { sectionKey } from '$lib/sections.js';
 	import TaskRow from './TaskRow.svelte';
 	import TaskSection from './TaskSection.svelte';
 
@@ -237,7 +238,7 @@
 			}}
 		></div>
 
-		{#each backlogSections as section (section.category ?? '__none__')}
+		{#each backlogSections as section, i (sectionKey(section.category, i))}
 			<TaskSection
 				filename="Backlog.md"
 				{section}
