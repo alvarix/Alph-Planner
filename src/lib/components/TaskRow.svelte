@@ -324,7 +324,7 @@
 			onclick={() => (addingSubtask = true)}
 			title="Add subtask"
 			aria-label="Add subtask"
-		>+ subtask</button>
+		>+ sub</button>
 		{#if confirmDelete}
 			<span class="del-confirm">
 				<button class="del-yes" onclick={async () => { await deleteTask(task); confirmDelete = false; }}>del</button>
