@@ -3,6 +3,7 @@
 	import { appState, moveTask, addTask, addTaskWithCategory, addCategoryToFile, moveToCategoryInFile, deleteTask } from '$lib/state.svelte.js';
 	import { isFolded, toggleFolded, unfoldAll, anyFolded } from '$lib/ui/foldState.js';
 	import { sectionKey } from '$lib/sections.js';
+	import { openInObsidian } from '$lib/obsidian.js';
 	import TaskRow from './TaskRow.svelte';
 	import TaskSection from './TaskSection.svelte';
 
@@ -177,6 +178,14 @@
 		{/if}
 		<button class="icon-btn" onclick={() => { addingCat = !addingCat; adding = false; }} title="Add category">#</button>
 		<button class="add-btn"  onclick={() => { adding = !adding; addingCat = false; }} title="Add task">+</button>
+		<button
+			class="icon-btn"
+			title="Open Backlog in Obsidian"
+			onclick={() => {
+				if (appState.folder.status !== 'ready') return;
+				openInObsidian(appState.folder.name, 'Backlog.md');
+			}}
+		>&#x270D;</button>
 	</div>
 
 	{#if adding}

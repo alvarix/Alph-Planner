@@ -101,6 +101,35 @@ describe("relocateTask — re-derive line range by raw identity", () => {
 		expect(fresh).not.toBeNull();
 		expect(fresh!.lineRange[0]).toBe(1);
 	});
+
+	it("still locates a task when the disk line was whitespace-normalized (trailing space)", () => {
+		// Cache holds a trailing-space raw; disk had it trimmed (Obsidian/iCloud).
+		const cached = parseFile("- [-] BM Packing 2h \n", "Backlog.md");
+		const disk = "- [-] BM Packing 2h\n";
+		const fresh = relocateTask(disk, cached[0]);
+		expect(fresh).not.toBeNull();
+		expect(fresh!.lineRange[0]).toBe(0);
+		// The returned task carries the disk-exact raw (no trailing space).
+		expect(fresh!.raw).toBe("- [-] BM Packing 2h");
+	});
+
+	it("still locates a task across a CRLF -> LF line-ending normalization", () => {
+		// Cache holds a CRLF raw; disk was re-saved with LF.
+		const cached = parseFile("- [-] BM Packing 2h\r\n", "Backlog.md");
+		const disk = "- [-] BM Packing 2h\n";
+		const fresh = relocateTask(disk, cached[0]);
+		expect(fresh).not.toBeNull();
+		expect(fresh!.lineRange[0]).toBe(0);
+	});
+
+	it("prefers an exact match over a trimmed one when both exist", () => {
+		const content = "- [ ] a \n- [ ] a\n"; // first has trailing space
+		const tasks = parseFile(content, "Backlog.md");
+		// Cached task is the second (no trailing space) at index 1.
+		const fresh = relocateTask(content, tasks[1]);
+		expect(fresh).not.toBeNull();
+		expect(fresh!.lineRange[0]).toBe(1);
+	});
 });
 
 describe("relocateChild — re-derive child line index by raw identity", () => {

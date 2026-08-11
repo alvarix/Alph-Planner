@@ -3,11 +3,19 @@
  * identity, so splice-based mutations never trust a `lineRange` captured at
  * render time.
  *
- * Identity is the parent's raw line (exact match). The cached `lineRange`
- * is only used to disambiguate when two tasks share an identical raw line.
- * Returns the freshly-parsed Task (with correct lineRange and children),
- * or null when the raw line is no longer present — meaning the file changed
- * under us and the mutation must abort (caller surfaces a sync conflict).
+ * Identity is the parent's raw line. The cached `lineRange` is only used to
+ * disambiguate when two tasks share an identical raw line. Returns the
+ * freshly-parsed Task (with correct lineRange and children), or null when
+ * the line is genuinely gone (file changed under us).
+ *
+ * Matching is two-tier: first an exact raw match, then — if that fails —
+ * a trimmed match. The trimmed tier makes relocation resilient to
+ * whitespace/line-ending normalization by Obsidian or iCloud (CRLF→LF,
+ * trailing-space trim): a task the user still sees on disk should still be
+ * locatable even if its cached raw differs from the disk line by trivia.
+ * The returned task always carries the disk-exact raw, so write-back stays
+ * line-preserving. A genuine content change (title edited elsewhere) still
+ * fails both tiers and aborts safely.
  *
  * This is the guard against Bug 03 (vanishing tasks): every deletion splice
  * must relocate against the just-read content before touching a line index.
@@ -17,7 +25,10 @@
  */
 export function relocateTask(content: string, task: Task): Task | null {
 	const fresh = parseFile(content, task.file);
-	const matches = fresh.filter((t) => t.raw === task.raw);
+	const exact = fresh.filter((t) => t.raw === task.raw);
+	const matches = exact.length > 0 ? exact : fresh.filter(
+		(t) => t.raw.trim() === task.raw.trim(),
+	);
 	if (matches.length === 0) return null;
 	if (matches.length === 1) return matches[0];
 	// Disambiguate duplicate raw lines by proximity to the cached index.
@@ -48,7 +59,10 @@ export function relocateChild(
 ): ChildTask | null {
 	const parent = relocateTask(content, task);
 	if (!parent) return null;
-	const matches = parent.children.filter((c) => c.raw === child.raw);
+	const exact = parent.children.filter((c) => c.raw === child.raw);
+	const matches = exact.length > 0 ? exact : parent.children.filter(
+		(c) => c.raw.trim() === child.raw.trim(),
+	);
 	if (matches.length === 0) return null;
 	if (matches.length === 1) return matches[0];
 	const cached = child.lineIndex;

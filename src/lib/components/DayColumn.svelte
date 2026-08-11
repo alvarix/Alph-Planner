@@ -5,6 +5,7 @@
 	import { appState, moveTask, moveToCategoryInFile, addCategoryToFile, addTask, deleteTask, notesFor } from '$lib/state.svelte.js';
 	import { isFolded, toggleFolded } from '$lib/ui/foldState.js';
 	import { sectionKey } from '$lib/sections.js';
+	import { openInObsidian } from '$lib/obsidian.js';
 	import NewTaskInput from './NewTaskInput.svelte';
 	import NotesPopover from './NotesPopover.svelte';
 
@@ -152,15 +153,7 @@
 			title="Open in Obsidian"
 			onclick={() => {
 				if (appState.folder.status !== 'ready') return;
-				let vaultName = localStorage.getItem('obsidianVault');
-				if (!vaultName) {
-					vaultName = prompt('Obsidian vault name?', appState.folder.name);
-					if (!vaultName) return;
-					localStorage.setItem('obsidianVault', vaultName);
-				}
-				const folderName = appState.folder.name;
-				const filePath = folderName !== vaultName ? `${folderName}/${filename}` : filename;
-				window.open(`obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(filePath)}`, '_blank');
+				openInObsidian(appState.folder.name, filename);
 			}}
 		>
 			<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
