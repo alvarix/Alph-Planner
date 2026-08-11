@@ -31,11 +31,12 @@ import { parseDefaults, applyDefaults } from "./md/defaults.js";
 import { getWeekDays } from "./dates.js";
 import { clearHandle } from "./fs/handle-store.js";
 import { SvelteMap } from "svelte/reactivity";
+import * as E from "./errors.js";
 import {
 	diagnoseAccessFailure,
 	logDiagnosticReport,
 } from "./fs/diagnostics.js";
-import type { Task, ChildTask, TaskStatus, ChangeEntry } from "./types.js";
+import type { Task, ChildTask, TaskStatus, ChangeEntry, AppError } from "./types.js";
 import type { FolderState } from "./fs/folder.js";
 
 interface FileCache {
@@ -56,7 +57,7 @@ interface AppState {
 	loading: boolean;
 	conflicts: string[];
 	weekOffset: number;
-	lastError: string | null;
+	lastError: AppError | null;
 	/** Period keys already inserted this session — prevents multi-file insertion. */
 	defaultsApplied: Set<string>;
 	/** Consecutive refresh failures. Reset on successful refresh. */
@@ -131,8 +132,8 @@ export function extractH1s(content: string): string[] {
 		.filter((h): h is string => !!h);
 }
 
-function fail(msg: string) {
-	appState.lastError = msg;
+function fail(err: AppError) {
+	appState.lastError = err;
 }
 
 /** True when a folder is ready to read. */
@@ -290,9 +291,7 @@ export async function refresh(): Promise<void> {
 					errorReason: reason,
 				};
 			}
-			fail(
-				"Folder permission was revoked. Click Reconnect to re-grant access.",
-			);
+			fail(E.permissionRevoked);
 		} else if (appState.folder.status === "ready") {
 			// Non-permission errors (locked, io, etc.): keep the folder as 'ready'
 			// but show an error toast. Do NOT transition to needs-permission —
@@ -310,9 +309,9 @@ export async function refresh(): Promise<void> {
 				reason === "icloud-locked"
 					? ' If this started after a deploy, a stale service worker cache is likely the cause — try "Clear cache & reload" in the folder picker.'
 					: "";
-			fail(`Could not read folder: ${err?.message ?? "unknown error"}.${hint}`);
+			fail(E.folderInaccessible(`Could not read folder: ${err?.message ?? "unknown error"}.${hint}`));
 		} else {
-			fail(`Refresh failed: ${err?.message ?? "unknown error"}`);
+			fail(E.refreshFailed(err?.message ?? "unknown error"));
 		}
 	} finally {
 		appState.loading = false;
@@ -413,7 +412,8 @@ export async function moveTask(
 				await writeFile(d, targetFilename, rb.join("\n"));
 			}
 		}
-		fail("Move failed — source could not be updated. Change rolled back.");
+		await refresh();
+		fail(E.moveRolledBack);
 		return;
 	}
 
@@ -449,7 +449,7 @@ export async function rollWeekToBacklog(weekOffset: number): Promise<number> {
 	if (!d) return 0;
 	const days = getWeekDays(weekOffset);
 	if (!days.every((day) => day.past)) {
-		fail("Only fully-past weeks can be rolled to the backlog.");
+		fail(E.invalidAction("Only fully-past weeks can be rolled to the backlog."));
 		return 0;
 	}
 
@@ -534,7 +534,8 @@ export async function rollWeekToBacklog(weekOffset: number): Promise<number> {
 		} catch {
 			// Target restore failed — unrecoverable, the error is surfaced below.
 		}
-		fail("Roll week failed — no changes were kept.");
+		await refresh();
+		fail(E.rollFailed);
 		return 0;
 	}
 
@@ -626,7 +627,7 @@ export async function duplicateTask(task: Task): Promise<void> {
 		if (current === null) return;
 		const fresh = relocateTask(current, task);
 		if (!fresh) {
-			fail("File changed since you clicked — re-syncing.");
+			fail(E.fileChanged("click"));
 			await refresh();
 			return;
 		}
@@ -647,9 +648,8 @@ export async function duplicateTask(task: Task): Promise<void> {
 		recordChange('+', 'Duplicated', task.file, task.title);
 	} catch (err) {
 		console.error("[duplicateTask]", err);
-		fail(
-			"Could not duplicate task — try the Sync button or reconnect the folder.",
-		);
+		await refresh();
+		fail(E.writeFailed("duplicate task"));
 	}
 }
 
@@ -668,7 +668,7 @@ export async function deleteTask(task: Task): Promise<void> {
 				title: task.title,
 				raw: task.raw,
 			});
-			fail("File changed since you clicked — re-syncing.");
+			fail(E.fileChanged("click"));
 			await refresh();
 			return;
 		}
@@ -680,9 +680,8 @@ export async function deleteTask(task: Task): Promise<void> {
 		recordChange('−', 'Deleted', task.file, task.title);
 	} catch (err) {
 		console.error("[deleteTask]", err);
-		fail(
-			"Could not delete task — try the Sync button or reconnect the folder.",
-		);
+		await refresh();
+		fail(E.writeFailed("delete task"));
 	}
 }
 
@@ -704,7 +703,7 @@ export async function editTaskTitle(
 	if (current === null) return;
 	const fresh = relocateTask(current, task);
 	if (!fresh) {
-		fail("File changed since you edited — re-syncing.");
+		fail(E.fileChanged("edit"));
 		await refresh();
 		return;
 	}
@@ -736,7 +735,7 @@ export async function toggleStar(task: Task): Promise<void> {
 	if (current === null) return;
 	const fresh = relocateTask(current, task);
 	if (!fresh) {
-		fail("File changed since you clicked — re-syncing.");
+		fail(E.fileChanged("click"));
 		await refresh();
 		return;
 	}
@@ -798,7 +797,7 @@ export async function toggleTask(task: Task): Promise<void> {
 			if (current === null) return;
 			const fresh = relocateTask(current, task);
 			if (!fresh) {
-				fail("File changed — re-syncing.");
+				fail(E.fileChanged("click"));
 				await refresh();
 				return;
 			}
@@ -807,9 +806,8 @@ export async function toggleTask(task: Task): Promise<void> {
 			appState.cache[task.file] = parseFile(updated, task.file);
 		} catch (err) {
 			console.error("[toggleTask/undo]", err);
-			fail(
-				"Could not save checkbox — try the Sync button or reconnect the folder.",
-			);
+			await refresh();
+			fail(E.writeFailed("save checkbox"));
 		}
 		return;
 	}
@@ -851,7 +849,7 @@ export async function toggleTask(task: Task): Promise<void> {
 		if (current === null) return;
 		const fresh = relocateTask(current, task);
 		if (!fresh) {
-			fail("File changed — re-syncing.");
+			fail(E.fileChanged("click"));
 			await refresh();
 			return;
 		}
@@ -862,9 +860,8 @@ export async function toggleTask(task: Task): Promise<void> {
 		recordChange(newStatus === 'todo' ? '○' : '−', newStatus === 'todo' ? 'Reopened' : 'Started', task.file, task.title);
 	} catch (err) {
 		console.error("[toggleTask]", err);
-		fail(
-			"Could not save checkbox — try the Sync button or reconnect the folder.",
-		);
+		await refresh();
+		fail(E.writeFailed("save checkbox"));
 	}
 }
 
@@ -895,7 +892,7 @@ export async function completeTask(task: Task): Promise<void> {
 			if (current === null) return;
 			const fresh = relocateTask(current, task);
 			if (!fresh) {
-				fail("File changed — re-syncing.");
+				fail(E.fileChanged("click"));
 				await refresh();
 				return;
 			}
@@ -904,7 +901,8 @@ export async function completeTask(task: Task): Promise<void> {
 			appState.cache[task.file] = parseFile(updated, task.file);
 		} catch (err) {
 			console.error("[completeTask/undo]", err);
-			fail("Could not undo — try the Sync button.");
+			await refresh();
+			fail(E.writeFailed("undo"));
 		}
 		return;
 	}
@@ -980,7 +978,7 @@ async function flushCompletion(task: Task, key: string): Promise<void> {
 					cache[idx] = { ...cache[idx], status: task.status };
 				}
 			}
-			fail("File changed — re-syncing.");
+			fail(E.fileChanged("click"));
 			await refresh();
 			return;
 		}
@@ -999,7 +997,8 @@ async function flushCompletion(task: Task, key: string): Promise<void> {
 				cache[idx] = { ...cache[idx], status: task.status };
 			}
 		}
-		fail("Could not save completion — try the Sync button.");
+		await refresh();
+		fail(E.writeFailed("save completion"));
 	}
 }
 
@@ -1065,7 +1064,7 @@ export async function addSubtask(task: Task, title: string): Promise<void> {
 	if (current === null) return;
 	const fresh = relocateTask(current, task);
 	if (!fresh) {
-		fail("File changed since you clicked — re-syncing.");
+		fail(E.fileChanged("click"));
 		await refresh();
 		return;
 	}
@@ -1097,7 +1096,7 @@ export async function editChildTitle(
 	if (current === null) return;
 	const fresh = relocateChild(current, task, child);
 	if (!fresh) {
-		fail("File changed since you edited — re-syncing.");
+		fail(E.fileChanged("edit"));
 		await refresh();
 		return;
 	}
@@ -1128,7 +1127,7 @@ export async function editTaskDuration(
 	if (current === null) return;
 	const fresh = relocateTask(current, task);
 	if (!fresh) {
-		fail("File changed since you edited — re-syncing.");
+		fail(E.fileChanged("edit"));
 		await refresh();
 		return;
 	}
@@ -1188,7 +1187,7 @@ export async function toggleChild(
 		// toggle never targets a stale lineIndex (Bug 03).
 		const freshChild = relocateChild(current, task, child);
 		if (!freshChild) {
-			fail("File changed since you clicked — re-syncing.");
+			fail(E.fileChanged("click"));
 			await refresh();
 			return;
 		}
@@ -1303,9 +1302,8 @@ export async function toggleChild(
 		);
 	} catch (err) {
 		console.error("[toggleChild]", err);
-		fail(
-			"Could not save subtask — try the Sync button or reconnect the folder.",
-		);
+		await refresh();
+		fail(E.writeFailed("save subtask"));
 	}
 }
 
@@ -1390,7 +1388,7 @@ export async function moveToCategoryInFile(
 			title: task.title,
 			raw: task.raw,
 		});
-		fail("File changed since you clicked — re-syncing.");
+		fail(E.fileChanged("click"));
 		await refresh();
 		return;
 	}
@@ -1514,7 +1512,7 @@ export async function completeBacklogTask(
 				title: task.title,
 				raw: task.raw,
 			});
-			fail("Backlog changed since you clicked — re-syncing.");
+			fail(E.fileChanged("click"));
 			await refresh();
 			return;
 		}
@@ -1551,9 +1549,8 @@ export async function completeBacklogTask(
 		recordChange('✓', 'Completed', todayFilename, `${task.title} ← Backlog`);
 	} catch (err) {
 		console.error("[completeBacklogTask]", err);
-		fail(
-			"Could not complete backlog task — try the Sync button or reconnect the folder.",
-		);
+		await refresh();
+		fail(E.writeFailed("complete backlog task"));
 	}
 }
 

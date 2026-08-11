@@ -14,6 +14,7 @@
 	import DoneLog from '$lib/components/DoneLog.svelte';
 	import InfoDrawer from '$lib/components/InfoDrawer.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import * as E from '$lib/errors.js';
 	import { toast } from '$lib/components/Toast.svelte';
 
 	const weekDays  = $derived(getWeekDays(appState.weekOffset));
@@ -78,7 +79,7 @@
 	// Surface FS errors as toasts.
 	$effect(() => {
 		if (appState.lastError) {
-			toast(appState.lastError, true);
+			toast(appState.lastError.message, appState.lastError.severity === "warn");
 			appState.lastError = null;
 		}
 	});
@@ -158,7 +159,7 @@
 				handle,
 				name:   result.name,
 			};
-			appState.lastError = 'Could not access folder. If your files are on iCloud Drive, Chrome does not support it — move them to a local folder.';
+			appState.lastError = E.folderInaccessible('Could not access folder. If your files are on iCloud Drive, Chrome does not support it — move them to a local folder.');
 			return;
 		}
 
@@ -167,7 +168,7 @@
 		await refresh();
 		const folderStatus: string | undefined = appState.folder.status;
 		if (folderStatus === 'needs-permission') {
-			appState.lastError = 'Could not access folder after reconnecting. Your files may be on iCloud Drive — try a local folder, or restart Chrome.';
+			appState.lastError = E.folderInaccessible('Could not access folder after reconnecting. Your files may be on iCloud Drive — try a local folder, or restart Chrome.');
 		}
 	}
 

@@ -1,6 +1,27 @@
 /** Tri-state task status. */
 export type TaskStatus = "todo" | "in-progress" | "done";
 
+/** How serious a user-facing error is. Drives toast colour. */
+export type ErrorSeverity = "info" | "warn";
+
+/** What the user should do next. Drives recovery affordances. */
+export type ErrorRecovery = "none" | "retry" | "reload" | "reconnect";
+
+/**
+ * Structured user-facing error.
+ *
+ * `info` severity means the app handled it safely — no data was lost and the
+ * cache has already been re-synced from disk; the user may retry the action.
+ * `warn` severity means a write actually failed and the screen may have been
+ * stale; the app reloads the cache from disk to reconverge.
+ */
+export interface AppError {
+	/** One short user-facing sentence. */
+	message: string;
+	severity: ErrorSeverity;
+	recovery: ErrorRecovery;
+}
+
 /** A single entry in the in-memory change log (git-tree panel). */
 export interface ChangeEntry {
 	timestamp: Date;

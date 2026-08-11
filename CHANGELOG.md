@@ -21,6 +21,15 @@
   `moveTask`'s rollback was also rewritten to remove the exact inserted
   block by content rather than chopping the last N lines. See
   `docs/bugs/03--vanishing-tasks.md`.
+- **Structured error model + cache reconvergence.** User-facing errors are
+  now a typed `AppError` (`message`, `severity`, `recovery`) with a single
+  factory module (`src/lib/errors.ts`), replacing a tangle of free-form
+  strings (some of which referenced a non-existent "Sync button").
+  `info` severity (file changed mid-edit — already re-synced) shows a
+  neutral toast; `warn` (a write actually failed) shows red and is held
+  longer. Every write-failure catch now calls `refresh()` so an
+  optimistically-flipped cache reconverges to disk instead of lying —
+  closing the lower-severity sibling of the vanishing-tasks bug.
 
 ### Added
 

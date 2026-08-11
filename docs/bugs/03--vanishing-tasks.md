@@ -1,6 +1,6 @@
 # Bug 03 — Vanishing tasks (data loss class)
 
-**Status:** Fixed (2026-08-07) — root cause confirmed, repro + fix tests added, all 174 unit tests pass, build clean. Pending user verification in the live folder.
+**Status:** Fixed (2026-08-07) — root cause confirmed, repro + fix tests added, structured error model + cache reconvergence added, all 176 unit tests pass, build clean. Pending user verification in the live folder.
 **Severity:** Critical — user-visible data loss; tasks silently disappear from one or more `.md` files
 **First reported:** 2026-08-07
 **Class:** Parser/serializer round-trip integrity + stale line-index writes + FS concurrency
@@ -385,8 +385,37 @@ extra refactor is not warranted.
       placed mid-file (under an existing H1, before a later H1), leaving
       the pre-existing EOF task intact (the old EOF-chop would delete it).
 
-Full suite: 174 passing (162 prior + 12 new), `pnpm check` 0 errors,
+Full suite: 176 passing (162 prior + 14 new), `pnpm check` 0 errors,
 `pnpm build` clean.
+
+## Follow-up: structured error model + cache reconvergence
+
+The original fix left error messaging as free-form strings. A review of
+every `fail()` call found three problems: (1) the new relocate-abort
+guards and the old write-failure guards used inconsistent phrasings for
+the same condition; (2) several messages referenced a "Sync button" that
+does not exist in the UI; (3) the write-failure branches toasted but did
+not force a refresh, so an optimistic cache flip (e.g. a checkbox the UI
+already turned) could keep lying while disk disagreed — the same
+UI/disk-divergence failure class as the vanishing-tasks bug, lower
+severity.
+
+Introduced a structured `AppError` type (`message`, `severity`,
+`recovery`) in `src/lib/types.ts` and a factory module `src/lib/errors.ts`
+so wording and recovery hints stay consistent. `appState.lastError` is now
+`AppError | null`; the toast renders `warn` in red (longer duration) and
+`info` neutral.
+
+Three classes:
+- **fileChanged** (`info`, `retry`) — relocate abort; cache already
+  re-synced, nothing broke.
+- **writeFailed** (`warn`, `reload`) — a disk write failed; the app now
+  calls `await refresh()` in every such catch so the cache reconverges to
+  disk truth instead of staying optimistically flipped.
+- **folder/access** (`warn`, `reconnect`/`reload`) — folder inaccessible.
+
+Added two integration tests asserting the severity/recovery shape of each
+class. The non-existent "Sync button" references are gone.
 
 ## Affected code
 

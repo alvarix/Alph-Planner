@@ -7,7 +7,9 @@
 		msg   = text;
 		error = isError;
 		clearTimeout(timer);
-		timer = setTimeout(() => { msg = ''; }, 2400) as unknown as number;
+		// Warn toasts need attention — give them longer to read.
+		const ms = isError ? 4500 : 2400;
+		timer = setTimeout(() => { msg = ''; }, ms) as unknown as number;
 	}
 </script>
 

@@ -302,7 +302,7 @@ describe("completeBacklogTask — stale lineRange safety (Bug 03)", () => {
 
 		await completeBacklogTask(task, `${today}.md`);
 
-		expect(appState.lastError).toContain("re-syncing");
+		expect(appState.lastError?.message).toContain("File changed");
 		// Today was NOT written (no spurious completion).
 		expect(fs.store.get(`${today}.md`)).toBeUndefined();
 	});
@@ -353,6 +353,44 @@ describe("moveTask — rollback removes the exact inserted block (Bug 03)", () =
 		expect(backlog).toContain("keep me at EOF");
 		expect(backlog).toContain("# Personal");
 		expect(backlog).not.toContain("dragged task");
-		expect(appState.lastError).toContain("rolled back");
+		expect(appState.lastError?.message).toContain("rolled back");
+	});
+});
+
+describe("structured errors (Bug 03 follow-up)", () => {
+	it("relocate-abort is an info error with retry recovery", async () => {
+		setFolderReady();
+		const today = getWeekDays(0)[0].iso;
+		const rendered = "- [-] BM Packing 2h\n";
+		fs.store.set("Backlog.md", rendered);
+		appState.cache["Backlog.md"] = parseFile(rendered, "Backlog.md");
+		const task = appState.cache["Backlog.md"][0];
+		// File changed under us — task line gone.
+		fs.store.set("Backlog.md", "- [ ] something else\n");
+
+		await completeBacklogTask(task, `${today}.md`);
+
+		expect(appState.lastError).not.toBeNull();
+		expect(appState.lastError!.severity).toBe("info");
+		expect(appState.lastError!.recovery).toBe("retry");
+	});
+
+	it("write-failure is a warn error with reload recovery", async () => {
+		setFolderReady();
+		const src = getWeekDays(-1)[0].iso;
+		seedDay(src, "# Work\n- [ ] dragged task\n");
+		fs.store.set("Backlog.md", "# Work\n- [ ] existing work\n# Personal\n- [ ] keep me at EOF\n");
+		appState.cache["Backlog.md"] = parseFile(fs.store.get("Backlog.md")!, "Backlog.md");
+		const task = appState.cache[`${src}.md`][0];
+
+		fs.writeFile
+			.mockImplementationOnce(async (_d: unknown, name: string, c: string) => { fs.store.set(name, c); })
+			.mockImplementationOnce(async () => { throw new Error("source write failed"); });
+
+		await moveTask(task, "Backlog.md");
+
+		expect(appState.lastError).not.toBeNull();
+		expect(appState.lastError!.severity).toBe("warn");
+		expect(appState.lastError!.recovery).toBe("reload");
 	});
 });
