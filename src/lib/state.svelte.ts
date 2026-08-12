@@ -575,7 +575,7 @@ export async function addTask(
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
 	// Extract title from the raw line for the change log.
-	const tMatch = rawLine.match(/^\s*-\s*\[[ xX-]\]\s*(?:\*\*)?(.+?)(?:\*\*)?(?:\s+\d)/);
+	const tMatch = rawLine.match(/^\s*-\s*\[[ xX>-]\]\s*(?:\*\*)?(.+?)(?:\*\*)?(?:\s+\d)/);
 	const tTitle = tMatch ? tMatch[1].trim() : rawLine.trim();
 	recordChange('+', 'Added', filename, tTitle);
 }
@@ -607,7 +607,7 @@ export async function addTaskWithCategory(
 	if (filename === "Backlog.md") {
 		appState.backlogHeaders = appState.fileHeaders[filename];
 	}
-	const ctMatch = taskLine.match(/^\s*-\s*\[[ xX-]\]\s*(?:\*\*)?(.+?)(?:\*\*)?(?:\s+\d)/);
+	const ctMatch = taskLine.match(/^\s*-\s*\[[ xX>-]\]\s*(?:\*\*)?(.+?)(?:\*\*)?(?:\s+\d)/);
 	const ctTitle = ctMatch ? ctMatch[1].trim() : taskLine.trim();
 	recordChange('+', 'Added', filename, ctTitle);
 }
@@ -709,7 +709,7 @@ export async function editTaskTitle(
 	}
 	const lines = current.split("\n");
 	const line = lines[fresh.lineRange[0]];
-	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
+	const m = line.match(/^(\s*-\s*\[[ xX>-]\]\s*)(.*)/);
 	if (!m) return;
 	const prefix = m[1];
 	const rest = m[2];
@@ -742,7 +742,7 @@ export async function toggleStar(task: Task): Promise<void> {
 	const lines = current.split("\n");
 	const line = lines[fresh.lineRange[0]];
 	// Extract the checkbox prefix and the rest of the line.
-	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
+	const m = line.match(/^(\s*-\s*\[[ xX>-]\]\s*)(.*)/);
 	if (!m) return;
 	const prefix = m[1];
 	const rest = m[2];
@@ -783,8 +783,9 @@ export async function toggleTask(task: Task): Promise<void> {
 	const key = `${task.file}:${task.lineRange[0]}`;
 
 	// If there's a pending completion, the task was optimistically marked done.
-	// Cancel the timer and force-write todo ([ ]) — the disk still has [-]
-	// because the timer hasn't flushed yet, so cycling would go back to [x].
+	// Cancel the timer and force-write todo ([ ]) — the disk still has
+	// in-progress ([>]) because the timer hasn't flushed yet, so cycling
+	// would go back to [x].
 	if (appState.pendingCompletions.has(key)) {
 		const entry = appState.pendingCompletions.get(key)!;
 		clearTimeout(entry.timer);
@@ -1102,7 +1103,7 @@ export async function editChildTitle(
 	}
 	const lines = current.split("\n");
 	const line = lines[fresh.lineIndex];
-	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
+	const m = line.match(/^(\s*-\s*\[[ xX>-]\]\s*)(.*)/);
 	if (!m) return;
 	lines[fresh.lineIndex] = `${m[1]}${trimmed}`;
 	const updated = lines.join("\n");
@@ -1133,7 +1134,7 @@ export async function editTaskDuration(
 	}
 	const lines = current.split("\n");
 	const line = lines[fresh.lineRange[0]];
-	const m = line.match(/^(\s*-\s*\[[ xX-]\]\s*)(.*)/);
+	const m = line.match(/^(\s*-\s*\[[ xX>-]\]\s*)(.*)/);
 	if (!m) return;
 	const prefix = m[1];
 	const rest = m[2];
@@ -1520,9 +1521,10 @@ export async function completeBacklogTask(
 		const lines = backlogContent.split("\n");
 
 		// Toggle the parent line to [x] (done) in the local copy.
-		lines[fresh.lineRange[0]] = lines[fresh.lineRange[0]]
-			.replace(/\[\s\]/, "[x]")
-			.replace(/\[-\]/, "[x]");
+		// Handles any current state: [ ], [-], [>], [x].
+		lines[fresh.lineRange[0]] = lines[fresh.lineRange[0]].replace(
+			/\[[ xX>-]\]/, "[x]",
+		);
 
 		// Build the checked block (parent + children) from the FRESH children.
 		const childLines = fresh.children.map((c) => c.raw);

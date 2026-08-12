@@ -23,19 +23,25 @@ function joinLines(lines: string[]): string {
 /**
  * Detect the current checkbox state from a task line and return the next
  * status in the cycle: todo → in-progress → done → todo.
+ *
+ * In-progress is written as `[>]`. The legacy `[-]` is still recognised as
+ * in-progress so files created before the switch keep working.
  */
 function nextStatusFromLine(line: string): TaskStatus {
 	if (/\[\s\]/.test(line)) return "in-progress";
-	if (/\[-\]/.test(line)) return "done";
+	if (/\[[>-]\]/.test(line)) return "done";
 	return "todo";
 }
 
 /** Regex that a valid task line must match after checkbox mutation. */
-const VALID_TASK_LINE = /^(\s*-\s*\[[ xX-]\]\s*)/;
+const VALID_TASK_LINE = /^(\s*-\s*\[[ xX>-]\]\s*)/;
+
+/** Any accepted in-progress marker (modern `[>]`, legacy `[-]`). */
+const IN_PROGRESS_RE = /\[[>-]\]/;
 
 /**
  * Cycle the checkbox on a single line through the tri-state:
- * [ ] → [-] → [x] → [ ]
+ * [ ] → [>] → [x] → [ ]
  *
  * If the result would be an invalid task line (missing closing bracket),
  * the original line is returned unchanged as a safety guard.
@@ -44,9 +50,9 @@ function cycleCheckbox(line: string): string {
 	const next = nextStatusFromLine(line);
 	const result =
 		next === "in-progress"
-			? line.replace(/\[\s\]/, "[-]")
+			? line.replace(/\[\s\]/, "[>]")
 			: next === "done"
-				? line.replace(/\[-\]/, "[x]")
+				? line.replace(IN_PROGRESS_RE, "[x]")
 				: line.replace(/\[x\]/i, "[ ]");
 	// Safety guard: if the result doesn't look like a valid task line,
 	// return the original line unchanged — prevents data corruption
@@ -195,10 +201,10 @@ export function setTaskDone(
  */
 export function setTaskLineStatus(line: string, status: TaskStatus): string {
 	if (status === "in-progress")
-		return line.replace(/\[\s\]/, "[-]").replace(/\[x\]/i, "[-]");
+		return line.replace(/\[[ xX>-]\]/, "[>]");
 	if (status === "done")
-		return line.replace(/\[\s\]/, "[x]").replace(/\[-\]/, "[x]");
-	return line.replace(/\[x\]/i, "[ ]").replace(/\[-\]/, "[ ]");
+		return line.replace(/\[[ xX>-]\]/, "[x]");
+	return line.replace(/\[[ xX>-]\]/, "[ ]");
 }
 
 /**

@@ -30,6 +30,15 @@
   longer. Every write-failure catch now calls `refresh()` so an
   optimistically-flipped cache reconverges to disk instead of lying —
   closing the lower-severity sibling of the vanishing-tasks bug.
+- **Whitespace-resilient task relocation.** `relocateTask`/`relocateChild`
+  now fall back to a trimmed match when the exact raw line is gone, so a
+  task whose raw diverged from disk by trivia (CRLF→LF, trailing-space trim
+  by Obsidian or iCloud) still relocates instead of aborting. The returned
+  task keeps the disk-exact raw, so writes stay line-preserving.
+- **In-progress marker switched to `[>]`.** The tri-state cycle now writes
+  `[ ] → [>] → [x]` (was `[-]`). Legacy `[-]` is still read as
+  in-progress, so existing files keep working; the serializer writes `[>]`
+  going forward. Parser, serializer, and `completeBacklogTask` updated.
 
 ### Added
 

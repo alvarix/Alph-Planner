@@ -89,7 +89,7 @@ import type { Task, ChildTask, TaskStatus } from "../types.js";
 import { WEEK_MARKER_RE } from "./serialize.js";
 
 const H1_RE = /^#\s+(.+)/;
-const TASK_RE = /^(\s*)-\s*\[([ xX-])\]\s*(.*)/;
+const TASK_RE = /^(\s*)-\s*\[([ xX>-])\]\s*(.*)/;
 const DUR_RE = /\s+(\d*\.?\d+)\s*(h|m)$/i;
 const STAR_RE = /^\*\*(.+)\*\*$/;
 
@@ -161,7 +161,7 @@ export function parseFile(content: string, filename: string): Task[] {
 		const indent = tm[1].length;
 		const rawCheck = tm[2];
 		const status: TaskStatus =
-			rawCheck === " " ? "todo" : rawCheck === "-" ? "in-progress" : "done";
+			rawCheck === " " ? "todo" : rawCheck === "-" || rawCheck === ">" ? "in-progress" : "done";
 		const rest = tm[3];
 
 		// Only process top-level (non-indented) task lines here.
@@ -207,7 +207,7 @@ export function parseFile(content: string, filename: string): Task[] {
 			const childStatus: TaskStatus =
 				childRawCheck === " "
 					? "todo"
-					: childRawCheck === "-"
+					: childRawCheck === "-" || childRawCheck === ">"
 						? "in-progress"
 						: "done";
 			const child: ChildTask = {

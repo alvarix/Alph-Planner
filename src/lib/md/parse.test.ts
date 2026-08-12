@@ -39,6 +39,12 @@ describe("parseFile — basic", () => {
 		expect(tasks[0].title).toBe("research topic");
 	});
 
+	it("parses [>] as in-progress", () => {
+		const tasks = parseFile("- [>] research topic", "2026-05-12.md");
+		expect(tasks[0].status).toBe("in-progress");
+		expect(tasks[0].title).toBe("research topic");
+	});
+
 	it("infers date from filename", () => {
 		const tasks = parseFile("- [ ] task", "2026-05-12.md");
 		expect(tasks[0].date).toBe("2026-05-12");
@@ -168,6 +174,12 @@ describe("parseFile — subtasks", () => {
 
 	it("collects in-progress subtask", () => {
 		const src = lines("- [ ] project", "  - [-] research");
+		const tasks = parseFile(src, "2026-05-12.md");
+		expect(tasks[0].children[0].status).toBe("in-progress");
+	});
+
+	it("collects [>] subtask as in-progress", () => {
+		const src = lines("- [ ] project", "  - [>] research");
 		const tasks = parseFile(src, "2026-05-12.md");
 		expect(tasks[0].children[0].status).toBe("in-progress");
 	});

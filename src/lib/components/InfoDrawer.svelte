@@ -182,7 +182,7 @@
 				<h2>Features</h2>
 				<dl class="button-guide">
 					<dt>Task management</dt>
-					<dd>Checkbox tri-state cycle: <code>[ ]</code> &rarr; <code>[-]</code> (in-progress) &rarr; <code>[x]</code> (done).
+					<dd>Checkbox tri-state cycle: <code>[ ]</code> &rarr; <code>[>]</code> (in-progress) &rarr; <code>[x]</code> (done).
 					Completing a task has a 3-second undo window. Long-press a checkbox to complete immediately.</dd>
 
 					<dt>Subtasks</dt>
@@ -227,7 +227,7 @@
 - [ ] **ship invoice** 1h
   - [x] gather receipts
   - [ ] send email
-- [-] review PR
+- [>] review PR
 
 # Personal
 - [x] grocery run 30m

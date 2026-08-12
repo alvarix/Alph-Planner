@@ -31,9 +31,9 @@ describe("round-trip", () => {
 			"- [ ] groceries",
 		);
 		const tasks = parseFile(src, "2026-05-12.md");
-		// Tri-state cycle: [ ] → [-] → [x] → [ ]. Toggle 3 times to return to original.
-		const step1 = toggleTaskDone(src, tasks[0]); // [ ] → [-]
-		const step2 = toggleTaskDone(step1, { ...tasks[0], status: "in-progress" }); // [-] → [x]
+		// Tri-state cycle: [ ] → [>] → [x] → [ ]. Toggle 3 times to return to original.
+		const step1 = toggleTaskDone(src, tasks[0]); // [ ] → [>]
+		const step2 = toggleTaskDone(step1, { ...tasks[0], status: "in-progress" }); // [>] → [x]
 		const step3 = toggleTaskDone(step2, { ...tasks[0], status: "done" }); // [x] → [ ]
 		expect(step3).toBe(src);
 	});
@@ -56,10 +56,15 @@ describe("round-trip", () => {
 // ── toggleTaskDone ────────────────────────────────────────────────────────────
 
 describe("toggleTaskDone", () => {
-	it("marks an unchecked task done", () => {
+	it("marks an unchecked task in-progress", () => {
 		const src = "- [ ] buy milk";
 		const task = parseFile(src, "2026-05-12.md")[0];
-		expect(toggleTaskDone(src, task)).toBe("- [-] buy milk");
+		expect(toggleTaskDone(src, task)).toBe("- [>] buy milk");
+	});
+
+	it("marks a legacy [-] task in-progress as [>]", () => {
+		const src = "- [-] buy milk";
+		expect(parseFile(src, "2026-05-12.md")[0].status).toBe("in-progress");
 	});
 
 	it("marks a checked task undone", () => {
@@ -73,7 +78,7 @@ describe("toggleTaskDone", () => {
 		const tasks = parseFile(src, "2026-05-12.md");
 		const result = toggleTaskDone(src, tasks[1]).split("\n");
 		expect(result[0]).toBe("- [ ] a");
-		expect(result[1]).toBe("- [-] b");
+		expect(result[1]).toBe("- [>] b");
 		expect(result[2]).toBe("- [ ] c");
 	});
 
@@ -92,7 +97,7 @@ describe("toggleChildDone", () => {
 		const src = lines("- [ ] groceries", "  - [ ] milk", "  - [ ] eggs");
 		const tasks = parseFile(src, "2026-05-12.md");
 		const result = toggleChildDone(src, tasks[0].children[0]);
-		expect(result.split("\n")[1]).toBe("  - [-] milk");
+		expect(result.split("\n")[1]).toBe("  - [>] milk");
 	});
 
 	it("does not affect the parent line", () => {
@@ -102,8 +107,8 @@ describe("toggleChildDone", () => {
 		expect(result.split("\n")[0]).toBe("- [ ] groceries");
 	});
 
-	it("cycles in-progress to done", () => {
-		const src = "- [-] research";
+	it("cycles in-progress ([>]) to done", () => {
+		const src = "- [>] research";
 		const task = parseFile(src, "2026-05-12.md")[0];
 		expect(toggleTaskDone(src, task)).toBe("- [x] research");
 	});
@@ -124,7 +129,7 @@ describe("toggleChildDone", () => {
 		);
 		const tasks = parseFile(src, "2026-07-19.md");
 		const result = toggleTaskDone(src, tasks[0]).split("\n");
-		expect(result[1]).toBe("- [-] Practice"); // parent toggled
+		expect(result[1]).toBe("- [>] Practice"); // parent toggled
 		expect(result[2]).toBe("  - [-] Splotch"); // child unchanged
 		expect(result[3]).toBe("  - [ ] Portrait"); // child unchanged
 		expect(result[4]).toBe("  - [ ] Giveaway"); // child unchanged
