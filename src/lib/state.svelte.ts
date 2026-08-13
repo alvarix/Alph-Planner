@@ -381,6 +381,12 @@ export async function moveTask(
 			sourceLines.splice(start, 1);
 		}
 		await writeFile(d, task.file, sourceLines.join("\n"));
+
+		// ── 3. Update cache from the content we built (re-reading after
+		// write can return stale data on iCloud).
+		appState.cache[targetFilename] = parseFile(targetUpdated, targetFilename);
+		appState.cache[task.file] = parseFile(sourceLines.join("\n"), task.file);
+		recordChange('→', 'Moved', targetFilename, `${task.title} ← ${task.file}`);
 	} catch (err) {
 		console.error("[moveTask] source removal failed, rolling back", {
 			task: task.title,
@@ -416,17 +422,6 @@ export async function moveTask(
 		fail(E.moveRolledBack);
 		return;
 	}
-
-	// ── 3. Update cache for both files ────────────────────────────────────────
-	const [newTarget, newSource] = await Promise.all([
-		readFile(d, targetFilename),
-		readFile(d, task.file),
-	]);
-	if (newTarget)
-		appState.cache[targetFilename] = parseFile(newTarget, targetFilename);
-	if (newSource) appState.cache[task.file] = parseFile(newSource, task.file);
-	else delete appState.cache[task.file];
-	recordChange('→', 'Moved', targetFilename, `${task.title} ← ${task.file}`);
 }
 
 /**
@@ -1259,15 +1254,10 @@ export async function toggleChild(
 					// Write the pruned backlog.
 					await writeFile(d, "Backlog.md", lines.join("\n"));
 
-					// Refresh both caches.
-					const [newToday, newBacklog] = await Promise.all([
-						readFile(d, todayFilename),
-						readFile(d, "Backlog.md"),
-					]);
-					if (newToday)
-						appState.cache[todayFilename] = parseFile(newToday, todayFilename);
-					if (newBacklog)
-						appState.cache["Backlog.md"] = parseFile(newBacklog, "Backlog.md");
+					// Refresh both caches from the content we built — re-reading
+					// after write can return stale data on iCloud (Bug 03).
+					appState.cache[todayFilename] = parseFile(todayUpdated, todayFilename);
+					appState.cache["Backlog.md"] = parseFile(lines.join("\n"), "Backlog.md");
 					recordChange('✓', 'Completed', todayFilename, `${task.title} (all subtasks done)`);
 				} else {
 					// Same-file parent status update — use the fresh lineRange.
@@ -1539,15 +1529,10 @@ export async function completeBacklogTask(
 		lines.splice(fresh.lineRange[0], fresh.lineRange[1] - fresh.lineRange[0] + 1);
 		await writeFile(d, "Backlog.md", lines.join("\n"));
 
-		// 3. Refresh both caches.
-		const [newToday, newBacklog] = await Promise.all([
-			readFile(d, todayFilename),
-			readFile(d, "Backlog.md"),
-		]);
-		if (newToday)
-			appState.cache[todayFilename] = parseFile(newToday, todayFilename);
-		if (newBacklog)
-			appState.cache["Backlog.md"] = parseFile(newBacklog, "Backlog.md");
+		// 3. Update both caches from the content we built — re-reading after
+		// write can return stale data on iCloud (Bug 03).
+		appState.cache[todayFilename] = parseFile(todayUpdated, todayFilename);
+		appState.cache["Backlog.md"] = parseFile(lines.join("\n"), "Backlog.md");
 		recordChange('✓', 'Completed', todayFilename, `${task.title} ← Backlog`);
 	} catch (err) {
 		console.error("[completeBacklogTask]", err);
