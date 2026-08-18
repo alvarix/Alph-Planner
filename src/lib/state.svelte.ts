@@ -89,6 +89,52 @@ function currentWeekMonday(): string {
 }
 
 /**
+ * Today's daily filename ("YYYY-MM-DD.md"), independent of the displayed week.
+ * Used as the move target when a backlog task is completed, so completion
+ * always lands on the real current day even if the user is viewing another week.
+ */
+function todayDailyFilename(): string {
+	const iso = getWeekDays(0).find((d) => d.today)?.iso ?? getWeekDays(0)[0].iso;
+	return `${iso}.md`;
+}
+
+/**
+ * The single routing rule for completion: completing this task should move it
+ * to today's file rather than mark it done in place — i.e. it lives in
+ * Backlog.md or an overdue past daily file. Shared by the checkbox handler,
+ * the long-press handler, and the state-layer guards in toggleTask/completeTask.
+ *
+ * @param task     - The task being completed.
+ * @param todayISO - Today's ISO date "YYYY-MM-DD".
+ */
+export function shouldMoveToToday(task: Task, todayISO: string): boolean {
+	return task.file === "Backlog.md" || isOverdueFile(task.file, todayISO);
+}
+
+/**
+ * Optimistically mark a task done in the cache and schedule the disk write
+ * 3 seconds later, giving the user an undo window. Shared by toggleTask
+ * (tri-state done transition) and completeTask (long-press).
+ *
+ * @param task           - The task to complete.
+ * @param key            - The pendingCompletions map key ("file:lineIndex").
+ * @param previousStatus - The status to revert to if cancelled.
+ */
+function scheduleCompletion(task: Task, key: string, previousStatus: TaskStatus): void {
+	const cache = appState.cache[task.file];
+	if (cache) {
+		const idx = cache.findIndex((t) => t.lineRange[0] === task.lineRange[0]);
+		if (idx !== -1) {
+			cache[idx] = { ...cache[idx], status: "done" as TaskStatus };
+		}
+	}
+	const timer = setTimeout(() => {
+		flushCompletion(task, key);
+	}, 3_000);
+	appState.pendingCompletions.set(key, { task, previousStatus, timer });
+}
+
+/**
  * Get content for a daily file, falling back to template with defaults
  * applied when the file doesn't exist yet. Non-date files (e.g. Backlog.md)
  * receive the plain template without defaults injection.
@@ -812,28 +858,20 @@ export async function toggleTask(task: Task): Promise<void> {
 	const willBeDone = task.status === "in-progress";
 
 	if (willBeDone) {
+		// Backlog and overdue (past-day) tasks complete by MOVING to today,
+		// not by marking done in place. This is the authoritative guard — the
+		// component's onchange dispatch can fire with a stale `task.status`, so
+		// we enforce the rule here at the state layer regardless of the caller.
+		const today = todayDailyFilename();
+		const todayISO = today.replace(/\.md$/, "");
+		if (task.file !== today && shouldMoveToToday(task, todayISO)) {
+			await completeToToday(task, today);
+			return;
+		}
+		// In-place completion with a 3-second undo window (day-column tasks).
 		const d = dir();
 		if (!d) return;
-
-		// Optimistic cache update — show done immediately.
-		const cache = appState.cache[task.file];
-		if (cache) {
-			const idx = cache.findIndex((t) => t.lineRange[0] === task.lineRange[0]);
-			if (idx !== -1) {
-				cache[idx] = { ...cache[idx], status: "done" as TaskStatus };
-			}
-		}
-
-		// Schedule the actual write 3 seconds later.
-		const timer = setTimeout(() => {
-			flushCompletion(task, key);
-		}, 3_000);
-
-		appState.pendingCompletions.set(key, {
-			task,
-			previousStatus: task.status,
-			timer,
-		});
+		scheduleCompletion(task, key, task.status);
 		return;
 	}
 
@@ -903,27 +941,19 @@ export async function completeTask(task: Task): Promise<void> {
 		return;
 	}
 
-	const previousStatus = task.status;
-
-	// Optimistic cache update — show done immediately.
-	const cache = appState.cache[task.file];
-	if (cache) {
-		const idx = cache.findIndex((t) => t.lineRange[0] === task.lineRange[0]);
-		if (idx !== -1) {
-			cache[idx] = { ...cache[idx], status: "done" as TaskStatus };
-		}
+	// Backlog and overdue tasks complete by moving to today (done), not in
+	// place — the same invariant completeToToday enforces. This guards the
+	// long-press fallback path (when todayFilename is not available in the
+	// component).
+	const today = todayDailyFilename();
+	const todayISO = today.replace(/\.md$/, "");
+	if (task.file !== today && shouldMoveToToday(task, todayISO)) {
+		await completeToToday(task, today);
+		return;
 	}
 
-	// Schedule the actual write 3 seconds later.
-	const timer = setTimeout(() => {
-		flushCompletion(task, key);
-	}, 3_000);
-
-	appState.pendingCompletions.set(key, {
-		task,
-		previousStatus,
-		timer,
-	});
+	// In-place completion with a 3-second undo window.
+	scheduleCompletion(task, key, task.status);
 }
 
 /**
@@ -1219,10 +1249,11 @@ export async function toggleChild(
 			if (targetStatus !== freshTask.status) {
 				if (
 					targetStatus === "done" &&
-					task.file === "Backlog.md" &&
-					todayFilename
+					todayFilename &&
+					task.file !== todayFilename &&
+					shouldMoveToToday(task, todayFilename.replace(/\.md$/, ""))
 				) {
-						// Backlog task with all children done: auto-complete to today.
+					// Backlog/overdue task with all children done: auto-complete to today.
 					const lines = updated.split("\n");
 					const pStart = freshTask.lineRange[0];
 					const pEnd = freshTask.lineRange[1];
@@ -1239,7 +1270,7 @@ export async function toggleChild(
 						"\n",
 					);
 
-					// Remove block from backlog copy.
+					// Remove block from source copy.
 					lines.splice(pStart, pEnd - pStart + 1);
 
 					// Append to today's file.
@@ -1251,13 +1282,13 @@ export async function toggleChild(
 					);
 					await writeFile(d, todayFilename, todayUpdated);
 
-					// Write the pruned backlog.
-					await writeFile(d, "Backlog.md", lines.join("\n"));
+					// Write the pruned source file.
+					await writeFile(d, task.file, lines.join("\n"));
 
 					// Refresh both caches from the content we built — re-reading
 					// after write can return stale data on iCloud (Bug 03).
 					appState.cache[todayFilename] = parseFile(todayUpdated, todayFilename);
-					appState.cache["Backlog.md"] = parseFile(lines.join("\n"), "Backlog.md");
+					appState.cache[task.file] = parseFile(lines.join("\n"), task.file);
 					recordChange('✓', 'Completed', todayFilename, `${task.title} (all subtasks done)`);
 				} else {
 					// Same-file parent status update — use the fresh lineRange.
@@ -1475,31 +1506,51 @@ export async function saveNotes(filename: string, text: string): Promise<void> {
 }
 
 /**
- * Complete a backlog task: toggle it to done, remove it from Backlog.md,
- * and append it as a checked item to today's daily file.
- * Writes target first, then removes from source.
+ * True when a filename is a daily file dated before the given ISO date
+ * (overdue). Used to decide whether completing a task should move it forward
+ * to today rather than mark it done in its past file.
  *
- * @param task          - The backlog task to complete.
+ * @param filename - e.g. "2026-08-10.md" or "Backlog.md".
+ * @param todayISO - Today's ISO date "YYYY-MM-DD".
+ */
+export function isOverdueFile(filename: string, todayISO: string): boolean {
+	const m = filename.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
+	return !!m && m[1] < todayISO;
+}
+
+/**
+ * Complete a task that lives outside today's file (Backlog.md or an overdue
+ * past daily file): toggle it to done, remove it from its source file, and
+ * append the checked block to today's daily file.
+ *
+ * Writes the target first, then removes from the source — the same atomic
+ * move used for backlog completions, generalized to any source file. Used
+ * for both backlog completions and overdue tasks completed from the rail.
+ *
+ * @param task          - The task to complete (must not already live in today's file).
  * @param todayFilename - Today's daily file, e.g. "2026-07-10.md".
  */
-export async function completeBacklogTask(
+export async function completeToToday(
 	task: Task,
 	todayFilename: string,
 ): Promise<void> {
 	const d = dir();
-	if (!d || task.file !== "Backlog.md") return;
+	if (!d) return;
+	// A task already in today's file completes in place via toggleTask —
+	// moving it here would remove and re-add it to the same file.
+	if (task.file === todayFilename) return;
 
 	try {
-		const backlogContent = await readFile(d, "Backlog.md");
-		if (!backlogContent) return;
+		const sourceContent = await readFile(d, task.file);
+		if (!sourceContent) return;
 
 		// Re-locate the task against the freshly-read file. The cached
 		// lineRange may be stale (a week heading or another task shifted line
 		// numbers between render and this click); splicing a stale index is the
 		// vanishing-tasks bug, so abort to a recoverable sync conflict instead.
-		const fresh = relocateTask(backlogContent, task);
+		const fresh = relocateTask(sourceContent, task);
 		if (!fresh) {
-			console.warn("[completeBacklogTask] task not found in backlog — file changed", {
+			console.warn("[completeToToday] task not found — file changed", {
 				title: task.title,
 				raw: task.raw,
 			});
@@ -1508,7 +1559,7 @@ export async function completeBacklogTask(
 			return;
 		}
 
-		const lines = backlogContent.split("\n");
+		const lines = sourceContent.split("\n");
 
 		// Toggle the parent line to [x] (done) in the local copy.
 		// Handles any current state: [ ], [-], [>], [x].
@@ -1525,19 +1576,19 @@ export async function completeBacklogTask(
 		const todayUpdated = appendTask(todayContent, checkedBlock, fresh.category);
 		await writeFile(d, todayFilename, todayUpdated);
 
-		// 2. Remove the task block from Backlog.md.
+		// 2. Remove the task block from its source file.
 		lines.splice(fresh.lineRange[0], fresh.lineRange[1] - fresh.lineRange[0] + 1);
-		await writeFile(d, "Backlog.md", lines.join("\n"));
+		await writeFile(d, task.file, lines.join("\n"));
 
 		// 3. Update both caches from the content we built — re-reading after
 		// write can return stale data on iCloud (Bug 03).
 		appState.cache[todayFilename] = parseFile(todayUpdated, todayFilename);
-		appState.cache["Backlog.md"] = parseFile(lines.join("\n"), "Backlog.md");
-		recordChange('✓', 'Completed', todayFilename, `${task.title} ← Backlog`);
+		appState.cache[task.file] = parseFile(lines.join("\n"), task.file);
+		recordChange('✓', 'Completed', todayFilename, `${task.title} ← ${task.file}`);
 	} catch (err) {
-		console.error("[completeBacklogTask]", err);
+		console.error("[completeToToday]", err);
 		await refresh();
-		fail(E.writeFailed("complete backlog task"));
+		fail(E.writeFailed("complete task to today"));
 	}
 }
 

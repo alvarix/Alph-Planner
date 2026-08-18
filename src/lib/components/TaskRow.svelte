@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeBacklogTask, completeTask, cancelCompletion, duplicateTask, appState } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeToToday, completeTask, cancelCompletion, duplicateTask, shouldMoveToToday, appState } from '$lib/state.svelte.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -56,13 +56,12 @@
 			longPressActive = true;
 			longPressJustFired = true;
 			longPressTimer = null;
-			if (task.file === 'Backlog.md' && todayFilename) {
-				completeBacklogTask(task, todayFilename);
-			} else if (task.file === 'Backlog.md') {
-				// Backlog task without todayFilename — shouldn't happen, but fall back to
-				// in-place completion so the task isn't stuck.
-				completeTask(task);
+			if (todayFilename && task.file !== todayFilename && shouldMoveToToday(task, todayFilename.replace(/\.md$/, ''))) {
+				// Backlog or overdue task: complete by moving to today.
+				completeToToday(task, todayFilename);
 			} else {
+				// Fall back to completeTask — its state-layer guard routes
+				// backlog/overdue tasks to today even without todayFilename.
 				completeTask(task);
 			}
 		}, LONG_PRESS_MS);
@@ -199,9 +198,11 @@
 				if (longPressJustFired) { longPressJustFired = false; e.preventDefault(); }
 			}}
 			onchange={() => {
-				// Backlog tasks: first click → in-progress. Second click → move to today as done.
-				if (task.file === 'Backlog.md' && task.status === 'in-progress' && todayFilename) {
-					completeBacklogTask(task, todayFilename);
+				// Backlog and overdue tasks: first click → in-progress.
+				// Second click (in-progress) → move to today as done.
+				if (todayFilename && task.status === 'in-progress' && task.file !== todayFilename
+					&& shouldMoveToToday(task, todayFilename.replace(/\.md$/, ''))) {
+					completeToToday(task, todayFilename);
 				} else if (task.file === 'Backlog.md' && task.status === 'done' && todayFilename) {
 					// Clicking a done backlog task un-completes it (moves back to todo in-place).
 					toggleTask(task);

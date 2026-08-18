@@ -211,7 +211,7 @@ test('undo cancels a pending completion during the undo window', async ({ page }
 		(name) => (globalThis as any).__alphFs.get(name),
 		`${todayISO}.md`,
 	);
-	expect(dayMd).toContain('- [-] undo me');
+	expect(dayMd).toContain('- [>] undo me');
 });
 
 // ── Week-end rollover ────────────────────────────────────────────────────────
@@ -261,4 +261,37 @@ test('roll week to backlog moves unfinished tasks and leaves done ones', async (
 	const rail = page.locator('#backlog-rail');
 	await expect(rail).toContainText('older backlog task');
 	await expect(rail).toContainText(`leftover ${lastWeek[0]}`);
+});
+
+test('completing an overdue in-progress task moves it to today', async ({ page }) => {
+	const todayISO = localISO(new Date());
+	const lastWeek = weekISOs(-1);
+	const pastISO = lastWeek[0]; // last week's Monday
+
+	await openApp(page, {
+		[`${pastISO}.md`]: '- [>] overdue in progress\n',
+	});
+
+	// The past-day task surfaces in the backlog rail as overdue.
+	const rail = page.locator('#backlog-rail');
+	await expect(rail).toContainText('Overdue');
+	await expect(rail).toContainText('overdue in progress');
+
+	// Complete it via the checkbox.
+	await rail.locator('.task-item').filter({ hasText: 'overdue in progress' })
+		.locator('.task-main input[type=checkbox]')
+		.click();
+
+	// It lands in today's file as done...
+	const todayMd = await expect.poll(
+		async () => page.evaluate((n) => (globalThis as any).__alphFs.get(n), `${todayISO}.md`),
+		{ timeout: 4000 },
+	).toContain('- [x] overdue in progress');
+
+	// ...and is removed from the past day file.
+	const pastMd = await page.evaluate(
+		(n) => (globalThis as any).__alphFs.get(n),
+		`${pastISO}.md`,
+	);
+	expect(pastMd ?? '').not.toContain('overdue in progress');
 });

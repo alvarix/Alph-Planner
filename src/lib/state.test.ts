@@ -15,7 +15,9 @@ import {
 	addTask,
 	moveTask,
 	rollWeekToBacklog,
-	completeBacklogTask,
+	completeToToday,
+	toggleTask,
+	completeTask,
 } from "./state.svelte.js";
 
 /** In-memory filesystem backing the mocked fs module. */
@@ -262,7 +264,7 @@ describe("backlog grouping", () => {
 	});
 });
 
-describe("completeBacklogTask — stale lineRange safety (Bug 03)", () => {
+describe("completeToToday — stale lineRange safety (Bug 03)", () => {
 	it("removes the correct block when a week heading shifted line numbers after render", async () => {
 		setFolderReady();
 		const today = getWeekDays(0)[0].iso;
@@ -278,7 +280,7 @@ describe("completeBacklogTask — stale lineRange safety (Bug 03)", () => {
 		const shifted = "## Added week of 2026-08-10\n- [-] BM Packing 2h\n";
 		fs.store.set("Backlog.md", shifted);
 
-		await completeBacklogTask(task, `${today}.md`);
+		await completeToToday(task, `${today}.md`);
 
 		const backlog = fs.store.get("Backlog.md")!;
 		// The task is gone from backlog; the heading is intact; no extra loss.
@@ -300,7 +302,7 @@ describe("completeBacklogTask — stale lineRange safety (Bug 03)", () => {
 		// File changed under us — the task line is gone entirely.
 		fs.store.set("Backlog.md", "- [ ] something else\n");
 
-		await completeBacklogTask(task, `${today}.md`);
+		await completeToToday(task, `${today}.md`);
 
 		expect(appState.lastError?.message).toContain("File changed");
 		// Today was NOT written (no spurious completion).
@@ -368,7 +370,7 @@ describe("structured errors (Bug 03 follow-up)", () => {
 		// File changed under us — task line gone.
 		fs.store.set("Backlog.md", "- [ ] something else\n");
 
-		await completeBacklogTask(task, `${today}.md`);
+		await completeToToday(task, `${today}.md`);
 
 		expect(appState.lastError).not.toBeNull();
 		expect(appState.lastError!.severity).toBe("info");
@@ -392,5 +394,76 @@ describe("structured errors (Bug 03 follow-up)", () => {
 		expect(appState.lastError).not.toBeNull();
 		expect(appState.lastError!.severity).toBe("warn");
 		expect(appState.lastError!.recovery).toBe("reload");
+	});
+});
+
+// ── Backlog completion routing (state-layer safety net) ─────────────────────
+
+describe("toggleTask on in-progress backlog tasks routes to completeToToday", () => {
+	it("moves to today instead of completing in place", async () => {
+		setFolderReady();
+		const today = getWeekDays(0).find((d) => d.today)!.iso;
+
+		const backlog = "- [>] should move to today\n";
+		fs.store.set("Backlog.md", backlog);
+		appState.cache["Backlog.md"] = parseFile(backlog, "Backlog.md");
+
+		const task = appState.cache["Backlog.md"][0];
+		expect(task.status).toBe("in-progress");
+
+		await toggleTask(task);
+
+		// Backlog.md no longer holds the task.
+		const finalBacklog = fs.store.get("Backlog.md")!;
+		expect(finalBacklog).not.toContain("should move to today");
+
+		// Today received the completed block as [x].
+		const todayMd = fs.store.get(`${today}.md`)!;
+		expect(todayMd).toContain("- [x] should move to today");
+	});
+
+	it("stays in backlog when toggling a todo backlog task (first click)", async () => {
+		setFolderReady();
+
+		const backlog = "- [ ] todo backlog task\n";
+		fs.store.set("Backlog.md", backlog);
+		appState.cache["Backlog.md"] = parseFile(backlog, "Backlog.md");
+
+		const task = appState.cache["Backlog.md"][0];
+		expect(task.status).toBe("todo");
+
+		await toggleTask(task);
+
+		// Still in backlog, now in-progress.
+		const finalBacklog = fs.store.get("Backlog.md")!;
+		expect(finalBacklog).toContain("- [>] todo backlog task");
+
+		// Today was NOT written.
+		const today = getWeekDays(0).find((d) => d.today)!.iso;
+		expect(fs.store.get(`${today}.md`)).toBeUndefined();
+	});
+});
+
+describe("completeTask on backlog tasks routes to completeToToday", () => {
+	it("moves a todo backlog task to today (long-press fallback)", async () => {
+		setFolderReady();
+		const today = getWeekDays(0).find((d) => d.today)!.iso;
+
+		const backlog = "- [ ] long press fallback\n";
+		fs.store.set("Backlog.md", backlog);
+		appState.cache["Backlog.md"] = parseFile(backlog, "Backlog.md");
+
+		const task = appState.cache["Backlog.md"][0];
+		expect(task.status).toBe("todo");
+
+		await completeTask(task);
+
+		// Backlog.md no longer holds the task.
+		const finalBacklog = fs.store.get("Backlog.md")!;
+		expect(finalBacklog).not.toContain("long press fallback");
+
+		// Today received the completed block as [x].
+		const todayMd = fs.store.get(`${today}.md`)!;
+		expect(todayMd).toContain("- [x] long press fallback");
 	});
 });
