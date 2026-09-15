@@ -402,11 +402,24 @@ export async function moveTask(
 	const taskLine = task.raw;
 	const childLines = task.children.map((c) => c.raw);
 	const block = [taskLine, ...childLines].join("\n");
-	const targetUpdated = opts?.weekMarker
-		? insertUnderWeekMarker(targetContent, block, opts.weekMarker)
-		: targetFilename === "Backlog.md" && !task.category
-			? insertUnderWeekMarker(targetContent, block, currentWeekMonday())
-			: appendTask(targetContent, block, task.category);
+	let targetUpdated: string;
+	let createdCategory = false;
+	if (opts?.weekMarker) {
+		// Week rollover tasks intentionally remain uncategorized under the
+		// chronological marker, even when their source day had a category.
+		targetUpdated = insertUnderWeekMarker(targetContent, block, opts.weekMarker);
+	} else if (targetFilename === "Backlog.md" && !task.category) {
+		targetUpdated = insertUnderWeekMarker(targetContent, block, currentWeekMonday());
+	} else {
+		// Cross-day moves preserve the task's category. Create its H1 on the
+		// destination first when that day has not used the category yet.
+		let categorizedTarget = targetContent;
+		if (task.category && !extractH1s(categorizedTarget).includes(task.category)) {
+			categorizedTarget = addCategoryHeader(categorizedTarget, task.category);
+			createdCategory = true;
+		}
+		targetUpdated = appendTask(categorizedTarget, block, task.category);
+	}
 	await writeFile(d, targetFilename, targetUpdated);
 
 	// ── 2. Remove from source (rollback on failure) ───────────────────────────
@@ -445,7 +458,11 @@ export async function moveTask(
 		// Locating the block by its exact content is correct regardless of
 		// where appendTask/insertUnderWeekMarker placed it.
 		const reread = await readFile(d, targetFilename);
-		if (reread) {
+		if (reread && createdCategory && reread === targetUpdated) {
+			// Nothing else changed after our target write, so restoring the
+			// original text also removes the category header we created.
+			await writeFile(d, targetFilename, targetContent);
+		} else if (reread) {
 			const rb = reread.split("\n");
 			const blockLines = block.split("\n");
 			let foundAt = -1;

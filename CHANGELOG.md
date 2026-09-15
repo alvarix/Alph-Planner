@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- **Cross-day drags preserve categories.** Dragging a categorized task to a day now creates the destination H1 category when needed, or appends to the existing category instead of silently losing the category. If source removal fails, rollback also removes any category header created by the attempted move.
 - **Vanishing tasks (Bug 03).** Two related data-integrity bugs are fixed.
   (1) A `each_key_duplicate` crash — caused by a backlog file having
   uncategorised tasks in two non-adjacent places (before the first H1 and

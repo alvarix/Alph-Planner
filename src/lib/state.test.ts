@@ -250,6 +250,43 @@ describe("backlog grouping", () => {
 		expect(fs.store.get(`${days[0].iso}.md`)).not.toContain("dragged task");
 	});
 
+	it("creates the destination category when dragging to a day without it", async () => {
+		setFolderReady();
+		const days = getWeekDays(-1);
+		const source = `${days[0].iso}.md`;
+		const target = `${days[1].iso}.md`;
+		seedDay(days[0].iso, "# Work\n- [ ] dragged task\n");
+		fs.store.set(target, "- [ ] existing uncategorized\n");
+
+		await moveTask(appState.cache[source][0], target);
+
+		expect(fs.store.get(target)).toBe(
+			"- [ ] existing uncategorized\n\n# Work\n- [ ] dragged task\n",
+		);
+		const moved = parseFile(fs.store.get(target)!, target).find(
+			(t) => t.title === "dragged task",
+		);
+		expect(moved?.category).toBe("Work");
+		expect(fs.store.get(source)).not.toContain("dragged task");
+	});
+
+	it("appends to an existing destination category when dragging between days", async () => {
+		setFolderReady();
+		const days = getWeekDays(-1);
+		const source = `${days[0].iso}.md`;
+		const target = `${days[1].iso}.md`;
+		seedDay(days[0].iso, "# Work\n- [ ] dragged task\n");
+		fs.store.set(target, "# Work\n- [ ] existing work\n# Personal\n- [ ] personal\n");
+
+		await moveTask(appState.cache[source][0], target);
+
+		const targetContent = fs.store.get(target)!;
+		expect(targetContent).toBe(
+			"# Work\n- [ ] existing work\n- [ ] dragged task\n# Personal\n- [ ] personal\n",
+		);
+		expect((targetContent.match(/^# Work$/gm) ?? []).length).toBe(1);
+	});
+
 	it("rolled tasks parse as uncategorized backlog items", async () => {
 		setFolderReady();
 		seedPastWeek();
@@ -311,6 +348,30 @@ describe("completeToToday — stale lineRange safety (Bug 03)", () => {
 });
 
 describe("moveTask — rollback removes the exact inserted block (Bug 03)", () => {
+	it("restores a newly-created category when source removal fails", async () => {
+		setFolderReady();
+		const src = getWeekDays(-1)[0].iso;
+		const target = `${getWeekDays(-1)[1].iso}.md`;
+		seedDay(src, "# Work\n- [ ] dragged task\n");
+		const originalTarget = "- [ ] existing uncategorized\n";
+		fs.store.set(target, originalTarget);
+		const task = appState.cache[`${src}.md`][0];
+
+		fs.writeFile
+			.mockImplementationOnce(async (_d: unknown, name: string, content: string) => {
+				fs.store.set(name, content);
+			})
+			.mockImplementationOnce(async () => {
+				throw new Error("source write failed");
+			});
+
+		await moveTask(task, target);
+
+		expect(fs.store.get(target)).toBe(originalTarget);
+		expect(fs.store.get(target)).not.toContain("# Work");
+		expect(appState.lastError?.message).toContain("rolled back");
+	});
+
 	it("does not chop real tasks at EOF when the block was inserted mid-file", async () => {
 		setFolderReady();
 		const src = getWeekDays(-1)[0].iso;
