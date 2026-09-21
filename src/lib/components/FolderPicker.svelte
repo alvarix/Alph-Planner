@@ -115,7 +115,7 @@
 			{/if}
 			<div class="actions">
 				<button class="btn-primary" onclick={grant} disabled={busy}>
-					{busy ? 'Working&hellip;' : 'Re-grant access'}
+					{busy ? 'Working &hellip;' : 'Re-grant access'}
 				</button>
 				<button class="btn-secondary" onclick={retryRefresh} disabled={busy}>
 					Retry
@@ -129,7 +129,7 @@
 			</button>
 		{:else}
 			<button class="btn-primary" onclick={choose} disabled={busy}>
-				{busy ? 'Working&hellip;' : 'Choose folder&hellip;'}
+				{busy ? 'Workingi &hellip;' : 'Choose folder &hellip;'}
 			</button>
 		{/if}
 
