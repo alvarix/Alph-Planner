@@ -69,12 +69,17 @@
 			if (dragged) await moveToCategoryInFile(dragged, category);
 			dragFromIndex = null;
 		} else if (externalDragTask) {
-			if (externalDragTask.file === filename) {
-				await moveToCategoryInFile(externalDragTask, category);
+			// Capture the task BEFORE any await: the window-level dragend handler
+			// nulls externalDragTask while addTask is in flight, and re-reading
+			// the prop afterwards would pass null to deleteTask — the source
+			// delete would fail and the task would be copied, not moved (bug 12.2).
+			const source = externalDragTask;
+			if (source.file === filename) {
+				await moveToCategoryInFile(source, category);
 			} else {
-				const block = [externalDragTask.raw, ...externalDragTask.children.map(c => c.raw)].join('\n');
+				const block = [source.raw, ...source.children.map(c => c.raw)].join('\n');
 				await addTask(filename, block, category);
-				await deleteTask(externalDragTask);
+				await deleteTask(source);
 			}
 		}
 	}

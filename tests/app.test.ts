@@ -220,7 +220,7 @@ test('roll week to backlog moves unfinished tasks and leaves done ones', async (
 	const lastWeek = weekISOs(-1);
 	const seed: Record<string, string> = { 'Backlog.md': '- [ ] older backlog task\n' };
 	for (const iso of lastWeek) {
-		seed[`${iso}.md`] = `- [ ] leftover ${iso}\n- [x] done ${iso}\n`;
+		seed[`${iso}.md`] = `- [ ] leftover ${iso}\n- [x] done ${iso}\n- [>] wip task ${iso}\n`;
 	}
 
 	await openApp(page, seed);
@@ -234,7 +234,7 @@ test('roll week to backlog moves unfinished tasks and leaves done ones', async (
 
 	// Roll.
 	await page.locator('.btn-roll-week').click();
-	await expect(page.locator('.toast')).toContainText('Rolled 7 tasks to backlog', { timeout: 3000 });
+	await expect(page.locator('.toast')).toContainText('Rolled 14 tasks to backlog', { timeout: 3000 });
 
 	// Button disappears once the week holds no unfinished tasks.
 	await expect(page.locator('.btn-roll-week')).toHaveCount(0);
@@ -261,6 +261,16 @@ test('roll week to backlog moves unfinished tasks and leaves done ones', async (
 	const rail = page.locator('#backlog-rail');
 	await expect(rail).toContainText('older backlog task');
 	await expect(rail).toContainText(`leftover ${lastWeek[0]}`);
+
+	// Bug 12.3: done and in-progress items must not appear in the backlog as
+	// incomplete — done tasks stay out of the roll entirely; in-progress
+	// rolled tasks must render as in-progress and keep [>] on disk.
+	const backlogMdAfterRoll = await page.evaluate(() => (globalThis as any).__alphFs.get('Backlog.md'));
+	expect(backlogMdAfterRoll).not.toContain('- [x] done');
+	expect((backlogMdAfterRoll.match(/- \[>\] wip task/g) ?? []).length).toBe(7);
+	expect(backlogMdAfterRoll).not.toContain('- [ ] wip task');
+	const wipRow = page.locator('#backlog-rail .task-item').filter({ hasText: 'wip task' }).first();
+	await expect(wipRow).toHaveClass(/in-progress/);
 });
 
 test('completing an overdue in-progress task moves it to today', async ({ page }) => {
@@ -294,4 +304,117 @@ test('completing an overdue in-progress task moves it to today', async ({ page }
 		`${pastISO}.md`,
 	);
 	expect(pastMd ?? '').not.toContain('overdue in progress');
+});
+
+// ── Drag to backlog category (doc 12, bug 2) ─────────────────────────────────
+
+/**
+ * Simulate an HTML5 drag-and-drop with a shared DataTransfer, since
+ * Playwright's mouse-based dragAndDrop does not drive native DnD.
+ */
+async function html5Drag(page: Page, source: ReturnType<Page['locator']>, target: ReturnType<Page['locator']>): Promise<void> {
+	const sourceEl = await source.elementHandle();
+	const targetEl = await target.elementHandle();
+	await page.evaluate(
+		([src, tgt]) => {
+			const dt = new DataTransfer();
+			src!.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+			tgt!.dispatchEvent(new DragEvent('dragenter', { bubbles: true, dataTransfer: dt }));
+			tgt!.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: dt }));
+			tgt!.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
+			src!.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
+		},
+		[sourceEl, targetEl],
+	);
+}
+
+test('dragging a task from a day column onto a backlog category moves it (bug 12.2)', async ({ page }) => {
+	const todayISO = localISO(new Date());
+	await openApp(page, {
+		'Backlog.md': '# PP\n- [ ] existing pp\n',
+		[`${todayISO}.md`]: '# Work\n- [ ] dragged task\n',
+	});
+
+	// Drag today's task row onto the PP category header in the backlog rail.
+	await html5Drag(
+		page,
+		page.locator('.day-col.today .task-item'),
+		page.locator('#backlog-rail .section-head').first(),
+	);
+
+	// Wait for both writes (target add + source delete) to flush.
+	await expect
+		.poll(
+			async () => page.evaluate(() => (globalThis as any).__alphFs.get('Backlog.md')),
+			{ timeout: 4000 },
+		)
+		.toContain('dragged task');
+
+	const backlogMd = await page.evaluate(() => (globalThis as any).__alphFs.get('Backlog.md'));
+	const dayMd = await page.evaluate(
+		(n) => (globalThis as any).__alphFs.get(n),
+		`${todayISO}.md`,
+	);
+
+	// The task appears EXACTLY once in the backlog...
+	expect((backlogMd.match(/- \[ \] dragged task/g) ?? []).length).toBe(1);
+	expect(backlogMd).toContain('- [ ] existing pp');
+	// ...and is gone from the day file (moved, not copied).
+	expect(dayMd ?? '').not.toContain('dragged task');
+	// The UI no longer shows it in the day column.
+	await expect(page.locator('.day-col.today')).not.toContainText('dragged task');
+	await expect(page.locator('#backlog-rail')).toContainText('dragged task');
+});
+
+test('dragging a backlog task onto a day column category moves it (bug 12.2)', async ({ page }) => {
+	const todayISO = localISO(new Date());
+	await openApp(page, {
+		'Backlog.md': '# PP\n- [ ] dragged backlog task\n',
+		[`${todayISO}.md`]: '# Work\n- [ ] existing work\n',
+	});
+
+	await html5Drag(
+		page,
+		page.locator('#backlog-rail .task-item'),
+		page.locator('.day-col.today .section-head').first(),
+	);
+
+	await expect
+		.poll(
+			async () => page.evaluate((n) => (globalThis as any).__alphFs.get(n), `${todayISO}.md`),
+			{ timeout: 4000 },
+		)
+		.toContain('dragged backlog task');
+
+	const backlogMd = await page.evaluate(() => (globalThis as any).__alphFs.get('Backlog.md'));
+	const dayMd = await page.evaluate(
+		(n) => (globalThis as any).__alphFs.get(n),
+		`${todayISO}.md`,
+	);
+	expect((dayMd.match(/dragged backlog task/g) ?? []).length).toBe(1);
+	expect(backlogMd).not.toContain('dragged backlog task');
+});
+
+test('dragging a backlog task onto another backlog category moves it (bug 12.2)', async ({ page }) => {
+	await openApp(page, {
+		'Backlog.md': '# PP\n- [ ] pp task\n# HW\n- [ ] moved task\n',
+	});
+
+	// Drag the "moved task" row onto the PP category header.
+	await html5Drag(
+		page,
+		page.locator('#backlog-rail .task-item').filter({ hasText: 'moved task' }),
+		page.locator('#backlog-rail .section-head').filter({ hasText: 'PP' }),
+	);
+
+	await expect
+		.poll(
+			async () => page.evaluate(() => (globalThis as any).__alphFs.get('Backlog.md')),
+			{ timeout: 4000 },
+		)
+		.toContain('moved task');
+
+	const backlogMd = await page.evaluate(() => (globalThis as any).__alphFs.get('Backlog.md'));
+	expect((backlogMd.match(/- \[ \] moved task/g) ?? []).length).toBe(1);
+	expect(backlogMd).toContain('# PP\n- [ ] pp task\n- [ ] moved task\n# HW\n');
 });

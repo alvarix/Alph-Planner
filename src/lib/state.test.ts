@@ -13,7 +13,9 @@ import { parseFile } from "./md/parse.js";
 import {
 	appState,
 	addTask,
+	deleteTask,
 	moveTask,
+	moveToCategoryInFile,
 	rollWeekToBacklog,
 	completeToToday,
 	toggleTask,
@@ -248,6 +250,38 @@ describe("backlog grouping", () => {
 		expect(backlog).toContain(`## Added week of ${getWeekDays(0)[0].iso}`);
 		expect(backlog).toContain("- [ ] dragged task");
 		expect(fs.store.get(`${days[0].iso}.md`)).not.toContain("dragged task");
+	});
+
+	it("drag onto a category moves a task from a day file into Backlog.md (dropOnSection path)", async () => {
+		setFolderReady();
+		const days = getWeekDays(-1);
+		const source = `${days[0].iso}.md`;
+		fs.store.set("Backlog.md", "# PP\n- [ ] existing pp\n");
+		seedDay(days[0].iso, "# Work\n- [ ] dragged task\n");
+
+		// Mirror BacklogRail.svelte dropOnSection's external branch verbatim.
+		const task = appState.cache[source][0];
+		const block = [task.raw, ...task.children.map((c) => c.raw)].join("\n");
+		await addTask("Backlog.md", block, "PP");
+		await deleteTask(task);
+
+		const backlog = fs.store.get("Backlog.md")!;
+		expect((backlog.match(/- \[ \] dragged task/g) ?? []).length).toBe(1);
+		expect(backlog).toContain("- [ ] existing pp");
+		expect(fs.store.get(source)).not.toContain("dragged task");
+	});
+
+	it("moveToCategoryInFile moves (not copies) within Backlog.md", async () => {
+		setFolderReady();
+		fs.store.set("Backlog.md", "# PP\n- [ ] existing pp\n# HW\n- [ ] moved task\n");
+		appState.cache["Backlog.md"] = parseFile(fs.store.get("Backlog.md")!, "Backlog.md");
+
+		const task = appState.cache["Backlog.md"].find((t) => t.title === "moved task")!;
+		await moveToCategoryInFile(task, "PP");
+
+		const backlog = fs.store.get("Backlog.md")!;
+		expect((backlog.match(/- \[ \] moved task/g) ?? []).length).toBe(1);
+		expect(backlog).toBe("# PP\n- [ ] existing pp\n- [ ] moved task\n# HW\n");
 	});
 
 	it("creates the destination category when dragging to a day without it", async () => {
