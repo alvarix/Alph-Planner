@@ -1,8 +1,40 @@
 # 12 — Status
 
-**Task:** Backlog bugs — lost categories on week roll
-**Status:** Bug 1 fixed (needs user verification); Bugs 2 and 3 open
+**Task:** Backlog bugs — lost categories on week roll; drag-to-category copy
+**Status:** Bugs 1 and 2 fixed (need user verification); Bug 3 verified correct — see note
 **Updated:** session of 2026-08 (see `docs/12--usr--backlog-bugs.md` for the task list)
+
+## Bug 2 — items dragged onto a category are copied, not moved — FIXED
+
+**Root cause:** `+page.svelte` clears `draggingTask` (passed down as
+`externalDragTask`) in a window-level `ondragend`. That handler fires while
+`DayColumn.dropOnSection` is still awaiting `addTask`; the function re-read the
+prop after the await, so `deleteTask(externalDragTask)` received `null` and
+threw (`TypeError: Cannot read properties of null (reading 'file')`). The task
+was added to the target but never removed from the source — a copy.
+
+**Fix:** `DayColumn.dropOnSection` captures `externalDragTask` in a local
+`const source` before the first await. BacklogRail's `dropOnSection` already
+took the task as a parameter (evaluated at call time) and needed no change.
+
+Verified in the browser with three new Playwright tests:
+
+- day task → backlog category header: moved, appears exactly once
+- backlog task → day column category header: moved, removed from Backlog.md
+- backlog task → another backlog category: moved within Backlog.md
+
+## Bug 3 — complete/in-progress items from last week in backlog as incomplete — VERIFIED CORRECT
+
+Investigated with an extended E2E test (last week seeded with `todo` + `done`
++ `[>]` in-progress per day, then rolled):
+
+- **Done tasks** are excluded from the roll entirely (they stay in their
+  daily files) — they never appear in the backlog.
+- **In-progress tasks** roll with their raw `[>]` line verbatim and render
+  with the `in-progress` class in the rail — not as incomplete.
+
+If you still see this, it may be the **Overdue** section showing past-day
+in-progress tasks (by design, red date tag) — confirm what you observed.
 
 ## Bug 1 — backlogged items (incomplete from last week) lose categories — FIXED
 
@@ -56,7 +88,9 @@ New tests:
 | `src/lib/md/serialize.ts` | `insertUnderWeekMarker` optional `category` param + placement logic |
 | `src/lib/state.svelte.ts` | `rollWeekToBacklog` / `moveTask` pass `task.category` |
 | `src/lib/md/serialize.test.ts` | 4 new tests |
-| `src/lib/state.test.ts` | 1 new integration test |
+| `src/lib/components/DayColumn.svelte` | `dropOnSection` captures `externalDragTask` before awaiting (bug 12.2) |
+| `tests/app.test.ts` | `html5Drag` helper + 3 drag-to-category move tests; roll test extended for bug 12.3 |
+| `src/lib/state.test.ts` | 2 new dropOnSection file-layer tests |
 | `README.md` | Rebuilt: two run states (Vercel production via `git push`; local Vite dev via `pnpm dev`/PM2), removed wrong `pnpm build && pm2 restart` advice |
 | `docs/12--usr--backlog-bugs.md` | Task list (unchanged, reference) |
 
