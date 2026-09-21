@@ -1,0 +1,3 @@
+- [>] backlogged items (incomplete from last week) lose categories
+	- [ ] items dragged off backlog on a cat are copied, not moved (they are moved correctly when dragged onto day)
+- [ ] complete or in-progress backlogged items (from last week) are in backlog as incomplete

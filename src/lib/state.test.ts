@@ -299,6 +299,31 @@ describe("backlog grouping", () => {
 			expect(t.category).toBeNull();
 		}
 	});
+
+	// Regression: rolled tasks used to lose their source category because
+	// the week heading reset parsing and the block carried no `# H1` (Bug).
+	it("rolled tasks keep their source category in Backlog.md", async () => {
+		setFolderReady();
+		const days = getWeekDays(-1);
+		seedDay(
+			days[0].iso,
+			["# Work", "- [ ] wip one", "# Personal", "- [ ] wip two"].join("\n"),
+		);
+		seedDay(days[1].iso, "# Work\n- [ ] wip three");
+
+		await rollWeekToBacklog(-1);
+
+		const rolled = appState.cache["Backlog.md"] ?? [];
+		expect(rolled.length).toBe(3);
+		const cats = new Map(rolled.map((t) => [t.title, t.category]));
+		expect(cats.get("wip one")).toBe("Work");
+		expect(cats.get("wip two")).toBe("Personal");
+		expect(cats.get("wip three")).toBe("Work");
+		// Same-category tasks across days merge into one # Work group.
+		const backlog = fs.store.get("Backlog.md") ?? "";
+		expect((backlog.match(/^# Work$/gm) ?? []).length).toBe(1);
+		expect((backlog.match(/^# Personal$/gm) ?? []).length).toBe(1);
+	});
 });
 
 describe("completeToToday — stale lineRange safety (Bug 03)", () => {

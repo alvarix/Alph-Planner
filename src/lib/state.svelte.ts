@@ -380,8 +380,10 @@ export function tasksForFile(filename: string): Task[] {
  * if source removal fails.
  *
  * Destination placement: when a weekMarker is supplied (week rollover) the
- * task is appended under the `## Added week of` heading regardless of its
- * category. Otherwise, tasks moving into Backlog.md without a category are
+ * task is appended under the `## Added week of` heading, within its source
+ * category section when it had one (otherwise it would lose its category on
+ * re-parse, since category is derived from the nearest `# H1` in the file).
+ * Otherwise, tasks moving into Backlog.md without a category are
  * grouped under the current week's heading; all other moves keep the task's
  * category section placement via appendTask.
  *
@@ -405,9 +407,14 @@ export async function moveTask(
 	let targetUpdated: string;
 	let createdCategory = false;
 	if (opts?.weekMarker) {
-		// Week rollover tasks intentionally remain uncategorized under the
-		// chronological marker, even when their source day had a category.
-		targetUpdated = insertUnderWeekMarker(targetContent, block, opts.weekMarker);
+		// Week rollover keeps the task's source category under the chronological
+		// marker; tasks without a category stay uncategorized.
+		targetUpdated = insertUnderWeekMarker(
+			targetContent,
+			block,
+			opts.weekMarker,
+			task.category,
+		);
 	} else if (targetFilename === "Backlog.md" && !task.category) {
 		targetUpdated = insertUnderWeekMarker(targetContent, block, currentWeekMonday());
 	} else {
@@ -541,7 +548,14 @@ export async function rollWeekToBacklog(weekOffset: number): Promise<number> {
 	for (const { filename, tasks } of perDay) {
 		for (const task of tasks) {
 			const block = [task.raw, ...task.children.map((c) => c.raw)].join("\n");
-			newBacklog = insertUnderWeekMarker(newBacklog, block, mondayISO);
+			// Keep the source category: carry it into the week section so the
+			// Backlog re-parse restores task.category (Bug: category was lost).
+			newBacklog = insertUnderWeekMarker(
+				newBacklog,
+				block,
+				mondayISO,
+				task.category,
+			);
 			moved.push({ task, filename });
 		}
 	}

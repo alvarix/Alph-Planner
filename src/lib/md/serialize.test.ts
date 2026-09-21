@@ -378,4 +378,66 @@ describe("insertUnderWeekMarker", () => {
 			),
 		);
 	});
+
+	// Regression: week roll used to drop the source category, so tasks
+	// re-parsed from Backlog.md with category === null (Bug: category lost).
+	it("places a categorised block under a created # Category heading", () => {
+		const src = lines("## Added week of 2026-08-03", "- [ ] uncategorised");
+		const result = insertUnderWeekMarker(
+			src,
+			"- [ ] rolled task",
+			"2026-08-03",
+			"PP",
+		);
+		expect(result).toBe(
+			lines(
+				"## Added week of 2026-08-03",
+				"- [ ] uncategorised",
+				"# PP",
+				"- [ ] rolled task",
+			),
+		);
+		expect(parseFile(result, "Backlog.md")[1].category).toBe("PP");
+	});
+
+	it("merges same-category tasks into one # Category group", () => {
+		let content = "## Added week of 2026-08-03";
+		content = insertUnderWeekMarker(content, "- [ ] a", "2026-08-03", "PP");
+		content = insertUnderWeekMarker(content, "- [ ] b", "2026-08-03", "HW");
+		content = insertUnderWeekMarker(content, "- [ ] c", "2026-08-03", "PP");
+		expect(content).toBe(
+			lines(
+				"## Added week of 2026-08-03",
+				"# PP",
+				"- [ ] a",
+				"- [ ] c",
+				"# HW",
+				"- [ ] b",
+			),
+		);
+		const parsed = parseFile(content, "Backlog.md");
+		expect(parsed.map((t) => [t.title, t.category])).toEqual([
+			["a", "PP"],
+			["c", "PP"],
+			["b", "HW"],
+		]);
+	});
+
+	it("keeps null-category blocks uncategorised under the marker", () => {
+		const src = lines("## Added week of 2026-08-03", "# PP", "- [ ] a");
+		const result = insertUnderWeekMarker(src, "- [ ] b", "2026-08-03", null);
+		expect(result).toBe(lines("## Added week of 2026-08-03", "# PP", "- [ ] a", "- [ ] b"));
+	});
+
+	it("carries the category into a newly created week heading", () => {
+		const result = insertUnderWeekMarker(
+			"- [ ] old task",
+			"- [ ] rolled task",
+			"2026-08-03",
+			"PP",
+		);
+		expect(result).toBe(
+			lines("- [ ] old task", "", "## Added week of 2026-08-03", "# PP", "- [ ] rolled task"),
+		);
+	});
 });

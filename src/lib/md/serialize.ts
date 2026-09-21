@@ -92,12 +92,16 @@ export const WEEK_MARKER_RE = /^##\s+Added week of\s+(\d{4}-\d{2}-\d{2})\s*$/;
  * @param content   - Raw file text (usually Backlog.md).
  * @param taskBlock - One or more raw markdown task lines, newline-joined.
  * @param mondayISO - Monday date of the week, "YYYY-MM-DD".
+ * @param category  - Optional source category. When set, the block is placed
+ *                    under (or creates) a `# Category` heading inside the
+ *                    week section so parsing restores the task's category.
  * @returns New file text.
  */
 export function insertUnderWeekMarker(
 	content: string,
 	taskBlock: string,
 	mondayISO: string,
+	category?: string | null,
 ): string {
 	const lines = splitLines(content);
 	const target = `## Added week of ${mondayISO}`;
@@ -116,6 +120,43 @@ export function insertUnderWeekMarker(
 		if (next !== undefined) end = next;
 		const div = lines.findIndex((l, i) => i > exact && /^---\s*$/.test(l));
 		if (div !== -1) end = Math.min(end, div);
+		if (category) {
+			// Place (or create) the `# Category` heading inside the week section.
+			const H1_RE = /^#\s+(.+)/;
+			let groupStart = -1;
+			let groupEnd = -1;
+			for (let i = exact + 1; i < end; i++) {
+				const h1 = lines[i].match(H1_RE);
+				if (h1) {
+					if (groupStart !== -1) break; // next category group starts
+					if (h1[1].trim() === category) {
+						groupStart = i;
+					} else if (groupStart !== -1) {
+						break;
+					}
+					// Non-matching H1 before our group: keep scanning.
+					continue;
+				}
+				if (groupStart !== -1) groupEnd = i + 1;
+			}
+			if (groupStart === -1) {
+				// Category not present in this week section — append its heading
+				// at the end of the section, followed by the block.
+				let insertAt = end;
+				while (insertAt > exact && lines[insertAt - 1].trim() === "") insertAt--;
+				lines.splice(insertAt, 0, `# ${category}`, taskBlock);
+			} else {
+				// Append at the end of the matching category group.
+				let insertAt = groupEnd === -1 ? groupStart + 1 : groupEnd;
+				while (
+					insertAt > groupStart + 1 &&
+					lines[insertAt - 1].trim() === ""
+				)
+					insertAt--;
+				lines.splice(insertAt, 0, taskBlock);
+			}
+			return joinLines(lines);
+		}
 		// Walk back past trailing blanks so blocks sit directly under the
 		// previous task in the section (no blank lines between tasks).
 		let insertAt = end;
@@ -147,7 +188,7 @@ export function insertUnderWeekMarker(
 	const after = insertAt < lines.length ? lines[insertAt] : undefined;
 	const insertion: string[] = [];
 	if (before !== undefined && before.trim() !== "") insertion.push("");
-	insertion.push(target, taskBlock);
+	insertion.push(target, ...(category ? [`# ${category}`, taskBlock] : [taskBlock]));
 	if (after !== undefined && after.trim() !== "") insertion.push("");
 	lines.splice(insertAt, 0, ...insertion);
 	return joinLines(lines);
