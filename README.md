@@ -2,6 +2,23 @@
 
 Weekly task planner PWA. Your Markdown daily notes in Obsidian are the source of truth — the app is a read/write view over those files. No database, no sync service, no lock-in.
 
+## How this app is run — READ THIS FIRST
+
+There are exactly two states. This is **not** a standalone Mac app — do not build it locally for use.
+
+| State | What it is | How |
+| --- | --- | --- |
+| **Normal use (production)** | The live app on Vercel | `git push` to `main` — Vercel builds and deploys automatically. Nothing to run locally. |
+| **Developing (local)** | Vite dev server on your Mac | `pnpm dev` (or the PM2 process below) at http://localhost:5173 |
+
+**After a code change while developing:**
+
+1. Save the file — the browser tab at localhost:5173 hot-reloads automatically
+2. Hard-reload the tab (Cmd+Shift+R) if HMR misbehaves (e.g. after edits to `state.svelte.ts`)
+3. Happy with it? `git push` — that deploys to production. `pnpm build` runs on Vercel, not on your Mac.
+
+**You do not need `pnpm build` or `pnpm preview` for daily work.** They exist only to sanity-check a production bundle locally (`pnpm build && pnpm preview` at http://localhost:4173) — rarely necessary since Vercel builds the same thing on push.
+
 ## Local development
 
 ```sh
@@ -10,56 +27,40 @@ pnpm dev               # http://localhost:5173 (development server with HMR)
 pnpm test:unit         # Vitest unit tests
 pnpm test              # Playwright smoke tests
 pnpm check             # TypeScript and Svelte type checking
-pnpm build             # Production build
-pnpm preview           # Preview the production build
 ```
+
+`pnpm build` / `pnpm preview` are only for sanity-checking a production bundle locally (see the top of this file); normal deployment happens on Vercel via `git push`.
 
 `pnpm start` is an alias for the development server on port 5173. It remains attached to the terminal, so do not chain it before another command with `&&`.
 
-### Persistent local server with PM2
+### Optional: persistent local dev server with PM2
 
-Use PM2 when the production preview should remain available after closing the terminal.
+Keeps the **dev** server running after you close the terminal. It is a development convenience only — production runs on Vercel.
 
 #### First-time setup
 
 ```sh
 pnpm add -g pm2
-pnpm build
-pm2 start "pnpm exec vite preview --port 5177" --name alph-planner
+pm2 start pnpm --name alph-planner -- run start
 pm2 save
 pm2 startup
 ```
 
-Run the command printed by `pm2 startup` to configure startup after a reboot. The app is then available at `http://localhost:5177`.
+Run the command printed by `pm2 startup` to configure startup after a reboot. The app is then available at `http://localhost:5173`.
 
 #### After a code change
 
+Nothing to do — save the file and the browser tab hot-reloads. Only restart PM2 if the dev server itself crashed:
+
 ```sh
-pnpm build && pm2 restart alph-planner --update-env
+pm2 restart alph-planner
 ```
 
-`--update-env` passes changed environment variables to the restarted process. It does not create a missing PM2 process.
-
-#### If `Process or Namespace alph-planner not found` appears
-
-First inspect PM2's process table:
+If `Process or Namespace alph-planner not found` appears, run `pm2 status`. If the table is empty, try `pm2 resurrect`; if `alph-planner` is still absent, re-register it from this repo's directory:
 
 ```sh
-pm2 status
-```
-
-If the table is empty even though the app previously worked, PM2 may have restarted without restoring its saved process list. Try restoring it:
-
-```sh
-pm2 resurrect
-pm2 status
-```
-
-If `alph-planner` is still absent, register and save it again:
-
-```sh
-pnpm build
-pm2 start "pnpm exec vite preview --port 5177" --name alph-planner
+cd ~/Sites/apps/Alph-Planner
+pm2 start pnpm --name alph-planner -- run start
 pm2 save
 ```
 
@@ -73,7 +74,7 @@ pm2 logs alph-planner --lines 30
 pm2 describe alph-planner
 ```
 
-The service worker updates on the next page load after a build. If stale content remains, open DevTools → Application → Service Workers, select **Update**, and reload.
+The service worker updates on the next page load after a production deploy. If stale content remains, open DevTools → Application → Service Workers, select **Update**, and reload.
 
 ## How it works
 
