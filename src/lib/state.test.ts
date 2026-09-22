@@ -20,6 +20,8 @@ import {
 	completeToToday,
 	toggleTask,
 	completeTask,
+	archiveTask,
+	restoreFromArchive,
 } from "./state.svelte.js";
 
 /** In-memory filesystem backing the mocked fs module. */
@@ -585,5 +587,64 @@ describe("completeTask on backlog tasks routes to completeToToday", () => {
 		// Today received the completed block as [x].
 		const todayMd = fs.store.get(`${today}.md`)!;
 		expect(todayMd).toContain("- [x] long press fallback");
+	});
+});
+
+describe("archiveTask / restoreFromArchive", () => {
+	it("moves a categorized backlog task to Archive.md, preserving the line and category", async () => {
+		setFolderReady();
+		const backlog = "## Added week of 2026-01-05\n\n# Work\n- [ ] stale item 1h\n";
+		fs.store.set("Backlog.md", backlog);
+		appState.cache["Backlog.md"] = parseFile(backlog, "Backlog.md");
+
+		const task = appState.cache["Backlog.md"][0];
+		await archiveTask(task);
+
+		// Archive.md holds the block verbatim under its category H1.
+		const archive = fs.store.get("Archive.md")!;
+		expect(archive).toContain("# Work");
+		expect(archive).toContain("- [ ] stale item 1h");
+
+		// Backlog.md no longer holds it; the category header stays.
+		const finalBacklog = fs.store.get("Backlog.md")!;
+		expect(finalBacklog).not.toContain("stale item");
+		expect(finalBacklog).toContain("# Work");
+
+		// Round-trip: restore puts it back under # Work in Backlog.md.
+		const archived = appState.cache["Archive.md"][0];
+		expect(archived.category).toBe("Work");
+		await restoreFromArchive(archived);
+		const restored = fs.store.get("Backlog.md")!;
+		expect(restored).toContain("# Work");
+		expect(restored).toContain("- [ ] stale item 1h");
+		expect(fs.store.get("Archive.md")!).not.toContain("stale item");
+	});
+
+	it("archives an uncategorized task and restores it to the current week section", async () => {
+		setFolderReady();
+		const backlog = "## Added week of 2020-01-06\n\n- [ ] old loose item\n";
+		fs.store.set("Backlog.md", backlog);
+		appState.cache["Backlog.md"] = parseFile(backlog, "Backlog.md");
+
+		await archiveTask(appState.cache["Backlog.md"][0]);
+		expect(fs.store.get("Archive.md")!).toContain("- [ ] old loose item");
+
+		const archived = appState.cache["Archive.md"][0];
+		expect(archived.category).toBe(null);
+		await restoreFromArchive(archived);
+		const restored = fs.store.get("Backlog.md")!;
+		expect(restored).toContain("## Added week of");
+		expect(restored).toContain("- [ ] old loose item");
+	});
+
+	it("is a no-op when archiving an already-archived task", async () => {
+		setFolderReady();
+		fs.store.set("Archive.md", "- [ ] already here\n");
+		appState.cache["Archive.md"] = parseFile(
+			fs.store.get("Archive.md")!,
+			"Archive.md",
+		);
+		await archiveTask(appState.cache["Archive.md"][0]);
+		expect(fs.store.get("Archive.md")!).toBe("- [ ] already here\n");
 	});
 });

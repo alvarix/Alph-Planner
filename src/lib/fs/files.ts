@@ -144,7 +144,11 @@ export async function listDailyFiles(
 	const names: string[] = [];
 	try {
 		for await (const [name] of dir.entries()) {
-			if (/^\d{4}-\d{2}-\d{2}\.md$/.test(name) || name === "Backlog.md") {
+			if (
+				/^\d{4}-\d{2}-\d{2}\.md$/.test(name) ||
+				name === "Backlog.md" ||
+				name === "Archive.md"
+			) {
 				names.push(name);
 			}
 		}

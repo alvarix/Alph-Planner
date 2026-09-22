@@ -145,6 +145,9 @@ async function getOrCreateDayContent(
 ): Promise<string> {
 	const existing = await readFile(d, filename);
 	if (existing !== null) return existing;
+	// Archive.md starts empty — its category sections are created on demand
+	// by appendTask when the first archived task lands.
+	if (filename === "Archive.md") return "";
 	const dateMatch = filename.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
 	if (!dateMatch) return NEW_DAILY_TEMPLATE;
 	const defaultsText = await readDefaultsFile(d);
@@ -492,6 +495,33 @@ export async function moveTask(
 		fail(E.moveRolledBack);
 		return;
 	}
+}
+
+/**
+ * Archive a backlog task: move it from its current file into Archive.md.
+ * A thin wrapper over moveTask — Archive.md is created on demand (empty),
+ * the task's category section is created inside Archive.md if missing, and
+ * all atomicity/rollback/caching is inherited from moveTask.
+ *
+ * @param task - The task to archive (typically from Backlog.md).
+ */
+export async function archiveTask(task: Task): Promise<void> {
+	const d = dir();
+	if (!d || task.file === "Archive.md") return;
+	await moveTask(task, "Archive.md");
+}
+
+/**
+ * Restore an archived task back to Backlog.md. Tasks with a category are
+ * appended under their category H1 (created if missing); uncategorized
+ * tasks join the current week's marker section. Same moveTask guarantees.
+ *
+ * @param task - The archived task to restore (must live in Archive.md).
+ */
+export async function restoreFromArchive(task: Task): Promise<void> {
+	const d = dir();
+	if (!d || task.file !== "Archive.md") return;
+	await moveTask(task, "Backlog.md");
 }
 
 /**

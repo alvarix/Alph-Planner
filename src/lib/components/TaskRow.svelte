@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeToToday, completeTask, cancelCompletion, duplicateTask, shouldMoveToToday, appState } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeToToday, completeTask, cancelCompletion, duplicateTask, shouldMoveToToday, appState, archiveTask } from '$lib/state.svelte.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -320,6 +320,14 @@
 			title="Duplicate task"
 			aria-label="Duplicate task"
 		>dup</button>
+		{#if task.file === 'Backlog.md'}
+			<button
+				class="arch-btn"
+				onclick={() => archiveTask(task)}
+				title="Move to archive"
+				aria-label="Move to archive"
+			>arch</button>
+		{/if}
 		<button
 			class="add-sub-btn"
 			onclick={() => (addingSubtask = true)}
@@ -441,6 +449,7 @@
 }
 .task-item:hover .star-btn,
 .task-item:hover .dup-btn,
+.task-item:hover .arch-btn,
 .task-item:hover .add-sub-btn,
 .task-item:hover .del-btn { opacity: 1; }
 
@@ -462,6 +471,7 @@
 }
 .dup-btn:hover { color: var(--text); border-color: var(--border-input); }
 
+.arch-btn,
 .add-sub-btn {
 	font-size: 10px; background: none; border: 1px solid var(--border);
 	border-radius: 3px; cursor: pointer; color: var(--text-muted);
