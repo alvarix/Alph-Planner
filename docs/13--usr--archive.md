@@ -20,13 +20,19 @@ restored or reactivated later.
       older than 2 weeks. Confirm threshold semantics (see questions).
 - [x] Archive tasks via a per-task button on backlog rows (decision: button
       first, batch sweep demoted to optional future work).
-- [x] Archived tasks live in a **separate `Archive.md`** file (same
+- [x] Archived tasks live in a **separate `Planner Archive.md`** file (same
       markdown-first discipline; no hidden state).
-- [ ] Archive drawer UI (Part B): closed by default, expandable, grouped by
-      category, shows archived date.
-- [ ] Restore: task moves back to Backlog.md under its original category —
-      action `restoreFromArchive` exists and is tested; needs drawer UI.
-- [ ] Delete permanently from archive (explicit, with confirm).
+- [x] Archived items show their **archive date** (`## Archived YYYY-MM-DD`
+      heading per date, visible in the app and in Obsidian).
+- [x] Collapsible **Archive section in the backlog rail** (drawer-lite):
+      closed by default, lists archived items with dates.
+- [ ] Full archive drawer UI (grouped by category; current section is a flat
+      chronological list).
+- [x] Restore: task moves back to Backlog.md under its original category —
+      `restoreFromArchive` action + "restore" button in the Archive section.
+- [ ] Delete permanently from archive (explicit, with confirm) — delete
+      button currently works via the standard row controls; no archive-
+      specific confirm UI yet.
 - [ ] Optional batch sweep of tasks older than 2 weeks (deferred — manual
       button covers the core need; sweep = loop over single-task move +
       staleness predicate once Part B ships).

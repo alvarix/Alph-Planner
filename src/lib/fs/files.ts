@@ -3,6 +3,8 @@
  * All operations go through the FileSystemDirectoryHandle stored in state.
  */
 
+import { ARCHIVE_FILENAME } from "../types.js";
+
 /**
  * Typed error for file system failures.
  * Callers can distinguish "file not found" (expected, return null) from
@@ -147,7 +149,7 @@ export async function listDailyFiles(
 			if (
 				/^\d{4}-\d{2}-\d{2}\.md$/.test(name) ||
 				name === "Backlog.md" ||
-				name === "Archive.md"
+				name === ARCHIVE_FILENAME
 			) {
 				names.push(name);
 			}

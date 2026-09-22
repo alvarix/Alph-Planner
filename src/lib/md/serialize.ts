@@ -81,6 +81,13 @@ function cycleCheckbox(line: string): string {
 export const WEEK_MARKER_RE = /^##\s+Added week of\s+(\d{4}-\d{2}-\d{2})\s*$/;
 
 /**
+ * Matches the archive-date heading written to Planner Archive.md, e.g.
+ * `## Archived 2026-08-03`. Each archive move is stamped with the date it
+ * was archived, grouped under one of these headings.
+ */
+export const ARCHIVE_MARKER_RE = /^##\s+Archived\s+(\d{4}-\d{2}-\d{2})\s*$/;
+
+/**
  * Insert a task block (parent + children lines) under a `## Added week of`
  * boundary heading, creating the heading if it doesn't exist yet.
  *
@@ -103,18 +110,86 @@ export function insertUnderWeekMarker(
 	mondayISO: string,
 	category?: string | null,
 ): string {
-	const lines = splitLines(content);
-	const target = `## Added week of ${mondayISO}`;
+	return insertUnderDatedMarker(
+		content,
+		taskBlock,
+		mondayISO,
+		"Added week of ",
+		[WEEK_MARKER_RE],
+		category,
+	);
+}
 
-	// Locate every week heading and the exact one for this week.
+/**
+ * Insert a task block under a `## Archived YYYY-MM-DD` heading in
+ * Planner Archive.md, creating the heading in chronological position if it
+ * doesn't exist yet. The task's category is preserved as a nested `# H1`
+ * inside the date section. Both marker types are recognised when ordering,
+ * so archive sections and week sections (if ever mixed) stay sorted.
+ *
+ * @param content   - Raw file text (Planner Archive.md).
+ * @param taskBlock - One or more raw markdown task lines, newline-joined.
+ * @param dateISO   - Date the task was archived, "YYYY-MM-DD".
+ * @param category  - Optional source category, nested under the date heading.
+ * @returns New file text.
+ */
+export function insertUnderArchiveMarker(
+	content: string,
+	taskBlock: string,
+	dateISO: string,
+	category?: string | null,
+): string {
+	return insertUnderDatedMarker(
+		content,
+		taskBlock,
+		dateISO,
+		"Archived ",
+		[WEEK_MARKER_RE, ARCHIVE_MARKER_RE],
+		category,
+	);
+}
+
+/**
+ * Shared insertion core for dated H2 markers (week-of / archived).
+ *
+ * @param content      - Raw file text.
+ * @param taskBlock    - One or more raw task lines, newline-joined.
+ * @param dateISO      - Date of the marker, "YYYY-MM-DD".
+ * @param headingPrefix- Heading text before the date, e.g. "Archived ".
+ * @param markerRes    - All marker regexes recognised for chronological
+ *                       ordering in this file kind.
+ * @param category     - Optional category nested under the marker heading.
+ * @returns New file text.
+ */
+function insertUnderDatedMarker(
+	content: string,
+	taskBlock: string,
+	dateISO: string,
+	headingPrefix: string,
+	markerRes: RegExp[],
+	category?: string | null,
+): string {
+	const lines = splitLines(content);
+	const target = `## ${headingPrefix}${dateISO}`;
+
+	/** Date extracted from a marker line by any of the known regexes. */
+	const markerDate = (line: string): string | null => {
+		for (const re of markerRes) {
+			const m = line.trim().match(re);
+			if (m) return m[1];
+		}
+		return null;
+	};
+
+	// Locate every marker heading and the exact one for this date.
 	const markers: number[] = [];
 	lines.forEach((l, i) => {
-		if (WEEK_MARKER_RE.test(l.trim())) markers.push(i);
+		if (markerRes.some((re) => re.test(l.trim()))) markers.push(i);
 	});
 	const exact = markers.find((i) => lines[i].trim() === target);
 
 	if (exact !== undefined) {
-		// Section ends at the next week heading, the notes divider, or EOF.
+		// Section ends at the next marker heading, the notes divider, or EOF.
 		let end = lines.length;
 		const next = markers.find((i) => i > exact);
 		if (next !== undefined) end = next;
@@ -165,12 +240,12 @@ export function insertUnderWeekMarker(
 		return joinLines(lines);
 	}
 
-	// No heading for this week yet — create it in chronological position:
+	// No heading for this date yet — create it in chronological position:
 	// before the first later-dated heading, otherwise at the end of the file
 	// (before the notes divider, after any trailing blank lines).
 	const later = markers.find((i) => {
-		const m = lines[i].trim().match(WEEK_MARKER_RE);
-		return m ? m[1] > mondayISO : false;
+		const d = markerDate(lines[i]);
+		return d ? d > dateISO : false;
 	});
 
 	let insertAt: number;

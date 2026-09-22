@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added
+
+- **Archive feature (Part A).** Backlog rows get a hover-reveal "arch" button
+  that moves the task (with children, category, and checkbox state intact)
+  into `Planner Archive.md`, stamped under a chronological
+  `## Archived YYYY-MM-DD` heading with the category nested inside. The
+  parser surfaces the archive date as `task.date`. A collapsible Archive
+  section at the bottom of the backlog rail lists archived items with their
+  archive dates and a "restore" button that returns them to Backlog.md
+  (under their category, or the current week section if uncategorized).
+  Archive date headings are visible in Obsidian too. All moves reuse the
+  existing atomic `moveTask` path (target-first write, exact-block
+  rollback). Optional batch sweep of stale items is deferred.
+
 ### Fixed
 
 - **Cross-day drags preserve categories.** Dragging a categorized task to a day now creates the destination H1 category when needed, or appends to the existing category instead of silently losing the category. If source removal fails, rollback also removes any category header created by the attempted move.

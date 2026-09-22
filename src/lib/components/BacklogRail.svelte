@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { appState, moveTask, addTask, addTaskWithCategory, addCategoryToFile, moveToCategoryInFile, deleteTask } from '$lib/state.svelte.js';
+	import { appState, moveTask, addTask, addTaskWithCategory, addCategoryToFile, moveToCategoryInFile, deleteTask, archivedTasks, restoreFromArchive } from '$lib/state.svelte.js';
+import { ARCHIVE_FILENAME } from '$lib/types.js';
 	import { isFolded, toggleFolded, unfoldAll, anyFolded } from '$lib/ui/foldState.js';
 	import { sectionKey } from '$lib/sections.js';
 	import { openInObsidian } from '$lib/obsidian.js';
@@ -72,6 +73,12 @@
 	function toggleCatFold(cat: string) { toggleFolded('Backlog.md', cat); foldSignal++; }
 	function unfoldAllCats() { unfoldAll('Backlog.md', fileHeaders); foldSignal++; }
 	const anyCatFolded = $derived.by(() => { foldSignal; return anyFolded('Backlog.md', fileHeaders); });
+
+	// ── Archive drawer ─────────────────────────────────────────
+	const archived = $derived(archivedTasks());
+	// Closed by default; a plain UI toggle (not persisted).
+	let archiveOpen = $state(false);
+	function toggleArchive() { archiveOpen = !archiveOpen; }
 
 	/** Drop an external task onto a specific category within Backlog.md. */
 	async function dropOnSection(task: Task, category: string | null) {
@@ -284,6 +291,27 @@
 		{#if allItems.length === 0}
 			<div class="empty">no backlog items</div>
 		{/if}
+
+		<!-- Archive drawer: closed by default, lists archived items with dates -->
+		{#if archived.length > 0}
+			<button class="archive-head" onclick={toggleArchive} aria-expanded={archiveOpen}>
+				<span class="archive-caret" class:open={archiveOpen}>&#x25B8;</span>
+				Archive
+				<span class="badge">{archived.length}</span>
+			</button>
+			{#if archiveOpen}
+				<div class="archive-list">
+					{#each archived as task (task.file + ':' + task.lineRange[0])}
+						<TaskRow
+							{task}
+							todayFilename={null}
+							restorable
+							onrestore={() => restoreFromArchive(task)}
+						/>
+					{/each}
+				</div>
+			{/if}
+		{/if}
 	</div>
 
 	{#if allItems.length > 0}
@@ -338,6 +366,19 @@
 	background: var(--surface); box-shadow: 0 0 0 2px #00000010;
 }
 .add-hint { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+
+.archive-head {
+	display: flex; align-items: center; gap: 4px;
+	padding: 6px 12px; font-size: 10px; font-weight: 700;
+	text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted);
+	background: none; border: none; border-top: 1px solid var(--border);
+	cursor: pointer; text-align: left; flex-shrink: 0;
+}
+.archive-head:hover { color: var(--text); background: rgba(0,0,0,.02); }
+.archive-head .badge { margin-right: auto; margin-left: 0; }
+.archive-caret { display: inline-block; transition: transform .1s; }
+.archive-caret.open { transform: rotate(90deg); }
+.archive-list { overflow-y: auto; flex: 1; padding-bottom: 6px; }
 
 .rail-list {
 	flex: 1; overflow-y: auto;

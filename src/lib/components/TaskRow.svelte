@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
 	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeToToday, completeTask, cancelCompletion, duplicateTask, shouldMoveToToday, appState, archiveTask } from '$lib/state.svelte.js';
+import { ARCHIVE_FILENAME } from '$lib/types.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -16,6 +17,8 @@
 		colorIndex = null,
 		minHeight  = null,
 		todayFilename = null,
+		restorable = false,
+		onrestore = null,
 		ondragstart,
 		ondragend,
 	}: {
@@ -23,6 +26,9 @@
 		colorIndex?: number | null;
 		minHeight?:  number | null;
 		todayFilename?: string | null;
+		/** Archive view: show a restore-to-backlog button in the controls strip. */
+		restorable?: boolean;
+		onrestore?:   (() => void) | null;
 		ondragstart?: (e: DragEvent, task: Task) => void;
 		ondragend?:   (e: DragEvent) => void;
 	} = $props();
@@ -258,6 +264,9 @@
 					title="Double-click to set duration"
 				></span>
 			{/if}
+			{#if task.file === ARCHIVE_FILENAME && task.date}
+				<span class="task-arch-date" title="Archived">{task.date}</span>
+			{/if}
 		</div>
 	</div>
 
@@ -328,6 +337,14 @@
 				aria-label="Move to archive"
 			>arch</button>
 		{/if}
+		{#if restorable}
+			<button
+				class="arch-btn"
+				onclick={() => onrestore?.()}
+				title="Restore to backlog"
+				aria-label="Restore to backlog"
+			>restore</button>
+		{/if}
 		<button
 			class="add-sub-btn"
 			onclick={() => (addingSubtask = true)}
@@ -395,6 +412,10 @@
 }
 
 .task-dur { font-size: 10px; color: var(--text-muted); flex-shrink: 0; cursor: pointer; }
+.task-arch-date {
+	font-size: 10px; color: var(--text-faint); flex-shrink: 0;
+	font-variant-numeric: tabular-nums;
+}
 .task-dur:hover { color: var(--text); }
 .task-dur-empty {
 	display: inline-block; width: 24px; height: 14px; flex-shrink: 0;

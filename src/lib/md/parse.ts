@@ -86,7 +86,7 @@ export function relocateChild(
  */
 
 import type { Task, ChildTask, TaskStatus } from "../types.js";
-import { WEEK_MARKER_RE } from "./serialize.js";
+import { WEEK_MARKER_RE, ARCHIVE_MARKER_RE } from "./serialize.js";
 
 const H1_RE = /^#\s+(.+)/;
 const TASK_RE = /^(\s*)-\s*\[([ xX>-])\]\s*(.*)/;
@@ -130,6 +130,7 @@ export function parseFile(content: string, filename: string): Task[] {
 	const date = dateMatch ? dateMatch[1] : null;
 
 	let category: string | null = null;
+	let archivedDate: string | null = null;
 	let i = 0;
 
 	while (i < lines.length) {
@@ -148,6 +149,17 @@ export function parseFile(content: string, filename: string): Task[] {
 		// uncategorized even when a later H1 section appears above them.
 		if (WEEK_MARKER_RE.test(line.trim())) {
 			category = null;
+			archivedDate = null;
+			i++;
+			continue;
+		}
+
+		// `## Archived YYYY-MM-DD` stamps the archive date for tasks below it
+		// (Planner Archive.md). It does NOT reset category — archive sections
+		// keep their nested `# Category` headings.
+		const am = line.trim().match(ARCHIVE_MARKER_RE);
+		if (am) {
+			archivedDate = am[1];
 			i++;
 			continue;
 		}
@@ -176,7 +188,7 @@ export function parseFile(content: string, filename: string): Task[] {
 
 		const task: Task = {
 			file: filename,
-			date,
+			date: date ?? archivedDate,
 			lineRange: [i, i],
 			category,
 			title,

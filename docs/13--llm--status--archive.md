@@ -1,9 +1,34 @@
 # 13 — llm — status — Archive (Part A: per-task archive button)
 
-**Started/finished:** 2026 session. Part A complete, tested, all 198 unit
-tests passing, `pnpm check` clean (15 pre-existing warnings, unrelated).
+**Started/finished:** 2026 session. Part A complete plus iteration 2
+(archive dates + rename to `Planner Archive.md` + collapsible Archive
+section in the backlog rail). All 198 unit tests passing, `pnpm check`
+clean (15 pre-existing warnings, unrelated).
 
-## Shipped
+## Shipped (iteration 2 — dates + rename)
+
+- `Archive.md` renamed to `Planner Archive.md`. Single constant
+  `ARCHIVE_FILENAME` in `types.ts` referenced by fs layer, state, UI, and
+  tests.
+- Archive dates: `archiveTask` now routes through a new
+  `insertUnderArchiveMarker` serializer — tasks land under
+  `## Archived YYYY-MM-DD` headings (chronological), with the category H1
+  nested inside, mirroring the week-marker pattern in Backlog.md.
+  `insertUnderWeekMarker` was refactored into a shared
+  `insertUnderDatedMarker` core; `moveTask` gained an archive-target
+  branch.
+- Parser: `ARCHIVE_MARKER_RE` sets `task.date` from the marker (does NOT
+  reset category, unlike the week marker); week markers clear a stale
+  archived date. `Task.date` for archived items is the archive date.
+- UI: collapsible Archive section at the bottom of the backlog rail
+  (closed by default, badge count, caret). Rows show the archive date;
+  "restore" button (no confirm — restoring is non-destructive); standard
+  delete works. TaskRow gained `restorable`/`onrestore` props and an
+  archive-date badge.
+- Tests updated for the rename; archive round-trip now asserts the dated
+  marker heading and `task.date`.
+
+## Shipped (iteration 1 — Part A)
 
 - `archiveTask(task)` / `restoreFromArchive(task)` in `state.svelte.ts` —
   thin wrappers over `moveTask`, so target-first writes, exact-block

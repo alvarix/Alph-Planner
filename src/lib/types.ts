@@ -1,6 +1,13 @@
 /** Tri-state task status. */
 export type TaskStatus = "todo" | "in-progress" | "done";
 
+/**
+ * Filename of the archive drawer file, living next to the daily files and
+ * Backlog.md. Referenced by the fs layer, state actions, and UI — change it
+ * in exactly one place.
+ */
+export const ARCHIVE_FILENAME = "Planner Archive.md";
+
 /** How serious a user-facing error is. Drives toast colour. */
 export type ErrorSeverity = "info" | "warn";
 
