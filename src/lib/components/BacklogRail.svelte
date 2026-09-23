@@ -320,7 +320,6 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 			<div class="empty">no backlog items</div>
 		{/if}
 
-		// Archive drawer: closed by default, grouped by category, with dates.
 		{#if archived.length > 0}
 			<button class="archive-head" onclick={toggleArchive} aria-expanded={archiveOpen}>
 				<span class="archive-caret" class:open={archiveOpen}>&#x25B8;</span>
