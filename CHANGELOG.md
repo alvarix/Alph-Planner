@@ -9,8 +9,9 @@
   into `Planner Archive.md`, stamped under a chronological
   `## Archived YYYY-MM-DD` heading with the category nested inside. The
   parser surfaces the archive date as `task.date`. A collapsible Archive
-  section at the bottom of the backlog rail lists archived items with their
-  archive dates and a "restore" button that returns them to Backlog.md
+  section at the bottom of the backlog rail lists archived items grouped by
+  category (uncategorized last, chronological within group) with archive
+  dates and a "restore" button that returns them to Backlog.md
   (under their category, or the current week section if uncategorized).
   Archive date headings are visible in Obsidian too. All moves reuse the
   existing atomic `moveTask` path (target-first write, exact-block

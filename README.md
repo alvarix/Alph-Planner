@@ -132,7 +132,7 @@ Backlog rows have an **arch** button (shows on hover) that moves the task — wi
 
 Archived items stay fully editable in Obsidian — the archive is just another markdown file.
 
-A collapsible **Archive** section at the bottom of the backlog rail (closed by default, with an item count badge) lists archived tasks with their archive dates. Each row has a **restore** button that moves the task back to `Backlog.md` — under its original category (recreated if missing), or the current week's section if it had none. The standard delete button removes an archived item permanently. The archive is safe to copy from and rearrange by hand; just keep tasks under an `## Archived` heading so they keep their date, and don't paste `## Added week of` lines in — those reset the archived-date context.
+A collapsible **Archive** section at the bottom of the backlog rail (closed by default, with an item count badge) lists archived tasks **grouped by category** — each group under its small uppercase header, uncategorized items last, tasks in chronological order within a group, each with its archive date. Each row has a **restore** button that moves the task back to `Backlog.md` — under its original category (recreated if missing), or the current week's section if it had none. The standard delete button removes an archived item permanently. The archive is safe to copy from and rearrange by hand; just keep tasks under an `## Archived` heading so they keep their date, and don't paste `## Added week of` lines in — those reset the archived-date context.
 
 ## Task actions
 

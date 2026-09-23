@@ -26,8 +26,9 @@ restored or reactivated later.
       heading per date, visible in the app and in Obsidian).
 - [x] Collapsible **Archive section in the backlog rail** (drawer-lite):
       closed by default, lists archived items with dates.
-- [ ] Full archive drawer UI (grouped by category; current section is a flat
-      chronological list).
+- [x] Full archive drawer UI: **category-grouped** list (uncategorized
+      last), tasks keep chronological order inside each group, dates on
+      rows. Search/filter deferred.
 - [x] Restore: task moves back to Backlog.md under its original category —
       `restoreFromArchive` action + "restore" button in the Archive section.
 - [ ] Delete permanently from archive (explicit, with confirm) — delete

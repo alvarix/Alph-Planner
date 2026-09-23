@@ -80,6 +80,34 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 	let archiveOpen = $state(false);
 	function toggleArchive() { archiveOpen = !archiveOpen; }
 
+	/** Group archived tasks by category (file order of first occurrence;
+	 *  uncategorized last). Tasks keep their file order inside each group,
+	 *  which is chronological by archive date. */
+	const archiveSections = $derived.by(() => {
+		const result: { category: string | null; archiveKey: string; tasks: Task[] }[] = [];
+		for (const t of archived) {
+			const last = result.at(-1);
+			if (last && last.category === t.category) {
+				last.tasks.push(t);
+				continue;
+			}
+			const existing = result.find((s) => s.category === t.category);
+			if (existing) {
+				existing.tasks.push(t);
+			} else {
+				result.push({
+					category: t.category,
+					archiveKey: t.category ?? '__arch-none__',
+					tasks: [t],
+				});
+			}
+		}
+		// Uncategorized group goes last.
+		return result.sort((a, b) =>
+			a.category === null ? 1 : b.category === null ? -1 : 0,
+		);
+	});
+
 	/** Drop an external task onto a specific category within Backlog.md. */
 	async function dropOnSection(task: Task, category: string | null) {
 		if (task.file === 'Backlog.md') {
@@ -292,7 +320,7 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 			<div class="empty">no backlog items</div>
 		{/if}
 
-		<!-- Archive drawer: closed by default, lists archived items with dates -->
+		// Archive drawer: closed by default, grouped by category, with dates.
 		{#if archived.length > 0}
 			<button class="archive-head" onclick={toggleArchive} aria-expanded={archiveOpen}>
 				<span class="archive-caret" class:open={archiveOpen}>&#x25B8;</span>
@@ -301,13 +329,18 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 			</button>
 			{#if archiveOpen}
 				<div class="archive-list">
-					{#each archived as task (task.file + ':' + task.lineRange[0])}
-						<TaskRow
-							{task}
-							todayFilename={null}
-							restorable
-							onrestore={() => restoreFromArchive(task)}
-						/>
+					{#each archiveSections as section (section.archiveKey)}
+						{#if section.category !== null}
+							<div class="archive-cat">{section.category}</div>
+						{/if}
+						{#each section.tasks as task (task.file + ':' + task.lineRange[0])}
+							<TaskRow
+								{task}
+								todayFilename={null}
+								restorable
+								onrestore={() => restoreFromArchive(task)}
+							/>
+						{/each}
 					{/each}
 				</div>
 			{/if}
@@ -379,6 +412,10 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 .archive-caret { display: inline-block; transition: transform .1s; }
 .archive-caret.open { transform: rotate(90deg); }
 .archive-list { overflow-y: auto; flex: 1; padding-bottom: 6px; }
+.archive-cat {
+	padding: 6px 12px 2px; font-size: 10px; font-weight: 700;
+	text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted);
+}
 
 .rail-list {
 	flex: 1; overflow-y: auto;

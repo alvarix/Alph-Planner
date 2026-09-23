@@ -28,6 +28,17 @@ clean (15 pre-existing warnings, unrelated).
 - Tests updated for the rename; archive round-trip now asserts the dated
   marker heading and `task.date`.
 
+## Shipped (iteration 3 — category grouping)
+
+- Archive drawer lists tasks **grouped by category** (header per H1,
+  uppercase small label, uncategorized tasks last with no header). Tasks
+  keep file order inside each group — which is chronological by archive
+  date since the file is date-sectioned. Implemented as an
+  `archiveSections` derived grouping in BacklogRail (same pattern as
+  `backlogSections`); handles tasks of the same category appearing in
+  multiple date sections by merging into one group. Pure UI — no state,
+  serializer, or parser changes. Search/filter still deferred.
+
 ## Manual-copy compatibility check (user-verified)
 
 Alvar hand-copied legacy tasks into `Planner Archive.md`:
