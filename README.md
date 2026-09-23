@@ -108,6 +108,7 @@ Open the same folder in Obsidian and edits appear in the app on the next focus. 
 - Date comes from the filename (`YYYY-MM-DD.md`), not from a heading
 - `Backlog.md` follows the same format; H1 categories work there too
 - `![[Backlog]]` Obsidian embeds are preserved verbatim and ignored by the parser
+- `Planner Archive.md` follows the same format, organized under `## Archived YYYY-MM-DD` date headings with category H1s nested inside (see Archive below)
 - All unknown lines (prose, frontmatter, blank lines) survive any write-back byte-identical
 
 ## Backlog
@@ -117,6 +118,21 @@ Open the same folder in Obsidian and edits appear in the app on the next focus. 
 When you view a fully-past week that still has unfinished tasks, a **Roll week to backlog** button appears in the topbar. It moves every todo and in-progress task from that week's daily files into `Backlog.md` under a visible `## Added week of YYYY-MM-DD` heading, so last week's arrivals sit separated from older backlog content. Done tasks stay in their daily files. Tasks you add manually to the backlog without a category land under the current week's heading too. The operation is safe to repeat — an already-rolled week has nothing left to move.
 
 Use the **+** button in the backlog header to add a task directly to `Backlog.md`. If categories already exist in the backlog a dropdown lets you assign one. Subtasks are shown indented under their parent in the rail.
+
+## Archive
+
+Backlog rows have an **arch** button (shows on hover) that moves the task — with children, category, and checkbox state — out of the backlog into `Planner Archive.md`. Each move is stamped under a chronological `## Archived YYYY-MM-DD` heading (the day you archived it), with the task's category H1 nested inside the date section, e.g.
+
+```markdown
+## Archived 2026-05-04
+
+# Work
+- [ ] stale item 1h
+```
+
+Archived items stay fully editable in Obsidian — the archive is just another markdown file.
+
+A collapsible **Archive** section at the bottom of the backlog rail (closed by default, with an item count badge) lists archived tasks with their archive dates. Each row has a **restore** button that moves the task back to `Backlog.md` — under its original category (recreated if missing), or the current week's section if it had none. The standard delete button removes an archived item permanently. The archive is safe to copy from and rearrange by hand; just keep tasks under an `## Archived` heading so they keep their date, and don't paste `## Added week of` lines in — those reset the archived-date context.
 
 ## Task actions
 

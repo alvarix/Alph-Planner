@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Archive feature (Part A).** Backlog rows get a hover-reveal "arch" button
+- **Archive feature (Part A + dates + drawer-lite).** Backlog rows get a hover-reveal "arch" button
   that moves the task (with children, category, and checkbox state intact)
   into `Planner Archive.md`, stamped under a chronological
   `## Archived YYYY-MM-DD` heading with the category nested inside. The
@@ -15,6 +15,8 @@
   Archive date headings are visible in Obsidian too. All moves reuse the
   existing atomic `moveTask` path (target-first write, exact-block
   rollback). Optional batch sweep of stale items is deferred.
+- Rename `Archive.md` → `Planner Archive.md` (single `ARCHIVE_FILENAME`
+  constant).
 
 ### Fixed
 

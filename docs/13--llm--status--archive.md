@@ -28,6 +28,27 @@ clean (15 pre-existing warnings, unrelated).
 - Tests updated for the rename; archive round-trip now asserts the dated
   marker heading and `task.date`.
 
+## Manual-copy compatibility check (user-verified)
+
+Alvar hand-copied legacy tasks into `Planner Archive.md`:
+
+```markdown
+## Archived 2026-09-22
+- [ ] Blog - Alph planner or WP CI
+# PP Posts
+- [-] Jif
+  - [x] DM
+  ...
+```
+
+Verified against the parser: date applies to the whole section (including
+the nested-category tasks), `# PP Posts` inside the marker is a valid
+nested category, legacy `[-]` in-progress parses, mixed child states and
+blank-line-free layout all fine. Only caveats documented: a task above any
+`## Archived` heading shows dateless, and a pasted `## Added week of` line
+would reset the archived-date context for tasks below it (documented in
+README's Archive section).
+
 ## Shipped (iteration 1 — Part A)
 
 - `archiveTask(task)` / `restoreFromArchive(task)` in `state.svelte.ts` —

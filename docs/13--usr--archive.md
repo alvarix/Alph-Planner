@@ -33,6 +33,8 @@ restored or reactivated later.
 - [ ] Delete permanently from archive (explicit, with confirm) — delete
       button currently works via the standard row controls; no archive-
       specific confirm UI yet.
+- [x] Manual copies into `Planner Archive.md` verified compatible with the
+      parser (dated sections, nested categories, legacy `[-]`, children).
 - [ ] Optional batch sweep of tasks older than 2 weeks (deferred — manual
       button covers the core need; sweep = loop over single-task move +
       staleness predicate once Part B ships).
