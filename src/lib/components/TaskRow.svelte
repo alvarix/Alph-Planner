@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeToToday, completeTask, cancelCompletion, duplicateTask, shouldMoveToToday, appState, archiveTask } from '$lib/state.svelte.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeToToday, completeTask, cancelCompletion, duplicateTask, shouldMoveToToday, appState, archiveTask, moveTask } from '$lib/state.svelte.js';
 import { ARCHIVE_FILENAME } from '$lib/types.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
@@ -157,6 +157,36 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 	function startChildEdit(idx: number) {
 		editChildValue  = task.children[idx].title;
 		editingChildIdx = idx;
+	}
+
+	// ── Backlog/archive button: click → backlog, hold → archive ──────
+	let backlogPressTimer: ReturnType<typeof setTimeout> | null = null;
+	let backlogLongFired = $state(false);
+
+	/** Hold the bl button ~0.5s to archive instead of moving to backlog.
+	 *  No-op for tasks already in the backlog (there, click archives). */
+	function startBacklogPress() {
+		backlogLongFired = false;
+		if (task.file === 'Backlog.md') return;
+		backlogPressTimer = setTimeout(() => {
+			backlogLongFired = true;
+			backlogPressTimer = null;
+			archiveTask(task);
+		}, LONG_PRESS_MS);
+	}
+
+	function cancelBacklogPress() {
+		if (backlogPressTimer) { clearTimeout(backlogPressTimer); backlogPressTimer = null; }
+	}
+
+	async function handleBacklogClick() {
+		if (backlogLongFired) { backlogLongFired = false; return; }
+		cancelBacklogPress();
+		if (task.file === 'Backlog.md') {
+			await archiveTask(task);
+		} else {
+			await moveTask(task, 'Backlog.md');
+		}
 	}
 
 	async function commitChildEdit() {
@@ -329,13 +359,17 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 			title="Duplicate task"
 			aria-label="Duplicate task"
 		>dup</button>
-		{#if task.file === 'Backlog.md'}
+		{#if task.file !== ARCHIVE_FILENAME}
 			<button
 				class="arch-btn"
-				onclick={() => archiveTask(task)}
-				title="Move to archive"
-				aria-label="Move to archive"
-			>arch</button>
+				onclick={handleBacklogClick}
+				onpointerdown={(e) => { e.stopPropagation(); startBacklogPress(); }}
+				onpointerup={cancelBacklogPress}
+				onpointerleave={cancelBacklogPress}
+				onpointercancel={cancelBacklogPress}
+				title={task.file === 'Backlog.md' ? 'Move to archive' : 'Short: move to backlog · Hold: archive'}
+				aria-label={task.file === 'Backlog.md' ? 'Move to archive' : 'Move to backlog or archive'}
+			>{task.file === 'Backlog.md' ? 'arch' : 'bl'}</button>
 		{/if}
 		{#if restorable}
 			<button

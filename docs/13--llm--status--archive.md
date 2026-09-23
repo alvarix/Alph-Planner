@@ -28,6 +28,16 @@ clean (15 pre-existing warnings, unrelated).
 - Tests updated for the rename; archive round-trip now asserts the dated
   marker heading and `task.date`.
 
+## Shipped (iteration 4 — universal bl button)
+
+- User report: arch button appeared only on categorized tasks. Replaced
+  the backlog-only `arch` button with a universal button on every task row
+  (day columns and backlog): short press moves the task to `Backlog.md`
+  (`moveTask`), long press ~0.5s archives it. On backlog rows the button
+  reads `arch` and archives on short press (moving to backlog there is a
+  no-op). Button `pointerdown` stops propagation so the row's complete
+  long-press never fires. Hidden on archive rows (restore/delete there).
+
 ## Shipped (iteration 3 — category grouping)
 
 - Archive drawer lists tasks **grouped by category** (header per H1,

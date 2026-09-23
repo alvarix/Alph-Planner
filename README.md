@@ -144,6 +144,8 @@ A collapsible **Archive** section at the bottom of the backlog rail (closed by d
 | Edit duration | Double-click the time badge (e.g. `1h`) — accepts `2h`, `30m`, bare minutes like `90`, or empty to clear |
 | Edit subtask | Double-click the subtask title |
 | Delete | ✕ button (shows on hover) → confirm with **del** |
+| Move to backlog | **bl** button (shows on hover) on any task — short press moves it to `Backlog.md` |
+| Archive / archive from backlog | Hold **bl** ~0.5s to archive the task; on backlog rows the same button reads **arch** and short press archives directly |
 
 ## Keyboard shortcuts
 

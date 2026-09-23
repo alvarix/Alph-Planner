@@ -18,6 +18,10 @@ restored or reactivated later.
 
 - [ ] Stale = backlog task whose added-week marker (or creation context) is
       older than 2 weeks. Confirm threshold semantics (see questions).
+- [x] Archive affordance on **all** tasks: single **bl** button — short
+      press moves to backlog, long press (~0.5s) archives; on backlog rows
+      it reads **arch** and archives on short press (replaces the old
+      backlog-only arch button).
 - [x] Archive tasks via a per-task button on backlog rows (decision: button
       first, batch sweep demoted to optional future work).
 - [x] Archived tasks live in a **separate `Planner Archive.md`** file (same
@@ -42,7 +46,6 @@ restored or reactivated later.
 - [x] Serialized writes are line-preserving; atomic for cross-file moves
       (inherited from `moveTask`).
 - [x] Tests: archive round-trip (categorized + uncategorized), no-op guard.
-
 ## Edge cases
 
 - [ ] Task with no `## Added week of` marker — how do we date it?

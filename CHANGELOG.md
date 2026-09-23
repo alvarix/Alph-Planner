@@ -16,6 +16,10 @@
   Archive date headings are visible in Obsidian too. All moves reuse the
   existing atomic `moveTask` path (target-first write, exact-block
   rollback). Optional batch sweep of stale items is deferred.
+- **Universal bl button.** Every task row (day columns included) gets a
+  hover-reveal `bl` button: short press moves the task to the backlog,
+  long press archives it. On backlog rows it reads `arch` and archives on
+  short press.
 - Rename `Archive.md` → `Planner Archive.md` (single `ARCHIVE_FILENAME`
   constant).
 
