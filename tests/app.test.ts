@@ -273,8 +273,7 @@ test('roll week to backlog moves unfinished tasks and leaves done ones', async (
 	await expect(wipRow).toHaveClass(/in-progress/);
 });
 
-test('completing an overdue in-progress task moves it to today', async ({ page }) => {
-	const todayISO = localISO(new Date());
+test('completing an overdue task completes it in its own past file', async ({ page }) => {
 	const lastWeek = weekISOs(-1);
 	const pastISO = lastWeek[0]; // last week's Monday
 
@@ -292,18 +291,19 @@ test('completing an overdue in-progress task moves it to today', async ({ page }
 		.locator('.task-main input[type=checkbox]')
 		.click();
 
-	// It lands in today's file as done...
-	const todayMd = await expect.poll(
-		async () => page.evaluate((n) => (globalThis as any).__alphFs.get(n), `${todayISO}.md`),
-		{ timeout: 4000 },
+	// It is marked done in its own past file (3s undo window then flush)...
+	await expect.poll(
+		async () => page.evaluate((n) => (globalThis as any).__alphFs.get(n), `${pastISO}.md`),
+		{ timeout: 5000 },
 	).toContain('- [x] overdue in progress');
 
-	// ...and is removed from the past day file.
-	const pastMd = await page.evaluate(
+	// ...and is never moved into today's file.
+	const todayISO = localISO(new Date());
+	const todayMd = await page.evaluate(
 		(n) => (globalThis as any).__alphFs.get(n),
-		`${pastISO}.md`,
+		`${todayISO}.md`,
 	);
-	expect(pastMd ?? '').not.toContain('overdue in progress');
+	expect(todayMd ?? '').not.toContain('overdue in progress');
 });
 
 // ── Drag to backlog category (doc 12, bug 2) ─────────────────────────────────

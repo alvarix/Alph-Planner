@@ -2,8 +2,34 @@
 
 ## Unreleased
 
+### Changed
+
+- **Overdue tasks complete in place.** Completing a past-day task now writes
+  `[x]` in its own file and keeps its original date; only `Backlog.md` tasks
+  move to today when completed. This reverts the earlier overdue→today move.
+  Subtask-driven parent auto-completion follows the same rule.
+- **Recurring defaults are no longer rolled to the backlog.** Unfinished
+  tasks auto-inserted from `Defaults.md` are excluded by both the roll action
+  and the roll-button visibility check (same rule as the Overdue rail).
+
+### Fixed
+
+- **Category preserved when rolling a categorised task that has subtasks.**
+  A regression test now covers a `# Category` task with children appended
+  under an existing same-week `# Category` group. (The wider report could not
+  be reproduced in a synthesised case — see `docs/14--llm--status.md`.)
+
 ### Added
 
+- **Per-subtask delete.** Each subtask row gets a hover-reveal × with a
+  two-step confirm. Deleting a subtask recomputes the parent status in place
+  (done / in-progress / todo) and never relocates the task.
+- **Obsidian open + hover preview per task.** Every task row gets a
+  hover-reveal `obl` button that opens its file in Obsidian, with a hover
+  preview of the task block (parent + children).
+- **Planner index link in the Options tab.** Opens the vault-root planner
+  index note in Obsidian via the `obsidian://` scheme (scheme-checked before
+  navigation).
 - **Archive feature (Part A + dates + drawer-lite).** Backlog rows get a hover-reveal "arch" button
   that moves the task (with children, category, and checkbox state intact)
   into `Planner Archive.md`, stamped under a chronological

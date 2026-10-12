@@ -60,12 +60,13 @@
 	}
 
 	// A fully-past week is eligible for rollover when it still holds
-	// unfinished tasks (todo or in-progress).
+	// unfinished, non-recurring tasks. Tasks auto-inserted from Defaults.md are
+	// excluded — they belong to their scheduled period, not the backlog.
 	const rollableWeek = $derived(
 		appState.weekOffset < 0 &&
 		weekDays.every((d) => d.past) &&
 		weekDays.some((d) =>
-			tasksForFile(d.iso + '.md').some((t) => t.status !== 'done'),
+			tasksForFile(d.iso + '.md').some((t) => t.status !== 'done' && !t.fromDefaults),
 		),
 	);
 

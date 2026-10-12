@@ -107,16 +107,18 @@ function todayDailyFilename(): string {
 }
 
 /**
- * The single routing rule for completion: completing this task should move it
- * to today's file rather than mark it done in place — i.e. it lives in
- * Backlog.md or an overdue past daily file. Shared by the checkbox handler,
- * the long-press handler, and the state-layer guards in toggleTask/completeTask.
+ * The single routing rule for completion: true when completing this task
+ * should move it to today's file rather than mark it done in place.
  *
- * @param task     - The task being completed.
- * @param todayISO - Today's ISO date "YYYY-MM-DD".
+ * Only Backlog.md tasks move forward, so completed work lands on the day it
+ * was actually finished. Past-day (overdue) tasks complete in place, keeping
+ * their original date — this reverts the earlier overdue→today behaviour.
+ *
+ * @param task      - The task being completed.
+ * @param _todayISO - Today's ISO date (kept for call-site symmetry).
  */
-export function shouldMoveToToday(task: Task, todayISO: string): boolean {
-	return task.file === "Backlog.md" || isOverdueFile(task.file, todayISO);
+export function shouldMoveToToday(task: Task, _todayISO: string): boolean {
+	return task.file === "Backlog.md";
 }
 
 /**
@@ -570,14 +572,16 @@ export async function rollWeekToBacklog(weekOffset: number): Promise<number> {
 		return 0;
 	}
 
-	// Collect unfinished tasks per day file, in chronological order.
+	// Collect unfinished tasks per day file, in chronological order. Recurring
+	// tasks inserted from Defaults.md are skipped: they belong to their
+	// scheduled period, not to the backlog (same rule as overdueTasks).
 	const mondayISO = days[0].iso;
 	const perDay: { filename: string; tasks: Task[] }[] = [];
 	let total = 0;
 	for (const day of days) {
 		const filename = `${day.iso}.md`;
 		const tasks = (appState.cache[filename] ?? []).filter(
-			(t) => t.status !== "done",
+			(t) => t.status !== "done" && !t.fromDefaults,
 		);
 		if (tasks.length === 0) continue;
 		perDay.push({ filename, tasks });
@@ -949,10 +953,11 @@ export async function toggleTask(task: Task): Promise<void> {
 	const willBeDone = task.status === "in-progress";
 
 	if (willBeDone) {
-		// Backlog and overdue (past-day) tasks complete by MOVING to today,
-		// not by marking done in place. This is the authoritative guard — the
-		// component's onchange dispatch can fire with a stale `task.status`, so
-		// we enforce the rule here at the state layer regardless of the caller.
+		// Backlog tasks complete by MOVING to today, not by marking done in
+		// place. This is the authoritative guard — the component's onchange
+		// dispatch can fire with a stale `task.status`, so we enforce the rule
+		// here at the state layer regardless of the caller. Overdue (past-day)
+		// tasks fall through and complete in place, keeping their original date.
 		const today = todayDailyFilename();
 		const todayISO = today.replace(/\.md$/, "");
 		if (task.file !== today && shouldMoveToToday(task, todayISO)) {
@@ -1032,10 +1037,10 @@ export async function completeTask(task: Task): Promise<void> {
 		return;
 	}
 
-	// Backlog and overdue tasks complete by moving to today (done), not in
-	// place — the same invariant completeToToday enforces. This guards the
-	// long-press fallback path (when todayFilename is not available in the
-	// component).
+	// Backlog tasks complete by moving to today (done), not in place — the
+	// same invariant completeToToday enforces. This guards the long-press
+	// fallback path (when todayFilename is not available in the component).
+	// Overdue tasks fall through and complete in place.
 	const today = todayDailyFilename();
 	const todayISO = today.replace(/\.md$/, "");
 	if (task.file !== today && shouldMoveToToday(task, todayISO)) {
@@ -1194,6 +1199,79 @@ export async function addSubtask(task: Task, title: string): Promise<void> {
 }
 
 /**
+ * Delete a single subtask line, then recompute the parent's status in place
+ * from the remaining children.
+ *
+ * Unlike toggleChild, this never auto-moves a backlog parent to today — a
+ * deletion must not silently relocate the task. When children remain, the
+ * parent is set to done (all done), in-progress (any active), or todo (none
+ * active). When the last child is removed, the parent line is left as-is.
+ *
+ * @param task  - Parent task that owns the subtask.
+ * @param child - The subtask to delete.
+ */
+export async function deleteSubtask(
+	task: Task,
+	child: ChildTask,
+): Promise<void> {
+	const d = dir();
+	if (!d) return;
+	try {
+		const current = await readFile(d, task.file);
+		if (current === null) return;
+
+		// Re-locate against freshly-read text so a stale lineIndex never
+		// removes the wrong line (Bug 03).
+		const freshChild = relocateChild(current, task, child);
+		if (!freshChild) {
+			fail(E.fileChanged("click"));
+			await refresh();
+			return;
+		}
+
+		const lines = current.split("\n");
+		lines.splice(freshChild.lineIndex, 1);
+		let updated = lines.join("\n");
+
+		// Recompute the parent status from the remaining children. Locate the
+		// parent by its raw line — removing the child does not touch it.
+		const freshTask = parseFile(updated, task.file).find(
+			(t) => t.raw === task.raw,
+		);
+		if (freshTask && freshTask.children.length > 0) {
+			const doneCount = freshTask.children.filter(
+				(c) => c.status === "done",
+			).length;
+			const hasActive = freshTask.children.some(
+				(c) => c.status === "done" || c.status === "in-progress",
+			);
+			const targetStatus: TaskStatus =
+				doneCount === freshTask.children.length
+					? "done"
+					: hasActive
+						? "in-progress"
+						: "todo";
+			if (targetStatus !== freshTask.status) {
+				const parentLines = updated.split("\n");
+				parentLines[freshTask.lineRange[0]] = setTaskLineStatus(
+					parentLines[freshTask.lineRange[0]],
+					targetStatus,
+				);
+				updated = parentLines.join("\n");
+			}
+		}
+
+		await writeFile(d, task.file, updated);
+		appState.cache[task.file] = parseFile(updated, task.file);
+		recordChange('−', 'Deleted subtask', task.file, `${task.title} › ${child.title}`);
+	} catch (err) {
+		console.error("[deleteSubtask]", err);
+		await refresh();
+		fail(E.writeFailed("delete subtask"));
+	}
+}
+
+/**
  * Update the title of a subtask in-place.
  *
  * @param task     - Parent task (for file reference).
@@ -1344,7 +1422,8 @@ export async function toggleChild(
 					task.file !== todayFilename &&
 					shouldMoveToToday(task, todayFilename.replace(/\.md$/, ""))
 				) {
-					// Backlog/overdue task with all children done: auto-complete to today.
+					// Backlog task with all children done: auto-complete to today.
+					// (Overdue tasks no longer take this branch — they update in place.)
 					const lines = updated.split("\n");
 					const pStart = freshTask.lineRange[0];
 					const pEnd = freshTask.lineRange[1];
@@ -1597,26 +1676,12 @@ export async function saveNotes(filename: string, text: string): Promise<void> {
 }
 
 /**
- * True when a filename is a daily file dated before the given ISO date
- * (overdue). Used to decide whether completing a task should move it forward
- * to today rather than mark it done in its past file.
- *
- * @param filename - e.g. "2026-08-10.md" or "Backlog.md".
- * @param todayISO - Today's ISO date "YYYY-MM-DD".
- */
-export function isOverdueFile(filename: string, todayISO: string): boolean {
-	const m = filename.match(/^(\d{4}-\d{2}-\d{2})\.md$/);
-	return !!m && m[1] < todayISO;
-}
-
-/**
- * Complete a task that lives outside today's file (Backlog.md or an overdue
- * past daily file): toggle it to done, remove it from its source file, and
- * append the checked block to today's daily file.
+ * Complete a Backlog.md task: toggle it to done, remove it from the backlog,
+ * and append the checked block to today's daily file.
  *
  * Writes the target first, then removes from the source — the same atomic
- * move used for backlog completions, generalized to any source file. Used
- * for both backlog completions and overdue tasks completed from the rail.
+ * move used for backlog completions. Overdue (past-day) tasks no longer route
+ * here; they complete in place via the normal toggle path.
  *
  * @param task          - The task to complete (must not already live in today's file).
  * @param todayFilename - Today's daily file, e.g. "2026-07-10.md".

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { appState, recordChange } from '$lib/state.svelte.js';
+	import { openIndexInObsidian, PLANNER_INDEX_FILE } from '$lib/obsidianIndex.js';
 	import type { ChangeEntry } from '$lib/types.js';
 
 	let {
@@ -325,6 +326,11 @@ Free-form notes go here.</pre>
 						</button>
 					{/if}
 				</div>
+
+				<button class="opt-btn" onclick={() => openIndexInObsidian()}>
+					Open planner index in Obsidian
+					<span class="opt-btn-desc">Opens <code>{PLANNER_INDEX_FILE}</code> from your vault root via the Obsidian URI scheme.</span>
+				</button>
 
 				{#if appState.conflicts.length > 0}
 					<div class="opt-conflict">

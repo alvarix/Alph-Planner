@@ -113,9 +113,9 @@ Open the same folder in Obsidian and edits appear in the app on the next focus. 
 
 ## Backlog
 
-`Backlog.md` in the same folder holds free-form todos without a specific day. Unchecked tasks from past daily files surface here with a red date tag. Drag any backlog item into a day column, or use "Roll all" to move everything to today.
+`Backlog.md` in the same folder holds free-form todos without a specific day. Unchecked tasks from past daily files surface here with a red date tag; completing one marks it done **in its own file** (only backlog tasks move to today, so completed work lands on the day it was actually finished). Drag any backlog item into a day column, or use "Roll all" to move everything to today.
 
-When you view a fully-past week that still has unfinished tasks, a **Roll week to backlog** button appears in the topbar. It moves every todo and in-progress task from that week's daily files into `Backlog.md` under a visible `## Added week of YYYY-MM-DD` heading, so last week's arrivals sit separated from older backlog content. Done tasks stay in their daily files. Tasks you add manually to the backlog without a category land under the current week's heading too. The operation is safe to repeat — an already-rolled week has nothing left to move.
+When you view a fully-past week that still has unfinished tasks, a **Roll week to backlog** button appears in the topbar. It moves every todo and in-progress task from that week's daily files into `Backlog.md` under a visible `## Added week of YYYY-MM-DD` heading, so last week's arrivals sit separated from older backlog content. Done tasks stay in their daily files. Tasks you add manually to the backlog without a category land under the current week's heading too. Recurring tasks auto-inserted from `Defaults.md` are **skipped** — they belong to their scheduled period, not the backlog. The operation is safe to repeat — an already-rolled week has nothing left to move.
 
 Use the **+** button in the backlog header to add a task directly to `Backlog.md`. If categories already exist in the backlog a dropdown lets you assign one. Subtasks are shown indented under their parent in the rail.
 
@@ -143,6 +143,8 @@ A collapsible **Archive** section at the bottom of the backlog rail (closed by d
 | Edit title | Double-click the title |
 | Edit duration | Double-click the time badge (e.g. `1h`) — accepts `2h`, `30m`, bare minutes like `90`, or empty to clear |
 | Edit subtask | Double-click the subtask title |
+| Delete subtask | × on the subtask row (shows on hover) → confirm with **del** |
+| Open in Obsidian | **obl** button (shows on hover) — hover it for a preview of the task block |
 | Delete | ✕ button (shows on hover) → confirm with **del** |
 | Move to backlog | **bl** button (shows on hover) on any task — short press moves it to `Backlog.md` |
 | Archive / archive from backlog | Hold **bl** ~0.5s to archive the task; on backlog rows the same button reads **arch** and short press archives directly |
@@ -160,7 +162,7 @@ Click the **i** button in the top-right corner of the header to open the right-s
 | Tab | Purpose |
 |---|---|
 | Info | Explains every button and feature — built-in help |
-| Options | Upcoming toggle, Colon shortcut, Sync, Change folder, vault name, conflict warnings |
+| Options | Upcoming toggle, Colon shortcut, Sync, Change folder, vault name, open planner index in Obsidian, conflict warnings |
 | History | Session change log — every task mutation as a timestamped entry (resets on reload) |
 
 ## Stack

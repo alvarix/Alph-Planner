@@ -14,6 +14,7 @@ import {
 	appState,
 	addTask,
 	deleteTask,
+	deleteSubtask,
 	moveTask,
 	moveToCategoryInFile,
 	rollWeekToBacklog,
@@ -95,6 +96,12 @@ function seedPastWeek(): string[] {
 }
 
 beforeEach(() => {
+	// Cancel any delayed completion timers from a previous test so a stale
+	// 3-second flush cannot write into the next test's mock filesystem.
+	for (const entry of appState.pendingCompletions.values()) {
+		clearTimeout(entry.timer);
+	}
+	appState.pendingCompletions.clear();
 	fs.store.clear();
 	vi.clearAllMocks();
 	appState.cache = {};
@@ -649,5 +656,174 @@ describe("archiveTask / restoreFromArchive", () => {
 		);
 		await archiveTask(appState.cache[ARCHIVE_FILENAME][0]);
 		expect(fs.store.get(ARCHIVE_FILENAME)!).toBe("- [ ] already here\n");
+	});
+});
+
+// ── deleteSubtask ────────────────────────────────────────────────────────────
+
+describe("deleteSubtask", () => {
+	it("removes only the child line and recomputes the parent status", async () => {
+		setFolderReady();
+		const iso = getWeekDays(0).find((d) => d.today)!.iso;
+		seedDay(iso, "# Work\n- [ ] parent\n  - [x] a\n  - [ ] b\n");
+		const parent = appState.cache[`${iso}.md`][0];
+		const childB = parent.children[1];
+
+		await deleteSubtask(parent, childB);
+
+		// Only the deleted child line is gone; the remaining child is intact.
+		expect(fs.store.get(`${iso}.md`)).toBe("# Work\n- [x] parent\n  - [x] a\n");
+		expect(appState.cache[`${iso}.md`][0].children.length).toBe(1);
+	});
+
+	it("sets the parent to in-progress when a remaining child is active", async () => {
+		setFolderReady();
+		const iso = getWeekDays(0).find((d) => d.today)!.iso;
+		seedDay(iso, "- [x] parent\n  - [x] a\n  - [>] b\n  - [ ] c\n");
+		const parent = appState.cache[`${iso}.md`][0];
+
+		await deleteSubtask(parent, parent.children[1]);
+
+		expect(fs.store.get(`${iso}.md`)).toBe("- [>] parent\n  - [x] a\n  - [ ] c\n");
+		expect(appState.cache[`${iso}.md`][0].status).toBe("in-progress");
+	});
+
+	it("leaves the parent line untouched when the last child is deleted", async () => {
+		setFolderReady();
+		const iso = getWeekDays(0).find((d) => d.today)!.iso;
+		seedDay(iso, "- [>] parent\n  - [ ] only\n");
+		const parent = appState.cache[`${iso}.md`][0];
+
+		await deleteSubtask(parent, parent.children[0]);
+
+		expect(fs.store.get(`${iso}.md`)).toBe("- [>] parent\n");
+	});
+
+	it("aborts with a sync error when the child is gone from disk", async () => {
+		setFolderReady();
+		const iso = getWeekDays(0).find((d) => d.today)!.iso;
+		seedDay(iso, "- [ ] parent\n  - [ ] only\n");
+		const parent = appState.cache[`${iso}.md`][0];
+		const child = parent.children[0];
+
+		// File changed under us — the child line is gone.
+		fs.store.set(`${iso}.md`, "- [ ] parent\n");
+
+		await deleteSubtask(parent, child);
+
+		expect(appState.lastError?.message).toContain("File changed");
+		expect(fs.store.get(`${iso}.md`)).toBe("- [ ] parent\n");
+	});
+});
+
+// ── Overdue completion completes in place (move-to-today reverted) ─────────────
+
+describe("overdue completion stays in its own past file", () => {
+	it("does not move an overdue task to today (and flushes done in place)", async () => {
+		setFolderReady();
+		const past = getWeekDays(-1)[0].iso;
+		seedDay(past, "- [>] overdue in progress\n");
+		const task = appState.cache[`${past}.md`][0];
+		const today = getWeekDays(0).find((d) => d.today)!.iso;
+
+		vi.useFakeTimers();
+		try {
+			await toggleTask(task);
+			// Optimistic cache marks it done immediately.
+			expect(appState.cache[`${past}.md`][0].status).toBe("done");
+
+			// Flush the 3-second undo window and prove the write lands in the
+			// past file, never in today's.
+			await vi.advanceTimersByTimeAsync(3100);
+		} finally {
+			vi.useRealTimers();
+		}
+
+		expect(fs.store.get(`${past}.md`)).toContain("- [x] overdue in progress");
+		expect(fs.store.get(`${today}.md`)).toBeUndefined();
+	});
+
+	it("keeps overdue tasks routed in place via completeTask too", async () => {
+		setFolderReady();
+		const past = getWeekDays(-1)[0].iso;
+		seedDay(past, "- [ ] overdue todo\n");
+		const task = appState.cache[`${past}.md`][0];
+		const today = getWeekDays(0).find((d) => d.today)!.iso;
+
+		await completeTask(task);
+
+		expect(appState.cache[`${past}.md`][0].status).toBe("done");
+		expect(fs.store.get(`${today}.md`)).toBeUndefined();
+	});
+});
+
+// ── Rollover excludes recurring defaults ─────────────────────────────────────
+
+describe("rollWeekToBacklog excludes default tasks", () => {
+	it("skips unfinished tasks that came from Defaults.md", async () => {
+		setFolderReady();
+		const days = getWeekDays(-1);
+		seedDay(days[0].iso, "- [ ] normal task\n- [ ] workout\n");
+		const workout = appState.cache[`${days[0].iso}.md`].find(
+			(t) => t.title === "workout",
+		)!;
+		// refresh() sets this flag when a task line matches Defaults.md.
+		workout.fromDefaults = true;
+
+		const n = await rollWeekToBacklog(-1);
+
+		expect(n).toBe(1);
+		const backlog = fs.store.get("Backlog.md")!;
+		expect(backlog).toContain("normal task");
+		expect(backlog).not.toContain("workout");
+		// The recurring task stays in its day file, uncompleted.
+		expect(fs.store.get(`${days[0].iso}.md`)).toContain("workout");
+	});
+
+	it("returns 0 when only default tasks remain unfinished", async () => {
+		setFolderReady();
+		const days = getWeekDays(-1);
+		seedDay(days[0].iso, "- [ ] workout\n");
+		appState.cache[`${days[0].iso}.md`][0].fromDefaults = true;
+
+		expect(await rollWeekToBacklog(-1)).toBe(0);
+		expect(fs.store.get("Backlog.md")).toBeUndefined();
+	});
+});
+
+// ── Regression: category survives the roll with subtasks ──────────────────────
+
+describe("rollWeekToBacklog category preservation with subtasks", () => {
+	it("keeps the category when appending under an existing same-week group", async () => {
+		setFolderReady();
+		const days = getWeekDays(-1);
+		seedDay(
+			days[2].iso,
+			["# mtk", "- [ ] Tenant Deposit", "  - [ ] sub one", "  - [ ] sub two"].join(
+				"\n",
+			),
+		);
+		fs.store.set(
+			"Backlog.md",
+			[
+				`## Added week of ${days[0].iso}`,
+				"# mtk",
+				"- [ ] earlier mtk task",
+				"# Other",
+				"- [ ] other task",
+			].join("\n"),
+		);
+		appState.cache["Backlog.md"] = parseFile(
+			fs.store.get("Backlog.md")!,
+			"Backlog.md",
+		);
+
+		await rollWeekToBacklog(-1);
+
+		const rolled = appState.cache["Backlog.md"].find(
+			(t) => t.title === "Tenant Deposit",
+		);
+		expect(rolled?.category).toBe("mtk");
+		expect(rolled?.children.length).toBe(2);
 	});
 });

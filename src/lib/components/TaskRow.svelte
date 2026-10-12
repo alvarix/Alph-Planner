@@ -1,7 +1,8 @@
 <script lang="ts">
-	import type { Task } from '$lib/types.js';
-	import { toggleTask, toggleChild, toggleStar, deleteTask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeToToday, completeTask, cancelCompletion, duplicateTask, shouldMoveToToday, appState, archiveTask, moveTask } from '$lib/state.svelte.js';
+	import type { Task, ChildTask } from '$lib/types.js';
+	import { toggleTask, toggleChild, toggleStar, deleteTask, deleteSubtask, editTaskTitle, editChildTitle, editTaskDuration, addSubtask, completeToToday, completeTask, cancelCompletion, duplicateTask, shouldMoveToToday, appState, archiveTask, moveTask } from '$lib/state.svelte.js';
 import { ARCHIVE_FILENAME } from '$lib/types.js';
+	import { openInObsidian } from '$lib/obsidian.js';
 
 	/** Color palette for subtask group accents — index auto-assigned by parent. */
 	const GROUP_COLORS = [
@@ -47,27 +48,71 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 	let newSubtaskValue = $state('');
 	let newSubtaskEl:   HTMLInputElement;
 
+	/** Index of the subtask currently showing its delete confirmation. */
+	let confirmChildIdx = $state<number | null>(null);
+
+	// ── Obsidian link + hover preview ─────────────────────────────────
+	/** Whether the small Obsidian preview popover is showing. */
+	let obsidianPreview = $state(false);
+	/** Viewport-fixed coordinates for the preview, captured from the button. */
+	let previewPos = $state<{ x: number; y: number } | null>(null);
+
+	/**
+	 * Open this task's file at the task's line in Obsidian. Reuses the shared
+	 * adapter so vault-name handling stays in one place.
+	 * @param event - Click event; stops propagation so the row does not toggle.
+	 */
+	function openTaskInObsidian(event: MouseEvent) {
+		event.stopPropagation();
+		if (appState.folder.status !== 'ready') return;
+		openInObsidian(appState.folder.name, task.file);
+	}
+
+	/**
+	 * Show the preview above the button. Coordinates are captured as fixed
+	 * viewport values so the popover is not clipped by the day column's
+	 * scroll container.
+	 * @param event - Hover/focus event on the `obl` button.
+	 */
+	function showPreview(event: Event) {
+		const el = event.currentTarget as HTMLElement | null;
+		if (!el) return;
+		const r = el.getBoundingClientRect();
+		const width = 260;
+		previewPos = {
+			x: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)),
+			y: r.top,
+		};
+		obsidianPreview = true;
+	}
+
+	function hidePreview() {
+		obsidianPreview = false;
+	}
+
+	/** First ~6 lines of this task block, for the hover preview. */
+	const previewLines = $derived(
+		[task.raw, ...task.children.map((c) => c.raw)].slice(0, 6),
+	);
+
 	// ── Long-press state ───────────────────────────────────────────────
 	let longPressTimer:  ReturnType<typeof setTimeout> | null = null;
-	let longPressActive = $state(false);
 	const LONG_PRESS_MS = 500;
 
 	/** True when long-press just fired — suppresses the next checkbox onchange. */
 	let longPressJustFired = $state(false);
 
 	function startLongPress() {
-		longPressActive = false;
 		longPressJustFired = false;
 		longPressTimer = setTimeout(() => {
-			longPressActive = true;
 			longPressJustFired = true;
 			longPressTimer = null;
 			if (todayFilename && task.file !== todayFilename && shouldMoveToToday(task, todayFilename.replace(/\.md$/, ''))) {
-				// Backlog or overdue task: complete by moving to today.
+				// Backlog task: complete by moving to today.
 				completeToToday(task, todayFilename);
 			} else {
 				// Fall back to completeTask — its state-layer guard routes
-				// backlog/overdue tasks to today even without todayFilename.
+				// backlog tasks to today even without todayFilename.
 				completeTask(task);
 			}
 		}, LONG_PRESS_MS);
@@ -78,7 +123,6 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 			clearTimeout(longPressTimer);
 			longPressTimer = null;
 		}
-		longPressActive = false;
 	}
 
 	// ── Pending completion state (derived from global map) ────────────
@@ -194,6 +238,12 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 		editingChildIdx = null;
 		if (idx === null || editChildValue.trim() === '' || editChildValue.trim() === task.children[idx].title) return;
 		await editChildTitle(task, task.children[idx], editChildValue.trim());
+	}
+
+	/** Delete a subtask after its confirmation step. */
+	async function removeChild(child: ChildTask) {
+		confirmChildIdx = null;
+		await deleteSubtask(task, child);
 	}
 
 	function handleChildEditKey(e: KeyboardEvent) {
@@ -325,6 +375,19 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 							title="Double-click to edit"
 						>{child.title}</span>
 					{/if}
+					{#if confirmChildIdx === idx}
+						<span class="child-del-confirm">
+							<button class="child-del-yes" onclick={() => removeChild(child)} aria-label="Confirm delete subtask">del</button>
+							<button class="child-del-no" onclick={() => (confirmChildIdx = null)} aria-label="Cancel delete subtask">no</button>
+						</span>
+					{:else}
+						<button
+							class="child-del-btn"
+							onclick={() => (confirmChildIdx = idx)}
+							title="Delete subtask"
+							aria-label="Delete subtask"
+						>&#x2715;</button>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -353,6 +416,33 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 			title={task.starred ? 'unstar' : 'star'}
 			aria-label={task.starred ? 'unstar task' : 'star task'}
 		>&#9733;</button>
+		<div
+			class="obsidian-wrap"
+		>
+			<button
+				class="obsidian-btn"
+				onclick={openTaskInObsidian}
+				onmouseenter={showPreview}
+				onmouseleave={hidePreview}
+				onfocus={showPreview}
+				onblur={hidePreview}
+				title="Open in Obsidian"
+				aria-label="Open task in Obsidian"
+			>obl</button>
+			{#if obsidianPreview && previewPos}
+				<div
+					class="obsidian-preview"
+					role="tooltip"
+					style="left: {previewPos.x}px; top: {previewPos.y}px;"
+				>
+					<div class="obsidian-preview-file">{task.file}</div>
+					<pre class="obsidian-preview-body">{previewLines.join('\n')}</pre>
+					{#if task.children.length > previewLines.length - 1}
+						<div class="obsidian-preview-more">+{task.children.length - (previewLines.length - 1)} more</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
 		<button
 			class="dup-btn"
 			onclick={() => duplicateTask(task)}
@@ -483,6 +573,25 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 .subtask-preview li.done span { text-decoration: line-through; color: var(--text-muted); }
 .subtask-preview li.in-progress span { font-style: italic; color: var(--text-dark); }
 
+/* Per-subtask delete: hover-reveal, two-step confirm like the parent task. */
+.child-del-btn, .child-del-confirm { opacity: 0; transition: opacity .1s; margin-left: auto; }
+.subtask-preview li:hover .child-del-btn,
+.subtask-preview li .child-del-confirm { opacity: 1; }
+.child-del-btn {
+	font-size: 9px; background: none; border: none; cursor: pointer;
+	color: var(--text-faint); padding: 0 2px; line-height: 1; flex-shrink: 0;
+}
+.child-del-btn:hover { color: var(--text-dark); }
+.child-del-confirm { display: flex; gap: 3px; align-items: center; flex-shrink: 0; }
+.child-del-yes, .child-del-no {
+	font-size: 9px; border-radius: 3px; border: 1px solid;
+	padding: 0 4px; cursor: pointer; line-height: 1.4;
+}
+.child-del-yes { background: var(--bg); border-color: var(--border-mid); color: var(--text-dark); }
+.child-del-yes:hover { background: var(--surface-em); }
+.child-del-no { background: var(--bg); border-color: var(--border); color: var(--text-subtle); }
+.child-del-no:hover { background: var(--surface-muted); }
+
 /* Add-subtask inline input */
 .new-subtask-row { margin: 2px 0 2px 26px; }
 .new-subtask-input {
@@ -499,14 +608,44 @@ import { ARCHIVE_FILENAME } from '$lib/types.js';
 }
 
 /* All strip controls hidden until hover */
-.star-btn, .dup-btn, .add-sub-btn, .del-btn {
+.star-btn, .dup-btn, .add-sub-btn, .del-btn, .obsidian-btn {
 	opacity: 0; transition: opacity .1s, color .1s;
 }
 .task-item:hover .star-btn,
 .task-item:hover .dup-btn,
+.task-item:hover .obsidian-btn,
 .task-item:hover .arch-btn,
 .task-item:hover .add-sub-btn,
 .task-item:hover .del-btn { opacity: 1; }
+
+/* Obsidian link + hover preview */
+.obsidian-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+.obsidian-btn {
+	font-size: 10px; background: none; border: 1px solid var(--border);
+	border-radius: 3px; cursor: pointer; color: var(--text-muted);
+	padding: 0 4px; line-height: 1.6;
+	transition: color .1s, border-color .1s, opacity .1s;
+}
+.obsidian-btn:hover { color: var(--text); border-color: var(--border-input); }
+.obsidian-preview {
+	position: fixed; z-index: 60;
+	transform: translateY(calc(-100% - 4px));
+	width: 260px; max-width: calc(100vw - 16px);
+	background: var(--surface); border: 1px solid var(--border);
+	border-radius: 5px; padding: 5px 7px;
+	box-shadow: 0 4px 12px rgba(0,0,0,.1);
+	pointer-events: none;
+}
+.obsidian-preview-file {
+	font-size: 9px; font-family: 'SF Mono', 'Menlo', monospace;
+	color: var(--text-faint); margin-bottom: 3px;
+}
+.obsidian-preview-body {
+	font-size: 10px; font-family: 'SF Mono', 'Menlo', monospace;
+	color: var(--text-mid); line-height: 1.4; white-space: pre-wrap;
+	margin: 0; overflow: hidden;
+}
+.obsidian-preview-more { font-size: 9px; color: var(--text-muted); margin-top: 3px; }
 
 /* Starred icon always visible */
 .star-btn.starred { opacity: 1; }

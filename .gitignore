@@ -28,3 +28,6 @@ vite.config.ts.timestamp-*
 # Playwright
 /test-results
 /playwright-report
+
+# Obsidian index symlink (machine-specific absolute path)
+/docs/Alph-planner-index.md
