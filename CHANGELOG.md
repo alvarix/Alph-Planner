@@ -14,6 +14,10 @@
 
 ### Fixed
 
+- **Colon shortcut is now case-insensitive.** Typing `pp:` and `PP:` resolves to
+  the same category. When a header already exists, its original spelling is
+  reused (no duplicate `# pp` / `# PP` sections); otherwise the category is
+  created with the casing you typed.
 - **Category preserved when rolling a categorised task that has subtasks.**
   A regression test now covers a `# Category` task with children appended
   under an existing same-week `# Category` group. (The wider report could not

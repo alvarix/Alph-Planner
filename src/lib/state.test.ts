@@ -17,6 +17,7 @@ import {
 	deleteSubtask,
 	moveTask,
 	moveToCategoryInFile,
+	addTaskWithCategory,
 	rollWeekToBacklog,
 	completeToToday,
 	toggleTask,
@@ -109,6 +110,34 @@ beforeEach(() => {
 	appState.lastError = null;
 	appState.weekOffset = 0;
 	appState.folder = { status: "none" };
+});
+
+describe("addTaskWithCategory — case-insensitive category reuse", () => {
+	it("reuses an existing mixed-case header when typed in a different case", async () => {
+		setFolderReady();
+		const iso = "2026-05-12";
+		seedDay(iso, "# PP\n- [ ] existing\n");
+
+		await addTaskWithCategory(iso + ".md", "pp", "- [ ] drawing");
+
+		const written = fs.store.get(iso + ".md")!;
+		// Exactly one H1 — no duplicate `# pp` header was created.
+		const h1s = written.split("\n").filter((l) => /^#\s+/.test(l));
+		expect(h1s).toEqual(["# PP"]);
+		// The new task landed under the existing `# PP` section.
+		expect(written).toContain("# PP\n- [ ] existing\n- [ ] drawing");
+	});
+
+	it("creates the category with the typed casing when none exists", async () => {
+		setFolderReady();
+		const iso = "2026-05-13";
+		seedDay(iso, "- [ ] loose task\n");
+
+		await addTaskWithCategory(iso + ".md", "PP", "- [ ] drawing");
+
+		const written = fs.store.get(iso + ".md")!;
+		expect(written).toContain("# PP\n- [ ] drawing");
+	});
 });
 
 describe("rollWeekToBacklog", () => {

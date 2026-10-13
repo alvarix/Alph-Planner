@@ -725,10 +725,17 @@ export async function addTaskWithCategory(
 	const d = dir();
 	if (!d) return;
 	let current = await getOrCreateDayContent(d, filename);
-	if (!extractH1s(current).includes(category)) {
+	// Resolve the category case-insensitively so `pp:` and `PP:` land in the
+	// same section. When a header already exists, reuse its exact spelling as
+	// the canonical name; otherwise create the header with the typed name.
+	const existing = extractH1s(current).find(
+		(h) => h.toLowerCase() === category.toLowerCase(),
+	);
+	const canonical = existing ?? category;
+	if (!existing) {
 		current = addCategoryHeader(current, category);
 	}
-	const updated = appendTask(current, taskLine, category);
+	const updated = appendTask(current, taskLine, canonical);
 	await writeFile(d, filename, updated);
 	appState.cache[filename] = parseFile(updated, filename);
 	appState.fileHeaders[filename] = extractH1s(updated);
